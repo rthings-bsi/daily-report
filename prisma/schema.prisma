@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+}
+
+model ReportSession {
+  id        String   @id @default(cuid())
+  label     String
+  dateStr   String
+  fileName  String?
+  createdAt DateTime @default(now())
+
+  movements Movement[]
+  stocks    Stock[]
+}
+
+model Movement {
+  id           String   @id @default(cuid())
+  sessionId    String
+  postingDate  DateTime
+  dateStr      String
+  moveType     String
+  description  String
+  workCenter   String?
+  batch        String?
+  quantity     Float
+  unitQuantity Float
+  group        String
+  color        String
+
+  session ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Stock {
+  id          String  @id @default(cuid())
+  sessionId   String
+  material    String
+  description String
+  batch       String?
+  sloc        String?
+  category    String?
+  unitQty     Float
+  weight      Float
+
+  session ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
