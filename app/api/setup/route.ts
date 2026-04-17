@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
-// POST /api/setup — one-time admin user creation
-// Only works if no users exist yet (safe to leave in)
-export async function POST() {
+// GET /api/setup — one-time admin user creation
+export async function GET() {
   const count = await prisma.user.count();
   if (count > 0) {
     return NextResponse.json({ error: "Already set up" }, { status: 400 });
