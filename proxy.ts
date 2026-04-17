@@ -1,9 +1,13 @@
-import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth.config";
+import { auth } from "@/lib/auth";
+import { updateSession } from "./utils/supabase/middleware";
 
-export const proxy = NextAuth(authConfig).auth;
+export const proxy = auth(async (req) => {
+  // Update Supabase session (refresh token)
+  await updateSession(req);
+});
 
 export const config = {
   // Protect all routes except static assets
-  matcher: ["/((?!api/setup|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/setup|api/auth|_next/static|_next/image|favicon.ico).*)"],
 };
+
