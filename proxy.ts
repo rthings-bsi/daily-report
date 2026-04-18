@@ -11,7 +11,7 @@ const handler = auth(async (req) => {
   }
 });
 
-export { handler as default, handler as middleware };
+export { handler as default, handler as proxy };
 
 export const config = {
   // Protect all routes except static assets and setup/auth APIs
