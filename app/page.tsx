@@ -71,7 +71,14 @@ export default function Home() {
       const dateCounts: Record<string, number> = {};
       movs.forEach(m => { dateCounts[m.dateStr] = (dateCounts[m.dateStr] || 0) + 1; });
       const sortedDates = Object.entries(dateCounts).sort((a, b) => b[1] - a[1]);
-      const dateStr = sortedDates.length > 0 ? sortedDates[0][0] : new Date().toISOString().slice(0, 10);
+      
+      let dateStr = '';
+      if (sortedDates.length > 0) {
+        dateStr = sortedDates[0][0];
+      } else {
+        const now = new Date();
+        dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
 
       // Find a movement sample with this date to get the label
       const sampleMov = movs.find(m => m.dateStr === dateStr) || movs[0];

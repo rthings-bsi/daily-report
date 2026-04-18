@@ -9,6 +9,13 @@ export interface MovementStats {
   outgoingCount: number;
 }
 
+export const formatDateToYMD = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export const calculateStats = (movements: ProcessedMovement[]): MovementStats => {
   let totalIncoming = 0;
   let totalOutgoing = 0;
@@ -209,7 +216,7 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
           return {
             id: `move-${index}-${Date.now()}`,
             postingDate: dateObj,
-            dateStr: dateObj.toISOString().split('T')[0],
+            dateStr: formatDateToYMD(dateObj),
             moveType: moveCode,
             description: moveInfo.description,
             group: moveInfo.group,
