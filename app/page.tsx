@@ -117,12 +117,15 @@ export default function Home() {
 
       // Find a movement sample with this date to get the label
       const sampleMov = movs.find(m => m.dateStr === dateStr) || movs[0];
-      const label = sampleMov?.postingDate
-        ? (sampleMov.postingDate instanceof Date
-          ? sampleMov.postingDate
-          : new Date(sampleMov.postingDate)
-        ).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
-        : dateStr;
+
+      // Use UTC components for the label to avoid timezone shift
+      let label = dateStr;
+      if (sampleMov?.postingDate) {
+        const d = sampleMov.postingDate instanceof Date ? sampleMov.postingDate : new Date(sampleMov.postingDate);
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        label = `${day} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      }
 
       const res = await fetch('/api/reports', {
         method: 'POST',

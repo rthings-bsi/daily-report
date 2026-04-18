@@ -177,7 +177,11 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
         const movements: ProcessedMovement[] = movementJson.map((row: any, index: number) => {
           const moveCode = String(getValFromRow(row, ['Movement Type', 'Mvt Type', 'MvT', 'Move ment Type', 'Mvtype']) || '').trim();
           // Prioritize Posting Date / Pstng Date strictly. Avoid greedy match with "Date" which might hit "Entry Date".
-          const rawDate = getValFromRow(row, ['Posting Date', 'Pstng Date', 'Pst Date']) || getValFromRow(row, ['Date']);
+          // Prioritize 'Posting Date' or 'Pstng Date' strictly.
+          let rawDate = getValFromRow(row, ['Posting Date', 'Pstng Date', 'Pst Date']);
+          if (!rawDate) {
+            rawDate = getValFromRow(row, ['Date']);
+          }
           const qtyVal = getValFromRow(row, ['Quantity', 'Qty', 'Tonase', 'QTY PC']);
 
           if (!moveCode && !rawDate && !qtyVal) return null;
