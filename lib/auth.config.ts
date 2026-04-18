@@ -21,13 +21,14 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname === "/login";
       
-      // Allow API routes if needed, or handle them in middleware
       if (nextUrl.pathname.startsWith("/api/auth")) return true;
 
       if (isOnLogin) {
         if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));
         return true;
       }
+
+      // If not logged in, NextAuth will automatically redirect to pages.signIn ("/login")
       return isLoggedIn;
     },
   },
