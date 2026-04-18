@@ -1,5 +1,8 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { updateSession } from "./utils/supabase/middleware";
+
+const { auth } = NextAuth(authConfig);
 
 const handler = auth(async (req) => {
   // Only update Supabase session for non-auth and non-static routes
