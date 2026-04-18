@@ -78,7 +78,21 @@ export default function Home() {
       const d = movements[0].postingDate instanceof Date
         ? movements[0].postingDate
         : new Date(movements[0].postingDate);
-      return d.toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+      
+      // Use UTC components to display the correct calendar day without timezone shift
+      // This is safe because we save dates as UTC midnight from YYYY-MM-DD strings
+      const day = d.getUTCDate();
+      const monthIndex = d.getUTCMonth();
+      const year = d.getUTCFullYear();
+      const weekday = d.getUTCDay();
+
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+
+      return `${days[weekday]}, ${day} ${months[monthIndex]} ${year}`;
     }
     return new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
   }, [movements]);
@@ -118,7 +132,7 @@ export default function Home() {
           fileName,
           movements: movs.map(m => ({
             ...m,
-            postingDate: m.postingDate instanceof Date ? m.postingDate.toISOString() : m.postingDate,
+            postingDate: m.dateStr, // Send YYYY-MM-DD string to avoid UTC shift
           })),
           stocks: stks,
         }),
