@@ -67,11 +67,18 @@ export default function Home() {
   const saveToDb = async (movs: ProcessedMovement[], stks: ProcessedStock[], fileName: string) => {
     setSaving(true);
     try {
-      const dateStr = movs[0]?.dateStr ?? new Date().toISOString().slice(0, 10);
-      const label = movs[0]?.postingDate
-        ? (movs[0].postingDate instanceof Date
-          ? movs[0].postingDate
-          : new Date(movs[0].postingDate)
+      // Robust date extraction: find the most frequent dateStr in the movements
+      const dateCounts: Record<string, number> = {};
+      movs.forEach(m => { dateCounts[m.dateStr] = (dateCounts[m.dateStr] || 0) + 1; });
+      const sortedDates = Object.entries(dateCounts).sort((a, b) => b[1] - a[1]);
+      const dateStr = sortedDates.length > 0 ? sortedDates[0][0] : new Date().toISOString().slice(0, 10);
+
+      // Find a movement sample with this date to get the label
+      const sampleMov = movs.find(m => m.dateStr === dateStr) || movs[0];
+      const label = sampleMov?.postingDate
+        ? (sampleMov.postingDate instanceof Date
+          ? sampleMov.postingDate
+          : new Date(sampleMov.postingDate)
         ).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
         : dateStr;
 
