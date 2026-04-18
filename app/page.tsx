@@ -29,24 +29,6 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router]);
-
-  // If loading session, show a clean loading state
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  // If not authenticated, prevent rendering (effect will redirect)
-  if (status === 'unauthenticated') return null;
-
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
   const [stats, setStats] = useState<MovementStats | null>(null);
@@ -67,10 +49,6 @@ export default function Home() {
       if (res.ok) setHistory(await res.json());
     } catch { /* silent */ }
   }, []);
-
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
 
   // ─── Display date from current data ───
   const displayDate = React.useMemo(() => {
@@ -97,6 +75,27 @@ export default function Home() {
     const now = new Date();
     return `${days[now.getUTCDay()]}, ${String(now.getUTCDate()).padStart(2, '0')} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
   }, [movements]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  // ─── Protected Routes Handling ───
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') return null;
 
   // ─── Save to DB ───
   const saveToDb = async (movs: ProcessedMovement[], stks: ProcessedStock[], fileName: string) => {
