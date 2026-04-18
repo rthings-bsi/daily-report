@@ -5,6 +5,7 @@ import {
   FileUp, Printer, LayoutDashboard, Layout, Settings,
   Sparkles, Calendar, Upload, History, X, Trash2, LogOut, Check,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
 import { StatsCard } from '@/components/StatsCard';
 import { MovementTable } from '@/components/MovementTable';
@@ -25,7 +26,26 @@ interface HistorySession {
 }
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  // If loading session, show a clean loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If not authenticated, prevent rendering (effect will redirect)
+  if (status === 'unauthenticated') return null;
 
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
