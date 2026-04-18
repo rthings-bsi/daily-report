@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs";
 export async function GET() {
   try {
     const dbUrl = process.env.DATABASE_URL || "";
-    console.log("Starting setup... DB URL starts with:", dbUrl.substring(0, 20));
     
     if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://")) {
        return NextResponse.json({ 

@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 
-export const proxy = async (req: any) => {
-  return NextResponse.next();
-};
+export const { auth: handler } = NextAuth(authConfig);
 
-export default proxy;
+export { handler as proxy, handler as default };
 
 export const config = {
   // Protect all routes except static assets and setup/auth APIs

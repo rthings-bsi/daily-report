@@ -95,7 +95,7 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
         const isOLE = view[0] === 0xD0 && view[1] === 0xCF && view[2] === 0x11 && view[3] === 0xE0;
 
         if (isZip || isOLE) {
-          workbook = XLSX.read(view, { type: 'array', cellDates: true });
+          workbook = XLSX.read(view, { type: 'array', cellDates: false });
         } else {
           isTextBased = true;
           if (view[0] === 0xFF && view[1] === 0xFE) {
@@ -110,7 +110,7 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
           }
 
           try {
-            workbook = XLSX.read(decodedText, { type: 'string', cellDates: true });
+            workbook = XLSX.read(decodedText, { type: 'string', cellDates: false });
           } catch (e) {
             console.error("XLSX read string failed:", e);
             workbook = { SheetNames: [], Sheets: {} };
@@ -189,35 +189,63 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
           if (!moveCode && !rawDate && !qtyVal) return null;
 
           const moveInfo = getMovementInfo(moveCode || 'Unknown');
-          let dateObj: Date;
+
+          // ─── Robust Timezone-Safe Date Parsing ───
+          let dateStr: string = '';
 
           if (typeof rawDate === 'number') {
-            // Standard Excel date conversion to UTC
-            // 25569 is the number of days between 1900-01-01 and 1970-01-01
-            dateObj = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
-            // Force to UTC midnight
-            dateObj = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()));
-          } else if (typeof rawDate === 'string' && rawDate) {
-            const parts = rawDate.replace(/[\r\n\s]+/g, ' ').trim().split(/[\/\-.]/);
-            if (parts.length === 3) {
-              // Assume DD.MM.YYYY and create UTC date
-              dateObj = new Date(Date.UTC(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])));
+            // Excel numeric serial date (e.g. 46559)
+            // Formula: Excel serial 0 = Jan 0, 1900 → base = Dec 31, 1899 = timestamp -2209161600000
+            // Safer: use known anchor 25569 = Jan 1, 1970
+            const msSinceEpoch = Math.round((rawDate - 25569) * 86400 * 1000);
+            const d = new Date(msSinceEpoch);
+            const y = d.getUTCFullYear();
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            dateStr = `${y}-${m}-${dd}`;
+          } else if (rawDate instanceof Date) {
+            // cellDates:true produced a Date object — ALWAYS use UTC components
+            const y = rawDate.getUTCFullYear();
+            const m = String(rawDate.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(rawDate.getUTCDate()).padStart(2, '0');
+            dateStr = `${y}-${m}-${dd}`;
+          } else if (typeof rawDate === 'string' && rawDate.trim()) {
+            const s = rawDate.replace(/[\r\n\s]+/g, ' ').trim();
+            // Handle DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY
+            const dmyMatch = s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})$/);
+            // Handle YYYY-MM-DD or YYYY/MM/DD
+            const ymdMatch = s.match(/^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})$/);
+            if (dmyMatch) {
+              const dd = dmyMatch[1].padStart(2, '0');
+              const mm = dmyMatch[2].padStart(2, '0');
+              const yy = dmyMatch[3];
+              dateStr = `${yy}-${mm}-${dd}`;
+            } else if (ymdMatch) {
+              const yy = ymdMatch[1];
+              const mm = ymdMatch[2].padStart(2, '0');
+              const dd = ymdMatch[3].padStart(2, '0');
+              dateStr = `${yy}-${mm}-${dd}`;
             } else {
-              dateObj = new Date(rawDate);
-              if (isNaN(dateObj.getTime())) {
-                dateObj = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+              // Fallback: let JS parse but use UTC components
+              const parsed = new Date(s);
+              if (!isNaN(parsed.getTime())) {
+                const y = parsed.getUTCFullYear();
+                const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(parsed.getUTCDate()).padStart(2, '0');
+                dateStr = `${y}-${m}-${dd}`;
               } else {
-                // Already parsed, force to UTC midnight
-                dateObj = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()));
+                const now = new Date();
+                dateStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}`;
               }
             }
-          } else if (rawDate instanceof Date) {
-            // XLSX dates are usually UTC midnight already, but let's be safe
-            dateObj = new Date(Date.UTC(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate()));
           } else {
             const now = new Date();
-            dateObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+            dateStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}`;
           }
+
+          // Build a canonical Date from the safe dateStr (UTC midnight)
+          const [yyyy, mm2, dd2] = dateStr.split('-').map(Number);
+          const dateObj = new Date(Date.UTC(yyyy, mm2 - 1, dd2));
 
           return {
             id: `move-${index}-${Date.now()}`,
