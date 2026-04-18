@@ -273,7 +273,7 @@ export default function Home() {
 
           {/* Logout at bottom of landing */}
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: '/login' })}
             className="flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 self-center py-1 transition-colors"
           >
             <LogOut size={12} />
@@ -405,7 +405,7 @@ export default function Home() {
             </button>
 
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ callbackUrl: '/login' })}
               className="p-2 bg-white text-slate-400 border border-slate-200 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
               title={`Logout (${session?.user?.name})`}
             >
