@@ -80,19 +80,19 @@ export default function Home() {
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
 
-    if (movements.length > 0) {
-      const d = movements[0].postingDate instanceof Date
-        ? movements[0].postingDate
-        : new Date(movements[0].postingDate);
-      
-      // Use UTC components to display the correct calendar day without timezone shift
-      // This is safe because we save dates as UTC midnight from YYYY-MM-DD strings
-      const day = d.getUTCDate();
-      const monthIndex = d.getUTCMonth();
-      const year = d.getUTCFullYear();
-      const weekday = d.getUTCDay();
+    if (movements.length > 0 && movements[0].dateStr) {
+      const parts = movements[0].dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]); // 1-indexed
+        const d = parseInt(parts[2]);
+        
+        // Use Date.UTC only to find the weekday name
+        const dateObj = new Date(Date.UTC(y, m - 1, d));
+        const weekday = dateObj.getUTCDay();
 
-      return `${days[weekday]}, ${day} ${months[monthIndex]} ${year}`;
+        return `${days[weekday]}, ${String(d).padStart(2, '0')} ${months[m - 1]} ${y}`;
+      }
     }
     const now = new Date();
     return `${days[now.getUTCDay()]}, ${String(now.getUTCDate()).padStart(2, '0')} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
@@ -118,13 +118,17 @@ export default function Home() {
       // Find a movement sample with this date to get the label
       const sampleMov = movs.find(m => m.dateStr === dateStr) || movs[0];
 
-      // Use UTC components for the label to avoid timezone shift
+      // Use manual string parsing for the label to be 100% sure
       let label = dateStr;
-      if (sampleMov?.postingDate) {
-        const d = sampleMov.postingDate instanceof Date ? sampleMov.postingDate : new Date(sampleMov.postingDate);
-        const day = String(d.getUTCDate()).padStart(2, '0');
-        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        label = `${day} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      if (sampleMov?.dateStr) {
+        const parts = sampleMov.dateStr.split('-');
+        if (parts.length === 3) {
+          const y = parts[0];
+          const m = parseInt(parts[1]);
+          const d = parts[2];
+          const monthsNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+          label = `${d.padStart(2, '0')} ${monthsNames[m - 1]} ${y}`;
+        }
       }
 
       const res = await fetch('/api/reports', {
