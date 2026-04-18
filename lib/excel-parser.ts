@@ -10,9 +10,9 @@ export interface MovementStats {
 }
 
 export const formatDateToYMD = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
 
@@ -186,31 +186,31 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
           let dateObj: Date;
 
           if (typeof rawDate === 'number') {
-            // Standard Excel date conversion to JS Local Date
+            // Standard Excel date conversion to UTC
             // 25569 is the number of days between 1900-01-01 and 1970-01-01
-            dateObj = new Date(1970, 0, 1 + (rawDate - 25569));
-            dateObj.setHours(12, 0, 0, 0);
+            dateObj = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+            // Force to UTC midnight
+            dateObj = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()));
           } else if (typeof rawDate === 'string' && rawDate) {
             const parts = rawDate.replace(/[\r\n\s]+/g, ' ').trim().split(/[\/\-.]/);
             if (parts.length === 3) {
-              // Assume DD.MM.YYYY or similar
-              dateObj = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]), 12, 0, 0);
+              // Assume DD.MM.YYYY and create UTC date
+              dateObj = new Date(Date.UTC(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])));
             } else {
               dateObj = new Date(rawDate);
               if (isNaN(dateObj.getTime())) {
-                dateObj = new Date();
+                dateObj = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
               } else {
-                // Force to local noon if it was parsed as UTC
-                dateObj = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 12, 0, 0);
+                // Already parsed, force to UTC midnight
+                dateObj = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()));
               }
             }
           } else if (rawDate instanceof Date) {
-            // XLSX dates are usually UTC midnight. 
-            // Use UTC components to ensure we get the correct calendar day.
-            dateObj = new Date(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate(), 12, 0, 0);
+            // XLSX dates are usually UTC midnight already, but let's be safe
+            dateObj = new Date(Date.UTC(rawDate.getUTCFullYear(), rawDate.getUTCMonth(), rawDate.getUTCDate()));
           } else {
-            dateObj = new Date();
-            dateObj.setHours(12, 0, 0, 0);
+            const now = new Date();
+            dateObj = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
           }
 
           return {

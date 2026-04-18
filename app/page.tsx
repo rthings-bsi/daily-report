@@ -74,6 +74,12 @@ export default function Home() {
 
   // ─── Display date from current data ───
   const displayDate = React.useMemo(() => {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
     if (movements.length > 0) {
       const d = movements[0].postingDate instanceof Date
         ? movements[0].postingDate
@@ -86,15 +92,10 @@ export default function Home() {
       const year = d.getUTCFullYear();
       const weekday = d.getUTCDay();
 
-      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      const months = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-      ];
-
       return `${days[weekday]}, ${day} ${months[monthIndex]} ${year}`;
     }
-    return new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const now = new Date();
+    return `${days[now.getUTCDay()]}, ${String(now.getUTCDate()).padStart(2, '0')} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
   }, [movements]);
 
   // ─── Save to DB ───
