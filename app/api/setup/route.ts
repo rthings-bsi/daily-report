@@ -5,7 +5,16 @@ import bcrypt from "bcryptjs";
 // GET /api/setup — one-time admin user creation
 export async function GET() {
   try {
-    console.log("Starting setup...");
+    const dbUrl = process.env.DATABASE_URL || "";
+    console.log("Starting setup... DB URL starts with:", dbUrl.substring(0, 20));
+    
+    if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://")) {
+       return NextResponse.json({ 
+         error: "Invalid DB URL Format", 
+         details: `URL starts with: ${dbUrl.substring(0, 10)}... (Must be postgresql://)`,
+       }, { status: 400 });
+    }
+
     const count = await prisma.user.count();
     if (count > 0) {
       return NextResponse.json({ error: "Already set up" }, { status: 400 });
