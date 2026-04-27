@@ -138,7 +138,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                     item.group === 'Keluar' ? 'text-rose-600' : 
                     'text-slate-600'
                   }`}>
-                    {item.totalWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                    {item.totalWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                   </td>
                 </motion.tr>
               ))}
@@ -166,7 +166,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
             <div className="text-right">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">Cumulative Net Output</span>
               <p className="text-3xl font-black text-slate-900 tracking-tighter">
-                {summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 2 })}
                 <span className="text-sm font-bold text-slate-400 ml-1.5 uppercase">ton</span>
               </p>
             </div>

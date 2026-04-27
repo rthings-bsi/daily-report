@@ -104,14 +104,14 @@ export const DetailedTable: React.FC<DetailedTableProps> = ({ data }) => {
                   </span>
                 </td>
                 <td className="px-8 py-6 text-sm font-bold text-right text-slate-700 dark:text-slate-300 tabular-nums">
-                  {item.unitQuantity.toLocaleString()}
+                  {item.unitQuantity.toLocaleString('id-ID')}
                 </td>
                 <td className={`px-8 py-6 text-base font-black text-right tabular-nums ${
                   item.group === 'Masuk' ? 'text-emerald-600' : 
                   item.group === 'Keluar' ? 'text-rose-600' : 
                   'text-slate-600 dark:text-slate-300'
                 }`}>
-                  {item.quantity.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                  {item.quantity.toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                   <span className="text-[10px] ml-1 uppercase opacity-50">t</span>
                 </td>
               </tr>

@@ -78,14 +78,14 @@ export const StockReport: React.FC<StockReportProps> = ({ data, condensed = fals
                 <div className="text-right">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-widest mb-1 opacity-70">Quantity</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-200 tabular-nums">
-                    {group.totalQty.toLocaleString()}
+                    {group.totalQty.toLocaleString('id-ID')}
                     <span className="text-[10px] ml-1 font-medium text-slate-400 uppercase">Pcs</span>
                   </span>
                 </div>
                 <div className="text-right border-l border-slate-200/50 dark:border-slate-700 pl-8 w-32">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-widest mb-1 opacity-70">Weight</span>
                   <span className="text-sm font-black text-emerald-600 tabular-nums">
-                    {group.totalTonnage.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                    {group.totalTonnage.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                     <span className="text-[10px] ml-1 font-bold uppercase text-emerald-600/60">ton</span>
                   </span>
                 </div>

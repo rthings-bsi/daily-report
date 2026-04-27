@@ -75,13 +75,13 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
             <div className="flex items-center justify-between gap-6">
               <span className="text-xs font-medium text-slate-500">Bobot:</span>
               <span className="text-sm font-black text-slate-900 tabular-nums">
-                {d.value.toLocaleString(undefined, { minimumFractionDigits: 1 })} T
+                {d.value.toLocaleString('id-ID', { minimumFractionDigits: 1 })} T
               </span>
             </div>
             <div className="flex items-center justify-between gap-6">
               <span className="text-xs font-medium text-slate-500">Share:</span>
               <span className="text-sm font-black text-indigo-600 tabular-nums">
-                {((d.value / totalValue) * 100).toFixed(1)}%
+                {((d.value / totalValue) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
               </span>
             </div>
           </div>
@@ -157,7 +157,7 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total</p>
             <p className="text-lg font-black text-slate-900 tabular-nums leading-none">
-              {Math.round(totalValue).toLocaleString()}
+              {Math.round(totalValue).toLocaleString('id-ID')}
             </p>
             <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">ton</p>
           </div>
@@ -170,7 +170,7 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
           <div className={`${condensed ? 'p-3 space-y-1' : 'p-4 space-y-1'}`}>
             <AnimatePresence>
               {pieData.map((item, index) => {
-                const pct = ((item.value / totalValue) * 100).toFixed(1);
+                const pct = ((item.value / totalValue) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
                 const color = COLORS[index % COLORS.length];
                 const isHovered = hoveredIdx === index;
                 return (
@@ -204,7 +204,7 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
                     </div>
                     {/* Value */}
                     <span className="text-xs font-mono font-black text-slate-800 tabular-nums flex-shrink-0 w-20 text-right">
-                      {item.value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                      {item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                     </span>
                     {/* % Badge */}
                     <div

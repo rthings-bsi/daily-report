@@ -570,9 +570,9 @@ export default function Home() {
               className="flex flex-col gap-4"
             >
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                <StatsCard title="Incoming" value={stats?.totalIncoming.toFixed(1) || '0'} unit="TON" type="in" condensed delay={0.05} />
-                <StatsCard title="Outgoing" value={stats?.totalOutgoing.toFixed(1) || '0'} unit="TON" type="out" condensed delay={0.1} />
-                <StatsCard title="Net Flow" value={(stats?.netMovement || 0).toFixed(1)} unit="TON" type={(stats?.netMovement || 0) >= 0 ? 'in' : 'out'} condensed delay={0.15} />
+                <StatsCard title="Incoming" value={stats ? stats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="in" condensed delay={0.05} />
+                <StatsCard title="Outgoing" value={stats ? stats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="out" condensed delay={0.1} />
+                <StatsCard title="Net Flow" value={(stats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" type={(stats?.netMovement || 0) >= 0 ? 'in' : 'out'} condensed delay={0.15} />
                 <StatsCard title="Transactions" value={movements.length.toLocaleString()} unit="TRX" type="total" condensed delay={0.2} />
               </div>
 
@@ -601,9 +601,9 @@ export default function Home() {
               <section>
                 <SectionTitle>Key Performance Indicators</SectionTitle>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                  <StatsCard title="Total Inbound" value={stats?.totalIncoming.toFixed(1) || '0'} unit="TON" subtitle={`${stats?.incomingCount.toLocaleString()} transaksi masuk`} type="in" delay={0.05} />
-                  <StatsCard title="Total Outbound" value={stats?.totalOutgoing.toFixed(1) || '0'} unit="TON" subtitle={`${stats?.outgoingCount.toLocaleString()} transaksi keluar`} type="out" delay={0.1} />
-                  <StatsCard title="Net Flow" value={(stats?.netMovement || 0).toFixed(1)} unit="TON" subtitle="Selisih material masuk & keluar" type={(stats?.netMovement || 0) >= 0 ? 'in' : 'out'} delay={0.15} />
+                  <StatsCard title="Total Inbound" value={stats ? stats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${stats?.incomingCount.toLocaleString('id-ID')} transaksi masuk`} type="in" delay={0.05} />
+                  <StatsCard title="Total Outbound" value={stats ? stats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${stats?.outgoingCount.toLocaleString('id-ID')} transaksi keluar`} type="out" delay={0.1} />
+                  <StatsCard title="Net Flow" value={(stats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" subtitle="Selisih material masuk & keluar" type={(stats?.netMovement || 0) >= 0 ? 'in' : 'out'} delay={0.15} />
                   <StatsCard title="Total Transaksi" value={movements.length.toLocaleString()} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
                 </div>
               </section>

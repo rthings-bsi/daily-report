@@ -57,7 +57,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
                   <span className="text-xs font-medium text-slate-500">{entry.name}:</span>
                 </div>
                 <span className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
-                  {Math.abs(entry.value).toLocaleString(undefined, { minimumFractionDigits: 1 })} T
+                  {Math.abs(entry.value).toLocaleString('id-ID', { minimumFractionDigits: 1 })} T
                 </span>
               </div>
             ))}
