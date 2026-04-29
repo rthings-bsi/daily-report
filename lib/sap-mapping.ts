@@ -35,7 +35,7 @@ export const MOVEMENT_TYPES: Record<string, SapMovementType> = {
   '311': {
     code: '311',
     description: 'TF Sloc',
-    group: 'Transfer',
+    group: 'Keluar',
     color: '#8b5cf6', // purple-500
   },
   '601': {

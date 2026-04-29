@@ -27,7 +27,7 @@ export const calculateStats = (movements: ProcessedMovement[]): MovementStats =>
       totalIncoming += m.quantity;
       incomingCount++;
     } else if (m.group === 'Keluar') {
-      totalOutgoing += m.quantity;
+      totalOutgoing += Math.abs(m.quantity); // Keep totalOutgoing absolute for StatsCard
       outgoingCount++;
     }
   });
@@ -256,7 +256,11 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
             group: moveInfo.group,
             workCenter: String(getValFromRow(row, ['Work center', 'WCenter', 'WC', 'Workcenter']) || ''),
             batch: String(getValFromRow(row, ['Batch', 'Batch Number']) || ''),
-            quantity: parseNum(getValFromRow(row, ['Tonase', 'Total Quantity', 'Quantity', 'Total Weight', 'Berat'])),
+            quantity: (() => {
+              let q = parseNum(getValFromRow(row, ['Tonase', 'Total Quantity', 'Quantity', 'Total Weight', 'Berat']));
+              if (moveInfo.group === 'Keluar' && q > 0) return -q;
+              return q;
+            })(),
             unitQuantity: parseNum(getValFromRow(row, ['QTY PC', 'Qty in Un. of Entry', 'Unit Qty', 'Qty Entry', 'Pcs'])),
             userName: String(getValFromRow(row, ['User name', 'User', 'Name', 'UName']) || ''),
             storageLocation: String(getValFromRow(row, ['Storage Location', 'SLoc', 'Store Loc', 'S.Loc', 'Storage Loc']) || ''),
