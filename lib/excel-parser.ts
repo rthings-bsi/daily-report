@@ -188,7 +188,21 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
 
           if (!moveCode && !rawDate && !qtyVal) return null;
 
-          const moveInfo = getMovementInfo(moveCode || 'Unknown');
+          const baseMoveInfo = getMovementInfo(moveCode || 'Unknown');
+          let moveDescription = baseMoveInfo.description;
+          let moveGroup = baseMoveInfo.group;
+          const storageLocation = String(getValFromRow(row, ['Storage Location', 'SLoc', 'Store Loc', 'S.Loc', 'Storage Loc']) || '');
+          const slocLower = storageLocation.trim().toLowerCase();
+
+          if (moveCode === '311') {
+            if (slocLower === '5ed4' || slocLower === '5n19') {
+              moveDescription = 'TF Sloc Out';
+              moveGroup = 'Keluar';
+            } else if (slocLower === '5m16') {
+              moveDescription = 'TF Sloc In';
+              moveGroup = 'Masuk';
+            }
+          }
 
           // ─── Robust Timezone-Safe Date Parsing ───
           let dateStr: string = '';
@@ -252,19 +266,19 @@ export const parseSapExcel = async (file: File): Promise<ExcelParseResult> => {
             postingDate: dateObj,
             dateStr: formatDateToYMD(dateObj),
             moveType: moveCode,
-            description: moveInfo.description,
-            group: moveInfo.group,
+            description: moveDescription,
+            group: moveGroup,
             workCenter: String(getValFromRow(row, ['Work center', 'WCenter', 'WC', 'Workcenter']) || ''),
             batch: String(getValFromRow(row, ['Batch', 'Batch Number']) || ''),
             quantity: (() => {
               let q = parseNum(getValFromRow(row, ['Tonase', 'Total Quantity', 'Quantity', 'Total Weight', 'Berat']));
-              if (moveInfo.group === 'Keluar' && q > 0) return -q;
+              if (moveGroup === 'Keluar' && q > 0) return -q;
               return q;
             })(),
             unitQuantity: parseNum(getValFromRow(row, ['QTY PC', 'Qty in Un. of Entry', 'Unit Qty', 'Qty Entry', 'Pcs'])),
             userName: String(getValFromRow(row, ['User name', 'User', 'Name', 'UName']) || ''),
-            storageLocation: String(getValFromRow(row, ['Storage Location', 'SLoc', 'Store Loc', 'S.Loc', 'Storage Loc']) || ''),
-            color: moveInfo.color,
+            storageLocation: storageLocation,
+            color: baseMoveInfo.color,
             movementStatus: (() => {
               const batch = String(getValFromRow(row, ['Batch', 'Batch Number']) || '');
               if (!batch) return 'Unknown';

@@ -37,7 +37,8 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     data.forEach(item => {
       const key = `${item.moveType}-${item.group}`;
       if (!map.has(key)) {
-        map.set(key, { name: item.moveType, value: 0, color: item.color });
+        const displayName = item.moveType === '311' ? item.description : item.moveType;
+        map.set(key, { name: displayName, value: 0, color: item.color });
       }
       map.get(key)!.value += Math.abs(item.quantity);
     });

@@ -29,7 +29,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
     }>();
 
     data.forEach(item => {
-      const key = item.moveType;
+      const key = `${item.moveType}-${item.description}`;
       if (!map.has(key)) {
         map.set(key, {
           moveType: item.moveType,
@@ -108,7 +108,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
             <AnimatePresence>
               {summaryData.map((item, index) => (
                 <motion.tr 
-                  key={item.moveType} 
+                  key={`${item.moveType}-${item.description}`} 
                   initial={{ opacity: 0, x: -5 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.02 }}
