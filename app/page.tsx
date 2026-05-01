@@ -38,6 +38,7 @@ export default function Home() {
   const [reportMode, setReportMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistorySession[]>([]);
+  const [trendData, setTrendData] = useState<{ date: string; masuk: number; keluar: number }[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +48,9 @@ export default function Home() {
     try {
       const res = await fetch('/api/reports');
       if (res.ok) setHistory(await res.json());
+
+      const trendRes = await fetch('/api/reports/trend');
+      if (trendRes.ok) setTrendData(await trendRes.json());
     } catch { /* silent */ }
   }, []);
 
@@ -369,35 +373,39 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] print:hidden">
         <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center justify-between gap-6">
           {/* Brand */}
-          <div className="flex items-center gap-4 flex-shrink-0 min-w-0">
-            <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 flex-shrink-0">
-              <LayoutDashboard className="text-white" size={20} strokeWidth={2.5} />
+          <div className="flex items-center gap-3.5 flex-shrink-0 min-w-0">
+            <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 border border-slate-800">
+              <LayoutDashboard className="text-white" size={16} strokeWidth={2} />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base font-black text-slate-900 tracking-tighter leading-none flex items-center gap-2 flex-wrap">
-                SPINDO{' '}
-                <span className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-400 bg-clip-text text-transparent italic font-black">
-                  GUDANG 13
-                </span>
-                <span className="px-2.5 py-0.5 bg-emerald-500/10 text-[9px] font-black text-emerald-600 rounded-full border border-emerald-500/20 flex items-center gap-1.5 flex-shrink-0 uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                  System Live
-                </span>
-              </h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1 truncate">
-                Inventory Intelligence Dashboard
+            <div className="min-w-0 flex flex-col justify-center gap-0.5">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-[15px] font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  SPINDO
+                  <span className="text-slate-300 font-light">/</span>
+                  <span className="font-semibold text-slate-600">Gudang 13</span>
+                </h1>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-emerald-200/50 bg-emerald-50/50">
+                  <div className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </div>
+                  <span className="text-[9px] font-bold text-emerald-700 tracking-widest uppercase">System Active</span>
+                </div>
+              </div>
+              <p className="text-[11px] font-medium text-slate-500 truncate tracking-wide">
+                Enterprise Inventory Platform
               </p>
             </div>
           </div>
 
           {/* Date Badge */}
-          <div className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200/60 rounded-xl flex-shrink-0">
-            <Calendar size={13} className="text-indigo-500 flex-shrink-0" />
-            <span className="text-[11px] font-black text-slate-600 capitalize whitespace-nowrap tracking-wide">{displayDate}</span>
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm flex-shrink-0">
+            <Calendar size={13} className="text-slate-400 flex-shrink-0" />
+            <span className="text-xs font-medium text-slate-600 capitalize whitespace-nowrap">{displayDate}</span>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <input
               type="file"
               ref={fileInputRef}
@@ -412,7 +420,7 @@ export default function Home() {
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest ${
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest ${
                     saving 
                       ? 'bg-indigo-50 border-indigo-100 text-indigo-600'
                       : 'bg-emerald-50 border-emerald-100 text-emerald-600'
@@ -421,63 +429,63 @@ export default function Home() {
                   {saving ? (
                     <div className="w-3 h-3 border-2 border-indigo-400 border-t-indigo-600 rounded-full animate-spin" />
                   ) : (
-                    <Check size={12} strokeWidth={3} />
+                    <Check size={12} strokeWidth={2.5} />
                   )}
                   {saving ? 'Saving…' : 'Saved'}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block" />
+            <div className="h-5 w-[1px] bg-slate-200 mx-1.5 hidden sm:block" />
 
             <button
               onClick={() => { setShowHistory(h => !h); loadHistory(); }}
-              className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border shadow-sm ${
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all border ${
                 showHistory
-                  ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-slate-900/10'
-                  : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <History size={14} strokeWidth={2.5} />
+              <History size={14} strokeWidth={2} />
               <span className="hidden lg:inline">Arsip</span>
             </button>
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 rounded-xl transition-all shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-all"
             >
-              <FileUp size={14} strokeWidth={2.5} />
+              <FileUp size={14} strokeWidth={2} />
               <span className="hidden lg:inline">Upload</span>
             </button>
 
             <button
               onClick={() => setReportMode(!reportMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border shadow-sm ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all border ${
                 reportMode
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              {reportMode ? <LayoutDashboard size={14} strokeWidth={2.5} /> : <Layout size={14} strokeWidth={2.5} />}
+              {reportMode ? <LayoutDashboard size={14} strokeWidth={2} /> : <Layout size={14} strokeWidth={2} />}
               <span className="hidden lg:inline">{reportMode ? 'Dashboard' : 'Report'}</span>
             </button>
 
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white border border-slate-900 hover:bg-black rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-slate-200"
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white border border-slate-900 hover:bg-slate-800 rounded-lg font-semibold text-xs transition-all shadow-sm"
             >
-              <Printer size={14} strokeWidth={2.5} />
+              <Printer size={14} strokeWidth={2} />
               <span className="hidden lg:inline">Cetak</span>
             </button>
 
-            <div className="h-6 w-[1px] bg-slate-200 mx-1" />
+            <div className="h-5 w-[1px] bg-slate-200 mx-1.5" />
 
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="p-2.5 bg-white text-slate-400 border border-slate-200 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50 rounded-xl transition-all shadow-sm group"
+              className="p-1.5 bg-white text-slate-400 hover:text-slate-900 rounded-lg transition-all hover:bg-slate-100"
               title={`Sesi: ${session?.user?.name}`}
             >
-              <LogOut size={16} strokeWidth={2.5} className="group-hover:translate-x-0.5 transition-transform" />
+              <LogOut size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -582,7 +590,7 @@ export default function Home() {
                   <StockReport data={stocks} condensed />
                 </div>
                 <div className="col-span-12 lg:col-span-6 xl:col-span-7 flex flex-col gap-4">
-                  <MovementChart data={movements} condensed />
+                  <MovementChart data={movements} trendData={trendData} condensed />
                   <MovementTable data={movements} condensed />
                 </div>
               </div>
@@ -610,7 +618,7 @@ export default function Home() {
 
               <section>
                 <SectionTitle>Analisis Pergerakan Material</SectionTitle>
-                <MovementChart data={movements} />
+                <MovementChart data={movements} trendData={trendData} />
               </section>
 
               <section>

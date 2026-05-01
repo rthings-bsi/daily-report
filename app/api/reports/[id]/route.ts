@@ -28,7 +28,14 @@ export async function GET(
     postingDate: m.postingDate.toISOString(),
   }));
 
-  return NextResponse.json({ ...report, movements });
+  const stocks = report.stocks.map((s) => ({
+    status: s.material,
+    sloc: s.sloc,
+    quantity: s.unitQty,
+    tonnage: s.weight,
+  }));
+
+  return NextResponse.json({ ...report, movements, stocks });
 }
 
 // DELETE /api/reports/:id — delete a session

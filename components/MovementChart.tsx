@@ -16,11 +16,15 @@ import { motion } from 'framer-motion';
 
 interface MovementChartProps {
   data: ProcessedMovement[];
+  trendData?: { date: string; masuk: number; keluar: number }[];
   condensed?: boolean;
 }
 
-export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = false }) => {
+export const MovementChart: React.FC<MovementChartProps> = ({ data, trendData, condensed = false }) => {
   const dailyData = React.useMemo(() => {
+    if (trendData && trendData.length > 0) {
+      return trendData;
+    }
     const map = new Map<string, { date: string, masuk: number, keluar: number }>();
     data.forEach(item => {
       const date = item.dateStr;
@@ -30,7 +34,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       if (item.group === 'Keluar') entry.keluar += item.quantity;
     });
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [data]);
+  }, [data, trendData]);
 
   const typeData = React.useMemo(() => {
     const map = new Map<string, { name: string, value: number, color: string }>();
