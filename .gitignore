@@ -39,6 +39,7 @@ yarn-error.log*
 # prisma
 /prisma/*.db
 /prisma/*.db-journal
+prisma/prisma/*.db
 
 # docs / agent skills
 *.md
