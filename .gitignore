@@ -40,6 +40,11 @@ yarn-error.log*
 /prisma/*.db
 /prisma/*.db-journal
 
+# docs / agent skills
+*.md
+.claude/
+.agents/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
