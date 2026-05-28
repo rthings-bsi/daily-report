@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
-import { parseSapExcel, ProcessedMovement } from '@/lib/excel-parser';
+import { parseSapExcel, ExcelParseResult } from '@/lib/excel-parser';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface UploadCardProps {
-  onDataLoaded: (data: ProcessedMovement[]) => void;
+  onDataLoaded: (data: ExcelParseResult) => void;
 }
 
 export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
@@ -27,12 +27,12 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
 
     try {
       const data = await parseSapExcel(file);
-      if (data.movements.length === 0) {
-        setError('Data kosong atau tidak ada movement SAP yang valid dalam file ini.');
+      if (data.movements.length === 0 && (!data.stockCards || data.stockCards.length === 0)) {
+        setError('Data kosong atau format file tidak dikenali.');
         setFileName(null);
         return;
       }
-      onDataLoaded(data.movements);
+      onDataLoaded(data);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Gagal memproses file. Pastikan format file sesuai dengan export SAP.');

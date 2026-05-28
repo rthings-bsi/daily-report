@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { ProcessedStock } from '@/lib/excel-parser';
-import { Box, Layers } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Zap, Clock, MapPin, Box } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { loadPenampunganSlocs, isPenampunganSloc } from '@/lib/gudang';
 
 interface StockReportProps {
   data: ProcessedStock[];
@@ -11,99 +12,125 @@ interface StockReportProps {
 }
 
 export const StockReport: React.FC<StockReportProps> = ({ data, condensed = false }) => {
-  const groupedData = React.useMemo(() => {
-    const groups = new Map<string, {
-      status: string;
-      totalQty: number;
-      totalTonnage: number;
-    }>();
+  const penampunganList = React.useMemo(() => loadPenampunganSlocs(), []);
 
-    data.forEach(item => {
-      const status = item.status || 'UNSPECIFIED';
-      if (!groups.has(status)) {
-        groups.set(status, {
-          status: status,
-          totalQty: 0,
-          totalTonnage: 0,
-        });
-      }
-      const group = groups.get(status)!;
-      group.totalQty += item.quantity;
-      group.totalTonnage += item.tonnage;
-    });
+  const inPenampungan = React.useMemo(() => {
+    if (penampunganList.length === 0) return [];
+    return data.filter(s => isPenampunganSloc(s.sloc));
+  }, [data, penampunganList]);
 
-    return Array.from(groups.values()).sort((a, b) => b.totalTonnage - a.totalTonnage);
-  }, [data]);
+  const nonPenampungan = React.useMemo(() => {
+    if (penampunganList.length === 0) return data;
+    return data.filter(s => !isPenampunganSloc(s.sloc));
+  }, [data, penampunganList]);
 
-  const grandTotalTonnage = React.useMemo(() => 
-    groupedData.reduce((acc, g) => acc + g.totalTonnage, 0)
-  , [groupedData]);
+  const summary = React.useMemo(() => {
+    const fast = nonPenampungan.filter(s => s.status === 'Fast Moving');
+    const slow = nonPenampungan.filter(s => s.status === 'Slow Moving');
+    return {
+      fast: {
+        count: fast.length,
+        totalTon: fast.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+      },
+      slow: {
+        count: slow.length,
+        totalTon: slow.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+      },
+      penampungan: {
+        count: inPenampungan.length,
+        totalTon: inPenampungan.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+      },
+    };
+  }, [nonPenampungan, inPenampungan]);
 
   if (data.length === 0) return null;
 
+  const total = summary.fast.count + summary.slow.count;
+  const fastPct = total > 0 ? Math.round((summary.fast.count / total) * 100) : 0;
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500 rounded-3xl`}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white border border-slate-200/70 rounded-2xl shadow-sm overflow-hidden"
     >
-      <div className={`px-6 py-4 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between`}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-            <Box className="text-indigo-600 dark:text-indigo-400" size={18} />
+      <div className={`px-5 py-3.5 border-b border-slate-100 flex items-center justify-between ${condensed ? 'px-4 py-3' : ''}`}>
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-slate-100 rounded-lg">
+            <Box size={14} className="text-slate-500" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Inventory Distribution</h2>
+            <h2 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Distribusi Stok</h2>
+            <p className="text-[9px] text-slate-400 mt-0.5">Fast vs Slow Moving</p>
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-2">
-        <AnimatePresence>
-          {groupedData.map((group, idx) => (
-            <motion.div
-              key={group.status}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              className="flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 px-5 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 group transition-all hover:bg-white dark:hover:bg-slate-800 hover:shadow-md"
-            >
-              <div className="flex items-center gap-4 min-w-0">
-                <div className={`w-2 h-2 rounded-full ${group.status === 'Sloc Penampungan' ? 'bg-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`} />
-                <span className={`text-xs font-bold uppercase tracking-wide truncate ${group.status === 'Sloc Penampungan' ? 'text-indigo-600' : 'text-slate-600 dark:text-slate-300'}`}>
-                  {group.status}
-                </span>
+      <div className="p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Fast Moving */}
+          <div className="flex-1 bg-emerald-50/50 rounded-xl p-3.5 border border-emerald-100/50">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="p-1.5 rounded-lg bg-emerald-500">
+                <Zap size={13} className="text-white" />
               </div>
-              <div className="flex items-center gap-8 shrink-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-widest mb-1 opacity-70">Quantity</span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 tabular-nums">
-                    {group.totalQty.toLocaleString('id-ID')}
-                    <span className="text-[10px] ml-1 font-medium text-slate-400 uppercase">Pcs</span>
-                  </span>
-                </div>
-                <div className="text-right border-l border-slate-200/50 dark:border-slate-700 pl-8 w-32">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-widest mb-1 opacity-70">Weight</span>
-                  <span className="text-sm font-black text-emerald-600 tabular-nums">
-                    {group.totalTonnage.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                    <span className="text-[10px] ml-1 font-bold uppercase text-emerald-600/60">ton</span>
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Fast Moving</span>
+            </div>
+            <div className="flex items-baseline gap-1 mb-0.5">
+              <span className="text-xl font-bold text-emerald-900 tabular-nums">{summary.fast.count}</span>
+              <span className="text-[10px] text-emerald-600 font-medium">item</span>
+            </div>
+            <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} ton</p>
+          </div>
 
-      {/* Mini Progress Bars for visual context with better visibility */}
-      <div className="px-6 pb-6 mt-2 flex gap-1.5 h-1.5">
-        {groupedData.map((group, idx) => (
-          <div 
-            key={idx}
-            className={`h-full rounded-full transition-all duration-1000 ${group.status === 'Sloc Penampungan' ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`}
-            style={{ width: `${(group.totalTonnage / grandTotalTonnage) * 100}%` }}
-          />
-        ))}
+          {/* Slow Moving */}
+          <div className="flex-1 bg-amber-50/50 rounded-xl p-3.5 border border-amber-100/50">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500">
+                <Clock size={13} className="text-white" />
+              </div>
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Slow Moving</span>
+            </div>
+            <div className="flex items-baseline gap-1 mb-0.5">
+              <span className="text-xl font-bold text-amber-900 tabular-nums">{summary.slow.count}</span>
+              <span className="text-[10px] text-amber-600 font-medium">item</span>
+            </div>
+            <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} ton</p>
+          </div>
+
+          {/* SLOC Penampungan */}
+          {summary.penampungan.count > 0 && (
+            <div className="flex-1 bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/60">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="p-1.5 rounded-lg bg-slate-400">
+                  <MapPin size={13} className="text-white" />
+                </div>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Penampungan</span>
+              </div>
+              <div className="flex items-baseline gap-1 mb-0.5">
+                <span className="text-xl font-bold text-slate-900 tabular-nums">{summary.penampungan.count}</span>
+                <span className="text-[10px] text-slate-500 font-medium">item</span>
+              </div>
+              <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} ton</p>
+            </div>
+          )}
+        </div>
+
+        {/* Proportional bar */}
+        {total > 0 && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-slate-100">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${fastPct}%` }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full bg-emerald-500 rounded-full"
+              />
+              <div className="h-full bg-amber-500 rounded-full" style={{ width: `${100 - fastPct}%` }} />
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">{fastPct}% Fast · {100 - fastPct}% Slow</span>
+          </div>
+        )}
       </div>
     </motion.div>
   );

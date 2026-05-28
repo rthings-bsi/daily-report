@@ -35,7 +35,9 @@ export async function GET(
     tonnage: s.weight,
   }));
 
-  return NextResponse.json({ ...report, movements, stocks });
+  const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
+
+  return NextResponse.json({ ...report, movements, stocks, stockCards });
 }
 
 // DELETE /api/reports/:id — delete a session

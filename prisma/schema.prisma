@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -17,29 +16,32 @@ model User {
 }
 
 model ReportSession {
-  id        String     @id @default(cuid())
-  label     String
-  dateStr   String
-  fileName  String?
-  createdAt DateTime   @default(now())
-  movements Movement[]
-  stocks    Stock[]
+  id         String     @id @default(cuid())
+  label      String
+  dateStr    String
+  fileName   String?
+  createdAt  DateTime   @default(now())
+  movements  Movement[]
+  stocks     Stock[]
+  stockCards String?
 }
 
 model Movement {
-  id           String        @id @default(cuid())
-  sessionId    String
-  postingDate  DateTime
-  dateStr      String
-  moveType     String
-  description  String
-  workCenter   String?
-  batch        String?
-  quantity     Float
-  unitQuantity Float
-  group        String
-  color        String
-  session      ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  sessionId        String
+  postingDate      DateTime
+  dateStr          String
+  moveType         String
+  description      String
+  workCenter       String?
+  batch            String?
+  storageLocation  String?
+  quantity         Float
+  unitQuantity     Float
+  group            String
+  color            String
+  userName         String?
+  session          ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
 }

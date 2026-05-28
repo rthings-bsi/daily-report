@@ -28,14 +28,17 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { label, dateStr, fileName, movements, stocks } = body;
+  const { label, dateStr, fileName, movements, stocks, stockCards } = body;
 
   try {
+    const stockCardsJson = stockCards && stockCards.length > 0 ? JSON.stringify(stockCards) : null;
+
     const reportSession = await prisma.reportSession.create({
       data: {
         label,
         dateStr,
         fileName: fileName ?? null,
+        stockCards: stockCardsJson,
         movements: {
           create: movements.map((m: any) => ({
             postingDate: new Date(m.postingDate),
@@ -44,10 +47,12 @@ export async function POST(req: NextRequest) {
             description: m.description,
             workCenter: m.workCenter ?? null,
             batch: m.batch ?? null,
+            storageLocation: m.storageLocation ?? null,
             quantity: m.quantity,
             unitQuantity: m.unitQuantity,
             group: m.group,
             color: m.color,
+            userName: m.userName ?? null,
           })),
         },
         stocks: {

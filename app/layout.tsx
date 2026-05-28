@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { SidebarProvider } from "@/components/SidebarContext";
+import LayoutContent from "@/components/LayoutContent";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -29,7 +31,11 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${inter.variable} ${outfit.variable} antialiased`}>
       <body className="min-h-screen bg-slate-50 font-sans">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <SidebarProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </SidebarProvider>
+        </SessionProvider>
       </body>
     </html>
   );

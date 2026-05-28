@@ -1,71 +1,125 @@
 'use client';
 
 import React from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell
+import {
+  Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Line, Area, ComposedChart,
 } from 'recharts';
 import { ProcessedMovement } from '@/lib/excel-parser';
 import { motion } from 'framer-motion';
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+
+interface TrendItem {
+  date: string;
+  masuk: number;
+  keluar: number;
+}
 
 interface MovementChartProps {
   data: ProcessedMovement[];
-  trendData?: { date: string; masuk: number; keluar: number }[];
   condensed?: boolean;
+  useAllData?: boolean;
+  selectedGudang?: number | null;
 }
 
-export const MovementChart: React.FC<MovementChartProps> = ({ data, trendData, condensed = false }) => {
+const easeOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = false, useAllData = false, selectedGudang = null }) => {
+  const [trendData, setTrendData] = React.useState<TrendItem[] | null>(null);
+
+  React.useEffect(() => {
+    if (!useAllData) return;
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (selectedGudang) params.set('gudang', String(selectedGudang));
+    fetch(`/api/reports/trend?${params}`)
+      .then(r => r.json())
+      .then(res => { if (!cancelled) setTrendData(res); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [useAllData, selectedGudang]);
+
   const dailyData = React.useMemo(() => {
-    if (trendData && trendData.length > 0) {
-      return trendData;
+    if (useAllData && trendData) {
+      if (!trendData.length) return [];
+      const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: d.keluar, net: d.masuk - d.keluar }]));
+      const lastDate = trendData.reduce((a, b) => a > b.date ? a : b.date, '');
+      const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
+      const end = new Date(lastDate);
+      for (let i = 4; i >= 0; i--) {
+        const d = new Date(end);
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().split('T')[0];
+        const existing = map.get(key);
+        result.push(existing || { date: key, masuk: 0, keluar: 0, net: 0 });
+      }
+      return result;
     }
-    const map = new Map<string, { date: string, masuk: number, keluar: number }>();
+    const map = new Map<string, { date: string; masuk: number; keluar: number; net: number }>();
+    let latestDate = '';
     data.forEach(item => {
       const date = item.dateStr;
-      if (!map.has(date)) map.set(date, { date, masuk: 0, keluar: 0 });
+      if (date > latestDate) latestDate = date;
+      if (!map.has(date)) map.set(date, { date, masuk: 0, keluar: 0, net: 0 });
       const entry = map.get(date)!;
       if (item.group === 'Masuk') entry.masuk += item.quantity;
       if (item.group === 'Keluar') entry.keluar += item.quantity;
+      entry.net = entry.masuk - entry.keluar;
     });
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [data, trendData]);
+    if (!latestDate) return [];
+    const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
+    const end = new Date(latestDate);
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date(end);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const existing = map.get(key);
+      result.push(existing || { date: key, masuk: 0, keluar: 0, net: 0 });
+    }
+    return result;
+  }, [data, useAllData, trendData, selectedGudang]);
 
   const typeData = React.useMemo(() => {
-    const map = new Map<string, { name: string, value: number, color: string }>();
+    const map = new Map<string, { name: string; value: number; color: string; group: string }>();
     data.forEach(item => {
       const key = `${item.moveType}-${item.group}`;
       if (!map.has(key)) {
-        const displayName = item.moveType === '311' ? item.description : item.moveType;
-        map.set(key, { name: displayName, value: 0, color: item.color });
+        const displayName = item.moveType;
+        map.set(key, { name: displayName, value: 0, color: item.color, group: item.group });
       }
       map.get(key)!.value += Math.abs(item.quantity);
     });
     return Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 8);
   }, [data]);
 
+  const totals = React.useMemo(() => {
+    const totalMasuk = dailyData.reduce((s, d) => s + d.masuk, 0);
+    const totalKeluar = dailyData.reduce((s, d) => s + d.keluar, 0);
+    const net = totalMasuk - totalKeluar;
+    return { totalMasuk, totalKeluar, net };
+  }, [dailyData]);
+
   const customTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white/95 dark:bg-slate-900/95 px-4 py-3 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 backdrop-blur-md">
-          <p className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-widest">{label}</p>
-          <div className="space-y-2">
-            {payload.map((entry: any, index: number) => (
-              <div key={index} className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
-                  <span className="text-xs font-medium text-slate-500">{entry.name}:</span>
+        <div className="bg-white/95 px-3 py-2.5 rounded-xl shadow-lg border border-slate-200 text-xs">
+          <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</p>
+          <div className="space-y-1">
+            {payload.map((entry: any, index: number) => {
+              const isNet = entry.dataKey === 'net';
+              const val = isNet ? entry.value : Math.abs(entry.value);
+              return (
+                <div key={index} className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isNet ? '#6366f1' : entry.color || entry.fill }} />
+                    <span className="font-medium text-slate-500">{entry.name}</span>
+                  </div>
+                  <span className={`font-bold tabular-nums ${isNet ? (entry.value >= 0 ? 'text-indigo-600' : 'text-rose-600') : 'text-slate-900'}`}>
+                    {entry.value >= 0 ? '+' : ''}{Math.round(val).toLocaleString()} T
+                  </span>
                 </div>
-                <span className="text-sm font-black text-slate-900 dark:text-white tabular-nums">
-                  {Math.abs(entry.value).toLocaleString('id-ID', { minimumFractionDigits: 1 })} T
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       );
@@ -73,34 +127,84 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, trendData, c
     return null;
   };
 
+  const renderSummary = () => (
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-1">
+      <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100/50 px-2.5 py-1 rounded-lg">
+        <TrendingUp size={12} className="text-emerald-600" />
+        <span className="text-xs font-semibold text-emerald-700 tabular-nums">
+          {Math.round(totals.totalMasuk).toLocaleString()} T
+        </span>
+        <span className="text-[9px] text-emerald-500 font-medium">Masuk</span>
+      </div>
+      <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-100/50 px-2.5 py-1 rounded-lg">
+        <TrendingDown size={12} className="text-rose-600" />
+        <span className="text-xs font-semibold text-rose-700 tabular-nums">
+          {Math.round(totals.totalKeluar).toLocaleString()} T
+        </span>
+        <span className="text-[9px] text-rose-500 font-medium">Keluar</span>
+      </div>
+      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
+        totals.net >= 0
+          ? 'bg-indigo-50 border-indigo-100/50'
+          : 'bg-rose-50 border-rose-100/50'
+      }`}>
+        {totals.net >= 0 ? (
+          <ArrowUpRight size={12} className="text-indigo-600" />
+        ) : (
+          <ArrowDownRight size={12} className="text-rose-600" />
+        )}
+        <span className={`text-xs font-semibold tabular-nums ${totals.net >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
+          {totals.net >= 0 ? '+' : ''}{Math.round(totals.net).toLocaleString()} T
+        </span>
+        <span className="text-[9px] text-slate-400 font-medium">Net</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${condensed ? 'mb-0' : 'mb-0'}`}>
+      {/* ─── Daily Trend ─── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-2xl' : 'rounded-3xl'}`}
       >
-        <div className={`flex items-center justify-between border-b border-slate-100 ${condensed ? 'px-5 py-3.5' : 'px-6 py-5'}`}>
+        <div className={`flex items-center justify-between border-b border-slate-100 ${condensed ? 'px-3 sm:px-5 py-3 sm:py-3.5' : 'px-4 sm:px-6 py-4 sm:py-5'}`}>
           <div>
             <h3 className={`${condensed ? 'text-xs' : 'text-sm'} font-bold text-slate-900 uppercase tracking-wider`}>Daily Movement Trend</h3>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Volume Inbound vs Outbound (Ton)</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Inbound vs Outbound (Ton)</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-              <span className="text-xs font-bold text-slate-500">Masuk</span>
+              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+              <span className="text-[11px] font-semibold text-slate-500">Masuk</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-rose-500" />
-              <span className="text-xs font-bold text-slate-500">Keluar</span>
+              <div className="w-2.5 h-2.5 rounded-sm bg-rose-500" />
+              <span className="text-[11px] font-semibold text-slate-500">Keluar</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />
+              <span className="text-[11px] font-semibold text-slate-500">Net</span>
             </div>
           </div>
         </div>
-        <div className={condensed ? 'px-4 pt-4 pb-2' : 'px-6 pt-6 pb-4'}>
-          <div style={{ height: condensed ? 220 : 320 }}>
+        {!condensed && renderSummary()}
+        <div className={condensed ? 'px-2 sm:px-4 pt-3 sm:pt-4 pb-2' : 'px-3 sm:px-6 pt-3 sm:pt-4 pb-3 sm:pb-4'}>
+          <div className={condensed ? 'h-[180px] sm:h-[220px]' : 'h-[220px] sm:h-[280px]'}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <ComposedChart data={dailyData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }} barGap={4}>
+                <defs>
+                  <linearGradient id="gradMasuk" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.45} />
+                  </linearGradient>
+                  <linearGradient id="gradKeluar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.45} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="date"
                   axisLine={false}
@@ -112,56 +216,83 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, trendData, c
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
-                  tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+                  tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                 />
                 <Tooltip content={customTooltip} cursor={{ fill: '#f8fafc', radius: 4 }} />
-                <Bar dataKey="masuk" fill="#10b981" radius={[5, 5, 0, 0]} name="Masuk" barSize={condensed ? 14 : 28} />
-                <Bar dataKey="keluar" fill="#f43f5e" radius={[5, 5, 0, 0]} name="Keluar" barSize={condensed ? 14 : 28} />
-              </BarChart>
+                <Bar dataKey="masuk" fill="url(#gradMasuk)" radius={[5, 5, 0, 0]} name="Masuk" barSize={condensed ? 14 : 28} />
+                <Bar dataKey="keluar" fill="url(#gradKeluar)" radius={[5, 5, 0, 0]} name="Keluar" barSize={condensed ? 14 : 28} />
+                <Area type="monotone" dataKey="net" fill="#6366f1" fillOpacity={0.08} stroke="none" />
+                <Line type="monotone" dataKey="net" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1', strokeWidth: 1.5, stroke: '#fff' }} activeDot={{ r: 5, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} name="Net" />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
       </motion.div>
 
+      {/* ─── By Movement Type ─── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-2xl' : 'rounded-3xl'}`}
       >
-        <div className={`border-b border-slate-100 ${condensed ? 'px-5 py-3.5' : 'px-6 py-5'}`}>
+        <div className={`border-b border-slate-100 ${condensed ? 'px-3 sm:px-5 py-3 sm:py-3.5' : 'px-4 sm:px-6 py-4 sm:py-5'}`}>
           <h3 className={`${condensed ? 'text-xs' : 'text-sm'} font-bold text-slate-900 uppercase tracking-wider`}>Volume by Movement Type</h3>
-          <p className="text-[11px] text-slate-400 font-medium mt-0.5">Distribusi berat per tipe movement</p>
+          {(() => {
+            const total = typeData.reduce((s, d) => s + d.value, 0);
+            if (total === 0) return null;
+            const masukPct = Math.round(typeData.filter(d => d.group === 'Masuk').reduce((s, d) => s + d.value, 0) / total * 100);
+            return <p className="text-[11px] text-slate-400 font-medium mt-0.5">{masukPct}% Masuk · {100 - masukPct}% Keluar</p>;
+          })()}
         </div>
-        <div className={condensed ? 'px-4 pt-4 pb-2' : 'px-6 pt-6 pb-4'}>
-          <div style={{ height: condensed ? 220 : 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={typeData} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis
-                  type="number"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
-                  tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={42}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                />
-                <Tooltip content={customTooltip} cursor={{ fill: '#f8fafc', radius: 4 }} />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={condensed ? 12 : 22}>
-                  {typeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.9} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        <div className={`${condensed ? 'px-2 sm:px-4 pt-3 sm:pt-4 pb-2' : 'px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4'}`}>
+          <div className="space-y-2.5">
+            {(() => {
+              const totalAll = typeData.reduce((s, d) => s + d.value, 0);
+              const maxVal = typeData.reduce((max, x) => Math.max(max, x.value), 0);
+              return typeData.map((d, i) => {
+                const isMasuk = d.group === 'Masuk';
+                const barPct = maxVal > 0 ? Math.round((d.value / maxVal) * 100) : 0;
+                const sharePct = totalAll > 0 ? (d.value / totalAll) * 100 : 0;
+                return (
+                  <motion.div
+                    key={`${d.name}-${d.group}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.4, ease: easeOut }}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-700 truncate">{d.name}</span>
+                          <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${isMasuk ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {isMasuk ? 'IN' : 'OUT'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-bold text-indigo-600 tabular-nums flex-shrink-0 ml-2">
+                          {sharePct.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${barPct}%` }}
+                          transition={{ delay: i * 0.05, duration: 0.6, ease: easeOut }}
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: d.color, opacity: 0.85 }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              });
+            })()}
           </div>
+          {typeData.length === 0 && (
+            <p className="text-xs text-slate-400 text-center py-8">Tidak ada data movement</p>
+          )}
         </div>
       </motion.div>
     </div>

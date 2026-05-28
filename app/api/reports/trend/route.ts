@@ -2,19 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-export async function GET() {
+const GUDANG_PREFIX: Record<string, string> = {
+  '1': '5A', '2': '5B', '3': '5C', '4': '5D',
+  '5': '5E', '6': '5F', '7': '5G', '8': '5H',
+  '9': '5I', '10': '5J', '11': '5K', '12': '5L',
+  '13': '5M', '14': '5N',
+};
+
+export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // Get distinct dates from recent movements, up to 5 days
-    // Since prisma doesn't easily support select distinct with limit in a simple way for dates,
-    // we can group by dateStr
+    const { searchParams } = new URL(request.url);
+    const gudang = searchParams.get('gudang');
+    const prefix = gudang ? GUDANG_PREFIX[gudang] : null;
+
+    const where = prefix
+      ? { storageLocation: { startsWith: prefix } }
+      : {};
+
     const recentMovements = await prisma.movement.groupBy({
       by: ['dateStr', 'group'],
       _sum: {
         quantity: true,
       },
+      where,
       orderBy: {
         dateStr: 'desc',
       },

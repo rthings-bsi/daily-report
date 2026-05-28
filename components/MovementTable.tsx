@@ -68,7 +68,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
       animate={{ opacity: 1, y: 0 }}
       className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500 ${condensed ? 'rounded-3xl' : 'rounded-3xl mb-12'}`}
     >
-      <div className={`${condensed ? 'px-6 py-4' : 'p-6'} border-b border-slate-100 dark:border-slate-800 flex items-center justify-between relative bg-white dark:bg-slate-900 z-10`}>
+      <div className={`${condensed ? 'px-6 py-4' : 'p-6'} border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 relative bg-white dark:bg-slate-900 z-10`}>
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
             <History className="text-indigo-600" size={20} />
@@ -78,7 +78,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
         
         {!condensed && (
           <div className="flex gap-4 items-center">
-            <div className={`relative transition-all duration-300 ${isFocused ? 'w-80' : 'w-64'}`}>
+            <div className={`relative transition-all duration-300 ${isFocused ? 'w-full sm:w-80' : 'w-full sm:w-64'}`}>
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isFocused ? 'text-indigo-600' : 'text-slate-400'}`} size={18} />
               <input 
                 type="text"
@@ -98,10 +98,10 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
         <table className="w-full text-left border-separate border-spacing-0">
           <thead className={`sticky top-0 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md text-slate-500 text-[11px]`}>
             <tr>
-              <th className="px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Type</th>
-              <th className="px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Ref Code</th>
-              <th className="px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-center">Rec</th>
-              <th className="px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Weight</th>
+              <th className="px-3 sm:px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Type</th>
+              <th className="px-3 sm:px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Ref Code</th>
+              <th className="px-3 sm:px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-center">Rec</th>
+              <th className="px-3 sm:px-6 py-3 font-bold uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Weight</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -114,12 +114,12 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                   transition={{ delay: index * 0.02 }}
                   className="hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors group cursor-default"
                 >
-                  <td className="px-6 py-3.5">
+                  <td className="px-3 sm:px-6 py-3.5">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg font-mono text-slate-500 bg-slate-50 border border-slate-100 font-black group-hover:bg-white group-hover:text-indigo-600 group-hover:border-indigo-100 transition-all text-[11px]`}>
                       {item.moveType}
                     </span>
                   </td>
-                  <td className="px-6 py-3.5">
+                  <td className="px-3 sm:px-6 py-3.5">
                     <div className="flex items-center gap-4">
                       <div 
                         className="w-1.5 h-1.5 rounded-full transition-all group-hover:scale-125" 
@@ -130,10 +130,10 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-3.5 text-xs text-center font-bold text-slate-400 tabular-nums">
+                  <td className="px-3 sm:px-6 py-3.5 text-xs text-center font-bold text-slate-400 tabular-nums">
                     {item.count}
                   </td>
-                  <td className={`px-6 py-3.5 text-sm font-mono font-black text-right tabular-nums ${
+                  <td className={`px-3 sm:px-6 py-3.5 text-sm font-mono font-black text-right tabular-nums ${
                     item.group === 'Masuk' ? 'text-emerald-600' : 
                     item.group === 'Keluar' ? 'text-rose-600' : 
                     'text-slate-600'
@@ -148,8 +148,8 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
       </div>
 
       {!condensed && (
-        <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 backdrop-blur-sm">
-          <div className="flex justify-between items-end">
+        <div className="px-4 sm:px-8 py-4 sm:py-6 bg-slate-50/50 border-t border-slate-100 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 sm:gap-0">
             <div className="flex flex-col gap-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Global Aggregate</span>
               <div className="flex items-center gap-6">

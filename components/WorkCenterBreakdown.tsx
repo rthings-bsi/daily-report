@@ -35,11 +35,11 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
     const map = new Map<string, { name: string, value: number, count: number }>();
 
     data.forEach(item => {
-      const wc = item.workCenter || 'UNASSIGNED';
-      if (!map.has(wc)) {
-        map.set(wc, { name: wc, value: 0, count: 0 });
+      const key = item.workCenter || item.description || 'UNASSIGNED';
+      if (!map.has(key)) {
+        map.set(key, { name: key, value: 0, count: 0 });
       }
-      const entry = map.get(wc)!;
+      const entry = map.get(key)!;
       entry.value += item.quantity;
       entry.count += 1;
     });
@@ -117,10 +117,10 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
       </div>
 
       {/* Body: grid [donut | list] — always side by side */}
-      <div className={`grid divide-x divide-slate-100 ${condensed ? 'grid-cols-[140px_1fr]' : 'grid-cols-[220px_1fr]'}`}>
+      <div className={`grid ${condensed ? 'grid-cols-1 sm:grid-cols-[140px_1fr] sm:divide-x' : 'grid-cols-1 sm:grid-cols-[220px_1fr] sm:divide-x'} divide-slate-100`}>
 
         {/* Donut Chart */}
-        <div className="relative flex items-center justify-center bg-slate-50/20 py-6">
+        <div className="relative flex items-center justify-center bg-slate-50/20 py-4 sm:py-6">
           <div style={{ width: condensed ? 180 : 200, height: condensed ? 180 : 200 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -165,7 +165,7 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
 
         {/* List — all items in one scrollable column */}
         <div
-          className={`overflow-y-auto ${condensed ? 'max-h-[200px]' : 'max-h-[400px]'}`}
+          className={`overflow-y-auto overflow-x-hidden ${condensed ? 'max-h-[200px]' : 'max-h-[400px]'}`}
         >
           <div className={`${condensed ? 'p-3 space-y-1' : 'p-4 space-y-1'}`}>
             <AnimatePresence>
@@ -196,14 +196,14 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
                       {item.name}
                     </span>
                     {/* Progress bar */}
-                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="hidden sm:block w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
                       <div
                         className="h-full rounded-full"
                         style={{ width: `${pct}%`, backgroundColor: color }}
                       />
                     </div>
                     {/* Value */}
-                    <span className="text-xs font-mono font-black text-slate-800 tabular-nums flex-shrink-0 w-20 text-right">
+                    <span className="text-xs font-mono font-black text-slate-800 tabular-nums flex-shrink-0 w-14 sm:w-20 text-right">
                       {item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                     </span>
                     {/* % Badge */}
