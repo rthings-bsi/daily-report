@@ -5,12 +5,19 @@ import bcrypt from "bcryptjs";
 // GET /api/setup — one-time admin user creation
 export async function GET() {
   try {
-    const dbUrl = process.env.DATABASE_URL || "";
-    
-    if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://") && !dbUrl.startsWith("file:")) {
+    const dbUrl = process.env.DATABASE_URL || "(not set)";
+
+    if (dbUrl.startsWith("file:")) {
+      return NextResponse.json({
+        error: "SQLite not supported on Vercel",
+        details: `DATABASE_URL starts with 'file:' — SQLite cannot persist data on Vercel serverless. Set DATABASE_URL to Supabase PostgreSQL connection string: postgresql://postgres:PASSWORD@db.REF.supabase.co:5432/postgres`,
+      }, { status: 400 });
+    }
+
+    if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://")) {
        return NextResponse.json({ 
          error: "Invalid DB URL Format", 
-         details: `URL starts with: ${dbUrl.substring(0, 10)}... (Must be postgresql:// or file:)`,
+         details: `DATABASE_URL="${dbUrl}" — Must be postgresql:// (Supabase)`,
        }, { status: 400 });
     }
 
