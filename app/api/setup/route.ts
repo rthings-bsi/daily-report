@@ -7,10 +7,10 @@ export async function GET() {
   try {
     const dbUrl = process.env.DATABASE_URL || "";
     
-    if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://")) {
+    if (!dbUrl.startsWith("postgresql://") && !dbUrl.startsWith("postgres://") && !dbUrl.startsWith("file:")) {
        return NextResponse.json({ 
          error: "Invalid DB URL Format", 
-         details: `URL starts with: ${dbUrl.substring(0, 10)}... (Must be postgresql://)`,
+         details: `URL starts with: ${dbUrl.substring(0, 10)}... (Must be postgresql:// or file:)`,
        }, { status: 400 });
     }
 
