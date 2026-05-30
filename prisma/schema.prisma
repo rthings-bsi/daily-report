@@ -17,14 +17,18 @@ model User {
 }
 
 model ReportSession {
-  id         String     @id @default(cuid())
-  label      String
-  dateStr    String
-  fileName   String?
-  createdAt  DateTime   @default(now())
-  movements  Movement[]
-  stocks     Stock[]
-  stockCards String?
+  id           String     @id @default(cuid())
+  label        String
+  dateStr      String
+  fileName     String?
+  createdAt    DateTime   @default(now())
+  movements    Movement[]              // Legacy — existing sessions
+  movementSummaries MovementSummary[]  // Aggregated (new saves)
+  stocks       Stock[]
+  stockCards   String?
+  stats        String?                 // JSON: pre-calculated KPI
+  rawMovements String?                 // JSON: raw rows for detail table / gudang filter
+  rawStocks    String?                 // JSON: raw stock rows (new saves, replaces Stock rows)
 }
 
 model Movement {
@@ -47,6 +51,27 @@ model Movement {
   @@index([sessionId])
 }
 
+model MovementSummary {
+  id                String        @id @default(cuid())
+  sessionId         String
+  dateStr           String
+  moveType          String
+  description       String
+  workCenter        String?
+  group             String
+  color             String
+  totalQuantity     Float
+  totalUnitQuantity Float
+  totalCount        Int
+  session           ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, group])
+  @@index([sessionId, dateStr])
+  @@index([sessionId, moveType])
+  @@index([sessionId, workCenter])
+}
+
 model Stock {
   id          String        @id @default(cuid())
   sessionId   String
@@ -60,4 +85,5 @@ model Stock {
   session     ReportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+  @@index([sessionId, sloc])
 }

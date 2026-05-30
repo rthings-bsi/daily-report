@@ -15,14 +15,39 @@ export async function GET(
   const report = await prisma.reportSession.findUnique({
     where: { id },
     include: {
-      movements: true,
+      movementSummaries: true,
       stocks: true,
+      movements: true, // Legacy
     },
   });
 
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Re-hydrate dates to match ProcessedMovement shape
+  // ── New session: has pre-calculated stats + rawMovements JSON ──
+  if (report.stats && report.rawMovements) {
+    const stats = JSON.parse(report.stats);
+    const rawMovements = JSON.parse(report.rawMovements);
+    const stocks = report.rawStocks ? JSON.parse(report.rawStocks) : [];
+    const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
+
+    const parsedMovements = rawMovements.map((m: any, idx: number) => ({
+      ...m,
+      id: `move-${idx}`,
+      postingDate: new Date(m.dateStr).toISOString(),
+      movementStatus: 'Unknown',
+    }));
+
+    return NextResponse.json({
+      ...report,
+      movements: parsedMovements,
+      movementSummaries: report.movementSummaries,
+      stocks,
+      stockCards,
+      stats,
+    });
+  }
+
+  // ── Legacy session: hydrate from Movement rows ──
   const movements = report.movements.map((m) => ({
     ...m,
     postingDate: m.postingDate.toISOString(),

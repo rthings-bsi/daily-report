@@ -150,6 +150,7 @@ export async function POST(req: NextRequest) {
           dateStr,
           fileName: `SAP GUI: ${transactionCode} (${new Date().toLocaleDateString('id-ID')})`,
           stockCards: stockCardsJson,
+          rawStocks: JSON.stringify(parsedData.stocks),
           movements: {
             create: parsedData.movements.map(m => ({
               postingDate: new Date(m.dateStr),
@@ -164,17 +165,6 @@ export async function POST(req: NextRequest) {
               group: m.group,
               color: m.color,
               userName: m.userName ?? null,
-            })),
-          },
-          stocks: {
-            create: parsedData.stocks.map(s => ({
-              material: s.status || 'Unknown',
-              description: s.status || 'Unknown',
-              batch: null,
-              sloc: s.sloc ?? null,
-              category: null,
-              unitQty: s.quantity ?? 0,
-              weight: s.tonnage ?? 0,
             })),
           },
         },

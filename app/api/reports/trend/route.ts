@@ -18,41 +18,46 @@ export async function GET(request: NextRequest) {
     const gudang = searchParams.get('gudang');
     const prefix = gudang ? GUDANG_PREFIX[gudang] : null;
 
-    const where = prefix
-      ? { storageLocation: { startsWith: prefix } }
-      : {};
-
-    const recentMovements = await prisma.movement.groupBy({
+    // ── Query MovementSummary (new sessions) ──
+    const summaryData = await prisma.movementSummary.groupBy({
       by: ['dateStr', 'group'],
-      _sum: {
-        quantity: true,
-      },
-      where,
-      orderBy: {
-        dateStr: 'desc',
-      },
-      // We take more just in case we need multiple groups per date, then we'll process in code
-      take: 20, 
+      _sum: { totalQuantity: true },
+      orderBy: { dateStr: 'desc' },
+      take: 20,
     });
 
+    // ── Query legacy Movement rows (old sessions) ──
+    const whereLegacy = prefix
+      ? { storageLocation: { startsWith: prefix } }
+      : {};
+    const legacyData = await prisma.movement.groupBy({
+      by: ['dateStr', 'group'],
+      _sum: { quantity: true },
+      where: whereLegacy,
+      orderBy: { dateStr: 'desc' },
+      take: 20,
+    });
+
+    // ── Combine both sources ──
     const map = new Map<string, { date: string, masuk: number, keluar: number }>();
-    
-    // Sort ascending for chart display (oldest to newest)
-    const sorted = recentMovements.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
 
-    for (const item of sorted) {
-      const date = item.dateStr;
-      if (!map.has(date)) {
-        if (map.size >= 5) continue; // Only keep up to 5 distinct dates
-        map.set(date, { date, masuk: 0, keluar: 0 });
+    const merge = (items: { dateStr: string; group: string; value: number }[]) => {
+      const sorted = items.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+      for (const item of sorted) {
+        const date = item.dateStr;
+        if (!map.has(date)) {
+          if (map.size >= 5) continue;
+          map.set(date, { date, masuk: 0, keluar: 0 });
+        }
+        const entry = map.get(date)!;
+        if (item.group === 'Masuk') entry.masuk += item.value;
+        if (item.group === 'Keluar') entry.keluar += item.value;
       }
-      
-      const entry = map.get(date)!;
-      if (item.group === 'Masuk') entry.masuk += item._sum.quantity || 0;
-      if (item.group === 'Keluar') entry.keluar += item._sum.quantity || 0;
-    }
+    };
 
-    // Convert to array and sort chronologically
+    merge(summaryData.map(d => ({ dateStr: d.dateStr, group: d.group, value: d._sum.totalQuantity || 0 })));
+    merge(legacyData.map(d => ({ dateStr: d.dateStr, group: d.group, value: d._sum.quantity || 0 })));
+
     const result = Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json(result);

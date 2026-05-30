@@ -8,6 +8,7 @@ export interface MovementStats {
   netMovement: number;
   incomingCount: number;
   outgoingCount: number;
+  totalCount?: number;
 }
 
 export const formatDateToYMD = (date: Date): string => {
@@ -38,7 +39,8 @@ export const calculateStats = (movements: ProcessedMovement[]): MovementStats =>
     totalOutgoing,
     netMovement: totalIncoming - totalOutgoing,
     incomingCount,
-    outgoingCount
+    outgoingCount,
+    totalCount: movements.length,
   };
 };
 

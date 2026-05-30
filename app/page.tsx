@@ -26,7 +26,19 @@ interface HistorySession {
   dateStr: string;
   fileName?: string;
   createdAt: string;
-  _count: { movements: number };
+  totalCount: number;
+}
+
+interface MovementSummaryItem {
+  id: string;
+  dateStr: string;
+  moveType: string;
+  description: string;
+  workCenter: string | null;
+  group: string;
+  color: string;
+  totalQuantity: number;
+  totalCount: number;
 }
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
@@ -36,6 +48,7 @@ export default function Home() {
   const router = useRouter();
 
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
+  const [movementSummaries, setMovementSummaries] = useState<MovementSummaryItem[] | null>(null);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
   const [stats, setStats] = useState<MovementStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,26 +113,78 @@ export default function Home() {
 
   const filteredStats = useMemo(() => {
     if (!filteredMovements.length) return null;
+    if (!selectedGudang && !startDate && !endDate && stats) return stats;
     return calculateStats(filteredMovements);
-  }, [filteredMovements]);
+  }, [filteredMovements, selectedGudang, startDate, endDate, stats]);
+
+  // ─── Aggregated chart data: use MovementSummary when no filter ───
+  const chartMovements = useMemo((): ProcessedMovement[] => {
+    if (!selectedGudang && !startDate && !endDate && movementSummaries && movementSummaries.length > 0) {
+      return movementSummaries.map(s => ({
+        id: s.id,
+        postingDate: new Date(s.dateStr),
+        dateStr: s.dateStr,
+        moveType: s.moveType,
+        description: s.description,
+        group: s.group as ProcessedMovement['group'],
+        workCenter: s.workCenter || '',
+        batch: '',
+        quantity: s.totalQuantity,
+        unitQuantity: 0,
+        userName: '',
+        storageLocation: '',
+        color: s.color,
+        movementStatus: 'Unknown' as const,
+      }));
+    }
+    return filteredMovements;
+  }, [filteredMovements, movementSummaries, selectedGudang, startDate, endDate]);
 
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
 
+  const loadGen = useRef(0);
+
   // ─── Load a saved session ───
   const loadSession = async (id: string) => {
+    const gen = ++loadGen.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/reports/${id}`);
       if (!res.ok) return;
+      if (gen !== loadGen.current) return; // superseded by newer operation
       const data = await res.json();
 
+      // ── New session: pre-calculated stats + aggregated summaries ──
+      if (data.stats) {
+        setStats(data.stats);
+        setMovementSummaries(data.movementSummaries || null);
+      }
+
+      // ── Raw movements for detail table & gudang filtering ──
       const movs: ProcessedMovement[] = data.movements.map((m: any) => ({
-        ...m,
+        id: m.id || `move-${Math.random()}`,
         postingDate: new Date(m.postingDate),
+        dateStr: m.dateStr,
+        moveType: m.moveType,
+        description: m.description,
+        workCenter: m.workCenter || '',
+        batch: m.batch || '',
+        quantity: m.quantity,
+        unitQuantity: m.unitQuantity || 0,
+        userName: m.userName || '',
+        storageLocation: m.storageLocation || '',
+        group: m.group || 'Transfer',
+        color: m.color || '#94a3b8',
         movementStatus: classifyBatch(m.batch || ''),
       }));
+      // Fallback: if no stats, calculate from raw movements (legacy)
+      if (!data.stats) {
+        setStats(calculateStats(movs));
+        setMovementSummaries(null);
+      }
+
       let stks: ProcessedStock[] = data.stocks;
       if (stks.length === 0 && data.stockCards?.length > 0) {
         stks = data.stockCards.map((sc: any) => ({
@@ -134,7 +199,6 @@ export default function Home() {
 
       setMovements(movs);
       setStocks(stks);
-      setStats(calculateStats(movs));
       setActiveSessionId(id);
       setShowHistory(false);
     } finally {
@@ -231,6 +295,8 @@ export default function Home() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    loadGen.current++; // bump to cancel any in-flight loadSession
 
     setLoading(true);
     setActiveSessionId(null);
@@ -478,7 +544,7 @@ export default function Home() {
                       <Calendar size={13} className={activeSessionId === h.id ? 'text-indigo-200' : 'text-indigo-400'} />
                       <div>
                         <p className={`text-xs font-bold leading-tight ${activeSessionId === h.id ? 'text-white' : 'text-slate-700'}`}>{h.label}</p>
-                        <p className={`text-[10px] ${activeSessionId === h.id ? 'text-indigo-200' : 'text-slate-400'}`}>{h._count.movements} rows</p>
+                        <p className={`text-[10px] ${activeSessionId === h.id ? 'text-indigo-200' : 'text-slate-400'}`}>{h.totalCount} rows</p>
                       </div>
                       <button
                         onClick={e => deleteSession(h.id, e)}
@@ -517,7 +583,7 @@ export default function Home() {
                 <StatsCard title="Incoming" value={filteredStats ? filteredStats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="in" condensed delay={0.05} />
                 <StatsCard title="Outgoing" value={filteredStats ? filteredStats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="out" condensed delay={0.1} />
                 <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} condensed delay={0.15} />
-                <StatsCard title="Transactions" value={filteredMovements.length.toLocaleString()} unit="TRX" type="total" condensed delay={0.2} />
+                <StatsCard title="Transactions" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString()} unit="TRX" type="total" condensed delay={0.2} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 xl:gap-4">
@@ -528,7 +594,7 @@ export default function Home() {
                     className="flex flex-col gap-4"
                   >
                     {leftOrder.map(id => {
-                      if (id === 'workcenter') return <SortableItem key="workcenter" id="workcenter"><WorkCenterBreakdown data={filteredMovements} condensed /></SortableItem>;
+                      if (id === 'workcenter') return <SortableItem key="workcenter" id="workcenter"><WorkCenterBreakdown data={chartMovements} condensed /></SortableItem>;
                       if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} condensed /></SortableItem>;
                       return null;
                     })}
@@ -541,7 +607,7 @@ export default function Home() {
                     className="flex flex-col gap-4"
                   >
                     {rightOrder.map(id => {
-                      if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={gudangFiltered} condensed useAllData selectedGudang={selectedGudang} /></SortableItem>;
+                      if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData selectedGudang={selectedGudang} /></SortableItem>;
                       if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={filteredMovements} condensed /></SortableItem>;
                       if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={filteredMovements} condensed /></SortableItem>;
                       return null;
@@ -567,13 +633,13 @@ export default function Home() {
                   <StatsCard title="Total Inbound" value={filteredStats ? filteredStats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`} type="in" delay={0.05} />
                   <StatsCard title="Total Outbound" value={filteredStats ? filteredStats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`} type="out" delay={0.1} />
                   <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" subtitle="Selisih material masuk & keluar" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} delay={0.15} />
-                  <StatsCard title="Total Transaksi" value={filteredMovements.length.toLocaleString()} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
+                  <StatsCard title="Total Transaksi" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString()} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
                 </div>
               </section>
 
               <section>
                 <SectionTitle>Analisis Pergerakan Material</SectionTitle>
-                <MovementChart data={gudangFiltered} useAllData selectedGudang={selectedGudang} />
+                <MovementChart data={chartMovements} useAllData selectedGudang={selectedGudang} />
               </section>
 
               <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
@@ -592,7 +658,7 @@ export default function Home() {
                 <SectionTitle>Work Center & Analitik Transaksi</SectionTitle>
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   <div className="lg:col-span-7">
-                    <WorkCenterBreakdown data={filteredMovements} />
+                    <WorkCenterBreakdown data={chartMovements} />
                   </div>
                   <div className="lg:col-span-5">
                     <MovementTable data={filteredMovements} />
