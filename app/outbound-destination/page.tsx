@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -169,9 +167,11 @@ function MiniStatCard({ label, value, suffix, icon: Icon, color }: {
   );
 }
 
+export const dynamic = 'force-dynamic';
+
 // ─── Main Page ───
 
-export default function OutboundDestinationPage() {
+function OutboundDestinationContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -518,5 +518,20 @@ export default function OutboundDestinationPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function OutboundDestinationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+          <p className="text-xs font-medium text-slate-400 animate-pulse">Memuat data destinasi...</p>
+        </div>
+      </div>
+    }>
+      <OutboundDestinationContent />
+    </Suspense>
   );
 }
