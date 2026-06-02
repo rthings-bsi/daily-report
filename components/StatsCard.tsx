@@ -12,6 +12,7 @@ interface StatsCardProps {
   type: 'in' | 'out' | 'total';
   delay?: number;
   condensed?: boolean;
+  onClick?: () => void;
 }
 
 export const StatsCard: React.FC<StatsCardProps> = ({
@@ -22,6 +23,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   type,
   delay = 0,
   condensed = false,
+  onClick,
 }) => {
   const getIcon = () => {
     if (type === 'in') return ArrowUpRight;
@@ -57,6 +59,54 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 
   const styles = getColorStyles();
   const Icon = getIcon();
+
+  if (onClick) {
+    return (
+      <motion.button
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -3, scale: 1.015 }}
+        whileTap={{ scale: 0.985 }}
+        transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
+        onClick={onClick}
+        type="button"
+        className={`relative overflow-hidden bg-white border border-slate-200 border-l-4 ${styles.border} shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer ${condensed ? 'rounded-2xl p-4' : 'rounded-2xl p-6'}`}
+      >
+        {/* Subtle BG on hover */}
+        <div
+          className={`absolute inset-0 ${styles.bg} opacity-0 group-hover:opacity-30 transition-opacity duration-500 pointer-events-none`}
+        />
+
+        <div className="flex items-start justify-between relative z-10">
+          <div className={condensed ? 'space-y-2' : 'space-y-3'}>
+            <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold text-slate-400 uppercase tracking-widest`}>
+              {title}
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3
+                className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black text-slate-900 tabular-nums tracking-tight`}
+              >
+                {value}
+              </h3>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{unit}</span>
+            </div>
+            {!condensed && subtitle && (
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${styles.badge} animate-pulse`} />
+                <p className="text-xs font-medium text-slate-400">{subtitle}</p>
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`${condensed ? 'p-2.5 rounded-xl' : 'p-3.5 rounded-2xl'} ${styles.bg} group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}
+          >
+            <Icon size={condensed ? 18 : 22} className={styles.icon} strokeWidth={2.5} />
+          </div>
+        </div>
+      </motion.button>
+    );
+  }
 
   return (
     <motion.div
