@@ -11,17 +11,22 @@ import {
   ChevronLeft,
   TrendingUp,
   Package,
+  Users,
+  ShieldCheck,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { GUDANG_LIST } from "@/lib/gudang";
 import { useSidebar } from "./SidebarContext";
 
-const menuItems = [
+const baseMenuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Upload", href: "/upload", icon: FileUp },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
+  { name: "Upload", href: "/upload", icon: FileUp },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
+
+const adminMenuItem = { name: "Manajemen User", href: "/admin/users", icon: Users };
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -65,7 +70,7 @@ export default function Sidebar() {
           <div className={cn("text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-2.5 mb-3", isOpen ? "block" : "sr-only")}>
             Menu
           </div>
-          {menuItems.map((item) => {
+          {baseMenuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -116,6 +121,42 @@ export default function Sidebar() {
               </Link>
             );
           })}
+
+          {/* Admin-only section */}
+          {session.user?.role === 'admin' && (
+            <>
+              <div className={cn("text-[10px] font-semibold text-amber-500 uppercase tracking-widest px-2.5 mb-1 mt-4 flex items-center gap-1", isOpen ? "block" : "sr-only")}>
+                <ShieldCheck size={9} />
+                Admin
+              </div>
+              {[adminMenuItem].map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center rounded-xl text-sm font-medium relative overflow-hidden",
+                      isOpen ? "px-3 py-2.5 gap-3" : "justify-center py-3",
+                      isActive
+                        ? "text-amber-700"
+                        : "text-slate-500 hover:text-slate-800"
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-50 to-amber-50/50" />
+                    )}
+                    <div className={cn("relative flex items-center justify-center", isOpen ? "gap-3" : "gap-0")}>
+                      <item.icon size={20} className={isActive ? "text-amber-600" : "text-slate-400 group-hover:text-slate-600"} />
+                    </div>
+                    {isOpen && (
+                      <span className="relative flex-1 text-[13px]">{item.name}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* ─── User ─── */}
@@ -139,7 +180,18 @@ export default function Sidebar() {
             {isOpen && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-900 truncate leading-tight">{session.user?.name}</p>
-                <p className="text-[10px] text-slate-400 truncate capitalize leading-tight">{(session.user as any)?.role || "User"}</p>
+                <p className="text-[10px] text-slate-400 truncate leading-tight">
+                  {session.user?.role === 'admin' ? (
+                    <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
+                      <ShieldCheck size={9} />
+                      Admin
+                    </span>
+                  ) : session.user?.gudangId ? (
+                    <span className="font-mono">{GUDANG_LIST.find((g) => g.gudangId === session.user!.gudangId)?.name}</span>
+                  ) : (
+                    'User'
+                  )}
+                </p>
               </div>
             )}
             {isOpen && (

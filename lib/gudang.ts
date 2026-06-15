@@ -5,6 +5,23 @@ export const GUDANG_PREFIX: Record<string, number> = {
   '5M': 13, '5N': 14,
 };
 
+/**
+ * Static list of 14 gudangs. Used as a UI fallback (dropdowns, sidebars)
+ * and to seed the Gudang DB table. The DB table is the source of truth at
+ * runtime; this constant is the canonical static shape.
+ */
+export interface GudangInfo {
+  gudangId: number;
+  name: string;
+  prefix: string;
+}
+
+export const GUDANG_LIST: GudangInfo[] = Array.from({ length: 14 }, (_, i) => ({
+  gudangId: i + 1,
+  name: `Gudang ${i + 1}`,
+  prefix: '5' + String.fromCharCode(64 + (i + 1)),
+}));
+
 export const gudangFromSloc = (sloc: string | null): number | null => {
   if (!sloc) return null;
   const prefix = sloc.toUpperCase().slice(0, 2);

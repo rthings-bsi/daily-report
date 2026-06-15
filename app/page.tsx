@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  FileUp, Printer, LayoutDashboard, Layout, Settings,
-  Calendar, Upload, History, X, Trash2, Check,
+  FileUp, Printer, LayoutDashboard, Layout,
+  Upload, Check, X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
@@ -12,7 +12,7 @@ import { StatsCard } from '@/components/StatsCard';
 import { MovementTable } from '@/components/MovementTable';
 import { MovementChart } from '@/components/MovementChart';
 import { WorkCenterBreakdown } from '@/components/WorkCenterBreakdown';
-import { StockReport } from '@/components/StockReport';
+import { StockReport, StockReportSummary } from '@/components/StockReport';
 import { FastSlowTransactionChart } from '@/components/FastSlowTransactionChart';
 import { SortableGrid, SortableItem } from '@/components/SortableGrid';
 import { PageHeader } from '@/components/PageHeader';
@@ -21,7 +21,7 @@ import { signOut, useSession } from 'next-auth/react';
 
 // ─── Types ───
 interface HistorySession {
-  id: string;
+  reportSessionId: string;
   label: string;
   dateStr: string;
   fileName?: string;
@@ -30,7 +30,7 @@ interface HistorySession {
 }
 
 interface MovementSummaryItem {
-  id: string;
+  movementSummaryId: string;
   dateStr: string;
   moveType: string;
   description: string;
@@ -50,18 +50,17 @@ export default function Home() {
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [movementSummaries, setMovementSummaries] = useState<MovementSummaryItem[] | null>(null);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
+  const [stockSummary, setStockSummary] = useState<StockReportSummary | undefined>(undefined);
   const [stats, setStats] = useState<MovementStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [reportMode, setReportMode] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<HistorySession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState('');
   const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [history, setHistory] = useState<HistorySession[]>([]);
   const sessionGudang = useMemo(() => getUserGudang(session?.user?.name), [session]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -120,7 +119,7 @@ export default function Home() {
   // ─── Navigate to outbound destination breakdown ───
   const handleOutboundClick = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeSessionId) params.set('session', activeSessionId);
+    if (activeSessionId) params.set('reportSessionId', activeSessionId);
     if (selectedGudang) params.set('gudang', String(selectedGudang));
     if (startDate) params.set('start', startDate);
     if (endDate) params.set('end', endDate);
@@ -131,7 +130,7 @@ export default function Home() {
   const chartMovements = useMemo((): ProcessedMovement[] => {
     if (!selectedGudang && !startDate && !endDate && movementSummaries && movementSummaries.length > 0) {
       return movementSummaries.map(s => ({
-        id: s.id,
+        movementId: s.movementSummaryId,
         postingDate: new Date(s.dateStr),
         dateStr: s.dateStr,
         moveType: s.moveType,
@@ -174,7 +173,7 @@ export default function Home() {
 
       // ── Raw movements for detail table & gudang filtering ──
       const movs: ProcessedMovement[] = data.movements.map((m: any) => ({
-        id: m.id || `move-${Math.random()}`,
+        movementId: m.movementId || `move-${Math.random()}`,
         postingDate: new Date(m.postingDate),
         dateStr: m.dateStr,
         moveType: m.moveType,
@@ -209,8 +208,32 @@ export default function Home() {
 
       setMovements(movs);
       setStocks(stks);
+
+      // ── Build pre-aggregated stock summary from server-side StockSummary rows ──
+      // Falls back to undefined (client-side aggregation) for legacy sessions
+      // that don't have StockSummary rows yet.
+      if (Array.isArray(data.stockSummaries) && data.stockSummaries.length > 0) {
+        const bucket = (): { count: number; totalTon: number } => ({ count: 0, totalTon: 0 });
+        const next: StockReportSummary = { fast: bucket(), slow: bucket(), penampungan: bucket() };
+        for (const r of data.stockSummaries) {
+          const ton = (r.totalWeight || 0) / 1000;
+          if (r.status === 'Fast Moving') {
+            next.fast.count += r.itemCount || 0;
+            next.fast.totalTon += ton;
+          } else if (r.status === 'Slow Moving') {
+            next.slow.count += r.itemCount || 0;
+            next.slow.totalTon += ton;
+          } else if (r.status === 'Sloc Penampungan') {
+            next.penampungan.count += r.itemCount || 0;
+            next.penampungan.totalTon += ton;
+          }
+        }
+        setStockSummary(next);
+      } else {
+        setStockSummary(undefined);
+      }
+
       setActiveSessionId(id);
-      setShowHistory(false);
     } finally {
       setLoading(false);
     }
@@ -219,7 +242,7 @@ export default function Home() {
   // Auto-load latest session when page opens with no data
   useEffect(() => {
     if (!movements.length && !stocks.length && history.length > 0 && !loading) {
-      loadSession(history[0].id);
+      loadSession(history[0].reportSessionId);
     }
   }, [history, movements, stocks, loading]);
 
@@ -290,8 +313,8 @@ export default function Home() {
       });
 
       if (res.ok) {
-        const { id } = await res.json();
-        setActiveSessionId(id);
+        const { reportSessionId } = await res.json();
+        setActiveSessionId(reportSessionId);
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
         await loadHistory();
@@ -328,15 +351,6 @@ export default function Home() {
     }
   };
 
-  // ─── Delete a session ───
-  const deleteSession = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Hapus laporan ini?')) return;
-    await fetch(`/api/reports/${id}`, { method: 'DELETE' });
-    if (activeSessionId === id) resetData();
-    await loadHistory();
-  };
-
   const resetData = () => {
     setMovements([]);
     setStocks([]);
@@ -345,18 +359,13 @@ export default function Home() {
     setSaved(false);
   };
 
-  // ─── Filtered history ───
-  const filteredHistory = dateFilter
-    ? history.filter(h => h.dateStr.startsWith(dateFilter))
-    : history;
-
   // ─── Loading state (auto-load in progress) ───
   if (!movements.length && !stocks.length && loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-xs font-medium text-slate-400 animate-pulse">Memuat data terbaru...</p>
+          <div className="w-10 h-10 border-[3px] border-[#4BB8FA]/20 border-t-[#1591DC] rounded-full animate-spin" />
+          <p className="text-xs font-medium text-[#1591DC]/60 animate-pulse">Memuat data terbaru...</p>
         </div>
       </main>
     );
@@ -365,22 +374,23 @@ export default function Home() {
   // ─── First-time: no data & no history → show upload prompt inline ───
   if (!movements.length && !stocks.length && history.length === 0) {
     return (
-      <main className="min-h-screen bg-slate-50/50 flex items-center justify-center p-6">
+      <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-6 max-w-sm text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center">
-            <Upload size={28} className="text-slate-400" strokeWidth={1.5} />
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C4E2F5]/50 to-[#4BB8FA]/20 flex items-center justify-center border border-[#C4E2F5]/50">
+            <Upload size={28} className="text-[#1591DC]" strokeWidth={1.5} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 mb-1">Warehouse Intelligence</h1>
-            <p className="text-sm text-slate-500">Unggah laporan SAP Excel untuk memulai.</p>
+            <h1 className="text-lg font-bold text-[#2C5EAD] mb-1">Warehouse Intelligence</h1>
+            <p className="text-sm text-[#1591DC]/70">Unggah laporan SAP Excel untuk memulai.</p>
           </div>
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls" className="hidden" />
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
             onClick={() => fileInputRef.current?.click()}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg"
+            className="px-6 py-3 bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] hover:from-[#4BB8FA] hover:to-[#1591DC] text-white rounded-xl text-sm font-semibold shadow-lg shadow-[#1591DC]/25 transition-all"
           >
             Pilih File SAP Excel
-          </button>
+          </motion.button>
         </div>
       </main>
     );
@@ -388,40 +398,44 @@ export default function Home() {
 
   // ─── Dashboard / Report ───
   return (
-    <main className="min-h-screen bg-slate-50/50">
+    <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">
       <PageHeader icon={LayoutDashboard} title="Warehouse" subtitle="Dashboard gudang SPINDO" className="print:hidden">
-        <select
-          value={selectedGudang ?? ''}
-          onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
-          className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 transition-colors cursor-pointer"
+
+        {/* ─── Gudang Select (admin can switch; non-admin locked to own) ─── */}
+        {session?.user?.role === 'admin' && (
+          <select
+            value={selectedGudang ?? ''}
+            onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
+          className="h-8 text-[11px] font-semibold text-[#2C5EAD] bg-white/70 border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/25 cursor-pointer hover:bg-white transition-all"
         >
-          <option value="">Semua Gudang</option>
+          <option value="">🌐 Semua Gudang</option>
           {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
-            <option key={n} value={n}>Gudang {n}{n === sessionGudang ? ' (saya)' : ''}</option>
+            <option key={n} value={n}>📍 Gudang {n}{n === sessionGudang ? ' ★' : ''}</option>
           ))}
         </select>
+        )}
 
-        <div className="flex items-center gap-1.5 h-8">
+        {/* ─── Date Filter ─── */}
+        <div className="flex items-center gap-1 h-8 bg-white/70 border border-[#C4E2F5]/50 rounded-xl px-2">
           <input
             type="date"
             value={startDate}
             onChange={e => setStartDate(e.target.value)}
-            className="h-full text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 w-24 sm:w-32 transition-colors"
+            className="h-full text-[10px] font-medium text-[#2C5EAD] bg-transparent border-none outline-none w-24 lg:w-28 cursor-pointer [color-scheme:light]"
           />
-          <span className="text-[11px] text-slate-300 font-medium">—</span>
+          <span className="text-[9px] text-[#4BB8FA] font-semibold">→</span>
           <input
             type="date"
             value={endDate}
             onChange={e => setEndDate(e.target.value)}
-            className="h-full text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 w-24 sm:w-32 transition-colors"
+            className="h-full text-[10px] font-medium text-[#2C5EAD] bg-transparent border-none outline-none w-24 lg:w-28 cursor-pointer [color-scheme:light]"
           />
           {(startDate || endDate) && (
             <button
               onClick={() => { setStartDate(''); setEndDate(''); }}
-              className="h-full px-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors"
-              title="Reset filter tanggal"
+              className="p-1 text-[#1591DC] hover:text-[#2C5EAD] rounded-md hover:bg-white/60 transition-all"
             >
-              <X size={13} />
+              <X size={12} strokeWidth={2.5} />
             </button>
           )}
         </div>
@@ -434,20 +448,21 @@ export default function Home() {
           className="hidden"
         />
 
+        {/* ─── Saving / Saved indicator ─── */}
         <AnimatePresence>
           {(saving || saved) && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className={`flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[11px] font-semibold ${
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={`flex items-center gap-1 px-2.5 h-8 rounded-xl text-[10px] font-bold ${
                 saving
-                  ? 'text-sky-600 bg-sky-50'
+                  ? 'text-[#1591DC] bg-[#C4E2F5]/40'
                   : 'text-emerald-600 bg-emerald-50'
               }`}
             >
               {saving ? (
-                <div className="w-3 h-3 border-[2px] border-sky-200 border-t-sky-600 rounded-full animate-spin" />
+                <div className="w-3 h-3 border-[2px] border-[#4BB8FA]/30 border-t-[#1591DC] rounded-full animate-spin" />
               ) : (
                 <Check size={12} strokeWidth={2.5} />
               )}
@@ -456,124 +471,40 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        <div className="w-px h-5 bg-slate-200/60" />
+        <div className="w-px h-5 bg-[#C4E2F5]/50" />
 
-        <button
-          onClick={() => { setShowHistory(h => !h); loadHistory(); }}
-          className={`h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium rounded-lg transition-all duration-200 ${
-            showHistory
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 bg-white/80 border border-slate-200 hover:bg-white hover:border-slate-300'
-          }`}
-          aria-label="Riwayat sesi"
-        >
-          <History size={13} />
-          <span className="hidden sm:inline">Arsip</span>
-        </button>
-
-        <button
+        {/* ─── Buttons ─── */}
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
           onClick={() => fileInputRef.current?.click()}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg hover:bg-white hover:border-slate-300 transition-all duration-200"
-          aria-label="Upload file Excel"
+          className="h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold text-[#1591DC] bg-white/70 border border-[#C4E2F5]/50 rounded-xl hover:bg-white hover:border-[#4BB8FA]/40 transition-all"
         >
-          <FileUp size={13} />
+          <FileUp size={13} strokeWidth={2} />
           <span className="hidden sm:inline">Upload</span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
           onClick={() => setReportMode(!reportMode)}
-          className={`h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium rounded-lg transition-all duration-200 ${
+          className={`h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold rounded-xl transition-all duration-200 ${
             reportMode
-              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
-              : 'text-slate-600 bg-white/80 border border-slate-200 hover:bg-white hover:border-slate-300'
+              ? 'bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] text-white shadow-sm shadow-[#1591DC]/20'
+              : 'text-[#1591DC] bg-white/70 border border-[#C4E2F5]/50 hover:bg-white hover:border-[#4BB8FA]/40'
           }`}
-          aria-label={reportMode ? 'Tampilan dashboard' : 'Tampilan report'}
         >
-          {reportMode ? <LayoutDashboard size={13} /> : <Layout size={13} />}
+          {reportMode ? <LayoutDashboard size={13} strokeWidth={2} /> : <Layout size={13} strokeWidth={2} />}
           <span className="hidden sm:inline">{reportMode ? 'Dashboard' : 'Report'}</span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
           onClick={() => window.print()}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium text-white bg-gradient-to-b from-slate-800 to-slate-900 rounded-lg hover:from-slate-700 hover:to-slate-800 shadow-sm transition-all duration-200"
-          aria-label="Cetak laporan"
+          className="h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold text-white bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] rounded-xl hover:from-[#4BB8FA] hover:to-[#1591DC] shadow-sm shadow-[#1591DC]/20 transition-all"
         >
-          <Printer size={13} />
+          <Printer size={13} strokeWidth={2} />
           <span className="hidden sm:inline">Cetak</span>
-        </button>
+        </motion.button>
       </PageHeader>
-
-      {/* ─── History Drawer ─── */}
-      <AnimatePresence>
-        {showHistory && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="sticky top-[57px] z-40 bg-white border-b border-slate-200 shadow-md print:hidden"
-          >
-            <div className="max-w-[1600px] mx-auto px-5 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <History size={14} className="text-indigo-500" />
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Laporan Tersimpan</span>
-                  <span className="text-[11px] text-slate-400">({filteredHistory.length} laporan)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="month"
-                    value={dateFilter}
-                    onChange={e => setDateFilter(e.target.value)}
-                    className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-                  />
-                  {dateFilter && (
-                    <button
-                      onClick={() => setDateFilter('')}
-                      className="text-xs text-slate-400 hover:text-slate-600"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex gap-2 flex-wrap max-h-36 overflow-y-auto">
-                {filteredHistory.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-2">Tidak ada laporan untuk periode ini.</p>
-                ) : (
-                  filteredHistory.map(h => (
-                    <div
-                      key={h.id}
-                      className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl border text-left cursor-pointer transition-all hover:shadow-md ${
-                        activeSessionId === h.id
-                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                          : 'bg-slate-50 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'
-                      }`}
-                      onClick={() => loadSession(h.id)}
-                    >
-                      <Calendar size={13} className={activeSessionId === h.id ? 'text-indigo-200' : 'text-indigo-400'} />
-                      <div>
-                        <p className={`text-xs font-bold leading-tight ${activeSessionId === h.id ? 'text-white' : 'text-slate-700'}`}>{h.label}</p>
-                        <p className={`text-[10px] ${activeSessionId === h.id ? 'text-indigo-200' : 'text-slate-400'}`}>{h.totalCount} rows</p>
-                      </div>
-                      <button
-                        onClick={e => deleteSession(h.id, e)}
-                        className={`opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all ml-1 ${
-                          activeSessionId === h.id
-                            ? 'hover:bg-indigo-500 text-indigo-200'
-                            : 'hover:bg-rose-100 text-slate-400 hover:text-rose-500'
-                        }`}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ─── Page Content ─── */}
       <div ref={contentRef} className="max-w-[1700px] mx-auto px-3 sm:px-5 lg:px-6 py-3 sm:py-5 lg:py-6">
@@ -605,7 +536,7 @@ export default function Home() {
                   >
                     {leftOrder.map(id => {
                       if (id === 'workcenter') return <SortableItem key="workcenter" id="workcenter"><WorkCenterBreakdown data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} condensed /></SortableItem>;
+                      if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} summary={stockSummary} condensed /></SortableItem>;
                       return null;
                     })}
                   </SortableGrid>
@@ -657,7 +588,7 @@ export default function Home() {
               <section>
                 <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
                 <div className="flex flex-col gap-5">
-                  <StockReport data={filteredStocks} />
+                  <StockReport data={filteredStocks} summary={stockSummary} />
                   <FastSlowTransactionChart data={filteredMovements} />
                 </div>
               </section>

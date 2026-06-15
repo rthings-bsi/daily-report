@@ -1,68 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
-
-const GUDANG_PREFIX: Record<string, string> = {
-  '1': '5A', '2': '5B', '3': '5C', '4': '5D',
-  '5': '5E', '6': '5F', '7': '5G', '8': '5H',
-  '9': '5I', '10': '5J', '11': '5K', '12': '5L',
-  '13': '5M', '14': '5N',
-};
+import { getGudangPrefix } from "@/lib/gudang";
+import { requireUserContext, respondError } from "@/lib/api-helpers";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireUserContext();
+  if (ctx instanceof NextResponse) return ctx;
 
   try {
     const { searchParams } = new URL(request.url);
-    const gudang = searchParams.get('gudang');
-    const prefix = gudang ? GUDANG_PREFIX[gudang] : null;
 
-    // ── Query MovementSummary (new sessions) ──
-    const summaryData = await prisma.movementSummary.groupBy({
-      by: ['dateStr', 'group'],
-      _sum: { totalQuantity: true },
-      orderBy: { dateStr: 'desc' },
-      take: 20,
-    });
+    // For non-admin: ignore the `?gudang=` query — always scope to own gudang.
+    // Admin: honor the param (or fall back to no filter for the global view).
+    const requestedGudang = searchParams.get('gudang');
+    const effectiveGudang = ctx.isAdmin
+      ? (requestedGudang ? Number(requestedGudang) : null)
+      : ctx.gudangId;
 
-    // ── Query legacy Movement rows (old sessions) ──
-    const whereLegacy = prefix
-      ? { storageLocation: { startsWith: prefix } }
-      : {};
-    const legacyData = await prisma.movement.groupBy({
-      by: ['dateStr', 'group'],
-      _sum: { quantity: true },
-      where: whereLegacy,
-      orderBy: { dateStr: 'desc' },
-      take: 20,
-    });
+    const prefix = effectiveGudang ? getGudangPrefix(effectiveGudang) : null;
 
-    // ── Combine both sources ──
     const map = new Map<string, { date: string, masuk: number, keluar: number }>();
 
-    const merge = (items: { dateStr: string; group: string; value: number }[]) => {
-      const sorted = items.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
-      for (const item of sorted) {
-        const date = item.dateStr;
-        if (!map.has(date)) {
-          if (map.size >= 5) continue;
-          map.set(date, { date, masuk: 0, keluar: 0 });
-        }
-        const entry = map.get(date)!;
-        if (item.group === 'Masuk') entry.masuk += item.value;
-        if (item.group === 'Keluar') entry.keluar += item.value;
-      }
+    const merge = (dateStr: string, group: string, quantity: number) => {
+      if (!map.has(dateStr)) map.set(dateStr, { date: dateStr, masuk: 0, keluar: 0 });
+      const entry = map.get(dateStr)!;
+      if (group === 'Masuk') entry.masuk += quantity;
+      if (group === 'Keluar') entry.keluar += Math.abs(quantity);
     };
 
-    merge(summaryData.map(d => ({ dateStr: d.dateStr, group: d.group, value: d._sum.totalQuantity || 0 })));
-    merge(legacyData.map(d => ({ dateStr: d.dateStr, group: d.group, value: d._sum.quantity || 0 })));
+    // Build session-scope filter for the JSON path so we never pull data
+    // outside the caller's tenant.
+    const sessionWhere = ctx.isAdmin
+      ? {}
+      : ctx.gudangId === null
+        ? { gudangId: null }
+        : { OR: [{ gudangId: ctx.gudangId }, { gudangId: null }] };
 
-    const result = Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    if (prefix) {
+      // ── Filter by gudang: parse rawMovements (new sessions) + Movement rows (legacy) ──
+      const newSessions = await prisma.reportSession.findMany({
+        where: { ...sessionWhere, rawMovements: { not: null } },
+        select: { rawMovements: true },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      });
+
+      for (const s of newSessions) {
+        if (!s.rawMovements) continue;
+        const raw: { dateStr: string; group: string; quantity: number; storageLocation?: string | null }[] = JSON.parse(s.rawMovements);
+        for (const m of raw) {
+          if (m.storageLocation && !m.storageLocation.startsWith(prefix)) continue;
+          merge(m.dateStr, m.group, m.quantity);
+        }
+      }
+
+      const legacyRows = await prisma.movement.findMany({
+        where: { storageLocation: { startsWith: prefix } },
+        select: { dateStr: true, group: true, quantity: true },
+        orderBy: { dateStr: 'desc' },
+        take: 500,
+      });
+
+      for (const m of legacyRows) {
+        merge(m.dateStr, m.group, m.quantity);
+      }
+    } else {
+      // ── No gudang filter (admin global view): use aggregated MovementSummary ──
+      const summaryData = await prisma.movementSummary.groupBy({
+        by: ['dateStr', 'group'],
+        _sum: { totalQuantity: true },
+        orderBy: { dateStr: 'desc' },
+        take: 20,
+      });
+
+      for (const d of summaryData) {
+        merge(d.dateStr, d.group, d._sum.totalQuantity || 0);
+      }
+
+      const legacyData = await prisma.movement.groupBy({
+        by: ['dateStr', 'group'],
+        _sum: { quantity: true },
+        orderBy: { dateStr: 'desc' },
+        take: 20,
+      });
+
+      for (const d of legacyData) {
+        merge(d.dateStr, d.group, d._sum.quantity || 0);
+      }
+    }
+
+    const result = Array.from(map.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-5);
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Trend error:", error);
-    return NextResponse.json({ error: "Failed to load trend" }, { status: 500 });
+    return respondError(error);
   }
 }

@@ -39,8 +39,15 @@ export default function SettingsPage() {
   const router = useRouter();
   const [capacities, setCapacities] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  
+  const [newPassword, setNewPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const isAdmin = session?.user?.role === 'admin';
+  const userGudangId = session?.user?.gudangId;
 
-  const [activeModal, setActiveModal] = useState<'capacity' | 'mvt' | 'wc' | 'sloc_exit' | 'penampungan' | null>(null);
+
+  const [activeModal, setActiveModal] = useState<'capacity' | 'mvt' | 'wc' | 'sloc_exit' | 'penampungan' | 'password' | null>(null);
 
   const [customMvts, setCustomMvts] = useState<Record<string, SapMovementType>>({});
   const [disabledCodes, setDisabledCodes] = useState<Set<string>>(new Set());
@@ -94,6 +101,36 @@ export default function SettingsPage() {
     setWcDisabled(loadDisabledWcCodes());
     setSlocExitMap(loadSlocExitMap());
   }, []);
+
+  const handleSavePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError('Password minimal 6 karakter');
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError('');
+    try {
+      const res = await fetch(`/api/users/${session?.user?.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal mengubah password');
+      }
+      setNewPassword('');
+      setActiveModal(null);
+      
+      // Trigger saved notification
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setPasswordError(e.message);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   const handleSave = () => {
     const toStore: Record<string, number> = {};
@@ -262,7 +299,7 @@ export default function SettingsPage() {
       if (!listRes.ok) return;
       const list = await listRes.json();
       if (list.length === 0) return;
-      const latestId = list[0].id;
+      const latestId = list[0].reportSessionId;
       const dataRes = await fetch(`/api/reports/${latestId}`);
       if (!dataRes.ok) return;
       const data = await dataRes.json();
@@ -347,43 +384,47 @@ export default function SettingsPage() {
             </p>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ease: easeOut, delay: 0.05 }}
-            onClick={() => setActiveModal('mvt')}
-            className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-purple-300 transition-all group"
-          >
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-              <History size={18} className="text-white" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Movement Type</h3>
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-              Atur mapping kode movement SAP (101, 261, 311, dll). Tambah, edit, atau nonaktifkan MVT.
-            </p>
-          </motion.div>
+          {isAdmin && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ease: easeOut, delay: 0.05 }}
+              onClick={() => setActiveModal('mvt')}
+              className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-purple-300 transition-all group"
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                <History size={18} className="text-white" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">Movement Type</h3>
+              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                Atur mapping kode movement SAP (101, 261, 311, dll). Tambah, edit, atau nonaktifkan MVT.
+              </p>
+            </motion.div>
+          )}
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ease: easeOut, delay: 0.1 }}
-            onClick={() => { setActiveModal('wc'); fetchWcFromData(); }}
-            className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-emerald-300 transition-all group"
-          >
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-              <Factory size={18} className="text-white" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Work Center</h3>
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-              Atur nama tampilan dan status work center. Nonaktifkan WC untuk menyembunyikan transaksinya.
-            </p>
-          </motion.div>
+          {isAdmin && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ease: easeOut, delay: 0.1 }}
+              onClick={() => { setActiveModal('wc'); fetchWcFromData(); }}
+              className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-emerald-300 transition-all group"
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                <Factory size={18} className="text-white" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">Work Center</h3>
+              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                Atur nama tampilan dan status work center. Nonaktifkan WC untuk menyembunyikan transaksinya.
+              </p>
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ease: easeOut, delay: 0.15 }}
-            onClick={() => setActiveModal('sloc_exit')}
+            onClick={() => { setActiveModal('sloc_exit'); if (!isAdmin && userGudangId) setSlocExitGudang(userGudangId); }}
             className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-amber-300 transition-all group"
           >
             <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
@@ -410,6 +451,22 @@ export default function SettingsPage() {
               Atur SLOC Penampungan. Stok di SLOC ini akan ditandai secara khusus di dashboard.
             </p>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ease: easeOut, delay: 0.25 }}
+            onClick={() => { setActiveModal('password'); setPasswordError(''); setNewPassword(''); }}
+            className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-slate-400 transition-all group"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+              <SettingsIcon size={18} className="text-white" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 mb-1">Ganti Password</h3>
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+              Ubah password untuk akun Anda.
+            </p>
+          </motion.div>
         </div>
 
         {/* ─── Modal: Kapasitas Gudang ─── */}
@@ -430,7 +487,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {GUDANG_LIST.map((g, i) => {
+                {GUDANG_LIST.filter(g => isAdmin || g === `Gudang ${userGudangId}`).map((g, i) => {
                   const val = parseFloat(capacities[g]);
                   const defaultVal = DEFAULT_CAPACITIES[g] ?? 0;
                   const isCustom = !isNaN(val) && val !== defaultVal;
@@ -817,7 +874,7 @@ export default function SettingsPage() {
                   onChange={e => setSlocExitGudang(Number(e.target.value))}
                   className="text-sm font-semibold bg-white border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all"
                 >
-                  {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+                  {Array.from({ length: 14 }, (_, i) => i + 1).filter(n => isAdmin || n === userGudangId).map(n => (
                     <option key={n} value={n}>Gudang {n} ({getGudangPrefix(n)}xx)</option>
                   ))}
                 </select>
@@ -837,6 +894,13 @@ export default function SettingsPage() {
                   const code = slocExitInput.trim().toUpperCase();
                   if (!code) return;
                   const gudang = slocExitGudang;
+                  if (!isAdmin) {
+                    const prefix = getGudangPrefix(gudang);
+                    if (!code.startsWith(prefix)) {
+                      alert(`Kode SLOC harus diawali dengan ${prefix} untuk Gudang ${gudang}`);
+                      return;
+                    }
+                  }
                   const current = slocExitMap[gudang] || [];
                   if (current.includes(code)) return;
                   const updated = { ...slocExitMap, [gudang]: [...current, code] };
@@ -854,7 +918,7 @@ export default function SettingsPage() {
 
           <div className="overflow-x-auto">
             {(() => {
-              const gudangList = Object.keys(slocExitMap).map(Number).sort((a, b) => a - b);
+              const gudangList = Object.keys(slocExitMap).map(Number).filter(g => isAdmin || g === userGudangId).sort((a, b) => a - b);
               if (gudangList.length === 0) {
                 return (
                   <div className="px-6 py-10 text-center text-sm text-slate-400 font-medium">
@@ -943,6 +1007,13 @@ export default function SettingsPage() {
                 onClick={() => {
                   const code = penampunganInput.trim().toUpperCase();
                   if (!code || penampunganSlocs.includes(code)) return;
+                  if (!isAdmin && userGudangId) {
+                    const prefix = getGudangPrefix(userGudangId);
+                    if (!code.startsWith(prefix)) {
+                      alert(`Hanya dapat menambah SLOC untuk Gudang Anda (harus diawali ${prefix})`);
+                      return;
+                    }
+                  }
                   const updated = [...penampunganSlocs, code];
                   setPenampunganSlocs(updated);
                   savePenampunganSlocs(updated);
@@ -957,7 +1028,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            {penampunganSlocs.length === 0 ? (
+            {penampunganSlocs.filter(code => isAdmin || !userGudangId || code.startsWith(getGudangPrefix(userGudangId))).length === 0 ? (
               <div className="px-6 py-10 text-center text-sm text-slate-400 font-medium">
                 Belum ada SLOC Penampungan. Tambahkan kode SLOC di atas.
               </div>
@@ -970,7 +1041,9 @@ export default function SettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {penampunganSlocs.map((code, i) => (
+                  {penampunganSlocs
+                  .filter(code => isAdmin || !userGudangId || code.startsWith(getGudangPrefix(userGudangId)))
+                  .map((code, i) => (
                     <tr key={code} className={`border-b border-slate-50 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                       <td className="px-6 py-2.5 font-mono font-bold text-slate-800">{code}</td>
                       <td className="px-6 py-2.5 text-right">
@@ -992,6 +1065,42 @@ export default function SettingsPage() {
             )}
           </div>
         </SettingsModal>
+      
+        {/* ─── Modal: Ganti Password ─── */}
+        <SettingsModal
+          open={activeModal === 'password'}
+          onClose={() => setActiveModal(null)}
+          title="Ganti Password"
+          subtitle="Ubah password akun Anda."
+        >
+          <div className="p-6 bg-slate-50/50">
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
+                {passwordError}
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Password Baru</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Minimal 6 karakter"
+              />
+            </div>
+          </div>
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end">
+            <button
+              onClick={handleSavePassword}
+              disabled={savingPassword}
+              className="text-xs font-semibold text-white bg-blue-600 rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {savingPassword ? 'Menyimpan...' : <><Save size={12} /> Simpan Password</>}
+            </button>
+          </div>
+        </SettingsModal>
+
       </div>
     </div>
   );

@@ -7,20 +7,24 @@ export const authConfig = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.id = user.id;
         token.role = (user as any).role;
+        token.gudangId = (user as any).gudangId ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = token.role;
+        session.user.id = token.id as string;
+        session.user.role = (token.role as "admin" | "user") ?? "user";
+        session.user.gudangId = (token.gudangId as number | null) ?? null;
       }
       return session;
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname === "/login";
-      
+
       if (nextUrl.pathname.startsWith("/api/auth")) return true;
 
       if (isOnLogin) {
@@ -28,7 +32,6 @@ export const authConfig = {
         return true;
       }
 
-      // If not logged in, NextAuth will automatically redirect to pages.signIn ("/login")
       return isLoggedIn;
     },
   },

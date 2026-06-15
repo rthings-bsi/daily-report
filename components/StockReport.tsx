@@ -6,25 +6,46 @@ import { Zap, Clock, MapPin, Box } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { loadPenampunganSlocs, isPenampunganSloc } from '@/lib/gudang';
 
+export interface StockSummaryBucket {
+  count: number;
+  totalTon: number;
+}
+
+export interface StockReportSummary {
+  fast: StockSummaryBucket;
+  slow: StockSummaryBucket;
+  penampungan: StockSummaryBucket;
+}
+
 interface StockReportProps {
   data: ProcessedStock[];
+  /**
+   * Pre-aggregated Fast/Slow/Penampungan counts from the server-side
+   * StockSummary rows. When provided, the component skips its own
+   * client-side filter+reduce — useful for sessions with thousands of
+   * stock rows where the aggregation is already on the wire.
+   */
+  summary?: StockReportSummary;
   condensed?: boolean;
 }
 
-export const StockReport: React.FC<StockReportProps> = ({ data, condensed = false }) => {
+export const StockReport: React.FC<StockReportProps> = ({ data, summary: summaryProp, condensed = false }) => {
   const penampunganList = React.useMemo(() => loadPenampunganSlocs(), []);
 
   const inPenampungan = React.useMemo(() => {
+    if (summaryProp) return []; // unused when summary prop is provided
     if (penampunganList.length === 0) return [];
     return data.filter(s => isPenampunganSloc(s.sloc));
-  }, [data, penampunganList]);
+  }, [data, penampunganList, summaryProp]);
 
   const nonPenampungan = React.useMemo(() => {
+    if (summaryProp) return []; // unused when summary prop is provided
     if (penampunganList.length === 0) return data;
     return data.filter(s => !isPenampunganSloc(s.sloc));
-  }, [data, penampunganList]);
+  }, [data, penampunganList, summaryProp]);
 
-  const summary = React.useMemo(() => {
+  const summary: StockReportSummary = React.useMemo(() => {
+    if (summaryProp) return summaryProp;
     const fast = nonPenampungan.filter(s => s.status === 'Fast Moving');
     const slow = nonPenampungan.filter(s => s.status === 'Slow Moving');
     return {
@@ -41,7 +62,7 @@ export const StockReport: React.FC<StockReportProps> = ({ data, condensed = fals
         totalTon: inPenampungan.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
       },
     };
-  }, [nonPenampungan, inPenampungan]);
+  }, [nonPenampungan, inPenampungan, summaryProp]);
 
   if (data.length === 0) return null;
 

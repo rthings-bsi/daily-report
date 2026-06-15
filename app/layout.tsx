@@ -3,6 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { SidebarProvider } from "@/components/SidebarContext";
+import { SettingsProvider } from "@/components/SettingsProvider";
 import LayoutContent from "@/components/LayoutContent";
 
 const inter = Inter({
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-50 font-sans">
         <SessionProvider>
           <SidebarProvider>
-            <LayoutContent>{children}</LayoutContent>
+            <SettingsProvider>
+              <LayoutContent>{children}</LayoutContent>
+            </SettingsProvider>
           </SidebarProvider>
         </SessionProvider>
       </body>

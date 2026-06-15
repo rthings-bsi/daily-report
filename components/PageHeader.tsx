@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 interface PageHeaderProps {
   icon: React.ElementType;
@@ -12,35 +13,47 @@ interface PageHeaderProps {
   children?: React.ReactNode;
 }
 
+const spring = { type: 'spring' as const, stiffness: 200, damping: 22, mass: 0.8 };
+
 export const PageHeader: React.FC<PageHeaderProps> = ({
   icon: Icon,
-  iconBg = 'bg-gradient-to-br from-slate-800 to-slate-900',
+  iconBg,
   title,
   subtitle,
   className,
   children,
 }) => (
-  <header className={cn(
-    'sticky top-0 z-50',
-    'bg-white/70 backdrop-blur-2xl',
-    'border-b border-slate-200/50',
-    'shadow-[0_1px_3px_0_rgb(0,0,0,0.02),0_1px_2px_-1px_rgb(0,0,0,0.03)]',
-    className
-  )}>
+  <motion.header
+    initial={{ y: -16, opacity: 0 }}
+    animate={{ y: 0, opacity: 1 }}
+    transition={spring}
+    className={cn(
+      'sticky top-0 z-50',
+      'bg-white/70 backdrop-blur-2xl',
+      'border-b border-[#C4E2F5]/40',
+      'shadow-sm shadow-[#1591DC]/5',
+      className
+    )}
+  >
     <div className="max-w-[1700px] mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-4">
       {/* ─── Left: Title ─── */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className={cn(
-          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
-          'shadow-sm',
-          iconBg
-        )}>
-          <Icon size={15} className="text-white" strokeWidth={2.2} />
-        </div>
+        <motion.div
+          initial={{ rotate: -8, scale: 0.85 }}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ type: 'spring' as const, stiffness: 280, damping: 14, mass: 0.7 }}
+          className={cn(
+            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm',
+            iconBg || 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]'
+          )}
+        >
+          <div className="absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_60%)] pointer-events-none" />
+          <Icon size={15} className="text-white relative" strokeWidth={2.2} />
+        </motion.div>
         <div className="min-w-0">
-          <h1 className="text-[15px] font-bold text-slate-900 truncate tracking-tight leading-none">{title}</h1>
+          <h1 className="text-[15px] font-bold text-[#2C5EAD] truncate tracking-tight leading-none">{title}</h1>
           {subtitle && (
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate leading-none">{subtitle}</p>
+            <p className="text-[11px] text-[#1591DC]/60 font-medium mt-0.5 truncate leading-none">{subtitle}</p>
           )}
         </div>
       </div>
@@ -50,5 +63,5 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {children}
       </div>
     </div>
-  </header>
+  </motion.header>
 );

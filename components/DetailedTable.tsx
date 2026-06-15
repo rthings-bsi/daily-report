@@ -81,7 +81,7 @@ export const DetailedTable: React.FC<DetailedTableProps> = ({ data }) => {
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {paginatedData.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+              <tr key={item.movementId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                 <td className="px-8 py-6 text-sm text-slate-600 dark:text-slate-400 font-medium">
                   {item.postingDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </td>

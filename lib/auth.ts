@@ -24,7 +24,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!valid) return null;
 
-        return { id: user.id, name: user.username, role: user.role };
+        return {
+          id: user.userId,
+          name: user.username,
+          role: user.role as "admin" | "user",
+          gudangId: user.gudangId,
+        };
       },
     }),
   ],

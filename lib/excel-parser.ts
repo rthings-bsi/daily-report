@@ -61,7 +61,7 @@ export interface RawSapData {
 }
 
 export interface ProcessedMovement {
-  id: string;
+  movementId: string;
   postingDate: Date;
   dateStr: string;
   moveType: string;
@@ -75,6 +75,7 @@ export interface ProcessedMovement {
   storageLocation: string;
   color: string;
   movementStatus: 'Fast' | 'Slow' | 'Unknown';
+  material?: string;
 }
 
 export interface ProcessedStock {
@@ -203,7 +204,7 @@ export function parseSapBuffer(buffer: ArrayBufferLike): ExcelParseResult {
   };
 
   const movementJson = parseSheet(workbook.Sheets[movementSheetName] || workbook.Sheets[workbook.SheetNames[0]]);
-  const movements: ProcessedMovement[] = movementJson.map((row: any, index: number) => {
+  const movements = movementJson.map((row: any, index: number) => {
     const moveCode = String(getValFromRow(row, ['Movement Type', 'Mvt Type', 'MvT', 'Move ment Type', 'Mvtype']) || '').trim();
     let rawDate = getValFromRow(row, ['Posting Date', 'Pstng Date', 'Pst Date']);
     if (!rawDate) {
@@ -278,7 +279,7 @@ export function parseSapBuffer(buffer: ArrayBufferLike): ExcelParseResult {
     const dateObj = new Date(Date.UTC(yyyy, mm2 - 1, dd2));
 
     return {
-      id: `move-${index}-${Date.now()}`,
+      movementId: `move-${index}-${Date.now()}`,
       postingDate: dateObj,
       dateStr: formatDateToYMD(dateObj),
       moveType: moveCode,
@@ -292,8 +293,9 @@ export function parseSapBuffer(buffer: ArrayBufferLike): ExcelParseResult {
       storageLocation: storageLocation,
       color: baseMoveInfo.color,
       movementStatus: classifyBatch(String(getValFromRow(row, ['Batch', 'Batch Number']) || '')),
+      material: String(getValFromRow(row, ['Material', 'Material Number', 'Material No']) || '').trim() || undefined,
     };
-  }).filter((item): item is ProcessedMovement => item !== null);
+  }).filter(Boolean) as ProcessedMovement[];
 
   let stocks: ProcessedStock[] = [];
   let stockCards: StockCardItem[] = [];

@@ -57,7 +57,7 @@ interface StockCardDisplay {
 }
 
 interface SessionData {
-  id: string;
+  reportSessionId: string;
   label: string;
   stocks: StockItem[];
   movements: MovementItem[];
@@ -140,7 +140,7 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
 export default function AnalyticsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [sessions, setSessions] = useState<{ id: string; label: string }[]>([]);
+  const [sessions, setSessions] = useState<{ reportSessionId: string; label: string }[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [data, setData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +158,7 @@ export default function AnalyticsPage() {
       .then(r => r.json())
       .then(list => {
         setSessions(list);
-        if (list.length > 0) setSelectedId(list[0].id);
+        if (list.length > 0) setSelectedId(list[0].reportSessionId);
       })
       .catch(() => {});
   }, []);
@@ -177,7 +177,7 @@ export default function AnalyticsPage() {
           return { ...s, tonnage: t };
         });
         setData({
-          id: d.id,
+          reportSessionId: d.reportSessionId,
           label: d.label,
           stocks: stocks,
           movements: (d.movements || []).map((m: any) => ({
@@ -325,23 +325,25 @@ export default function AnalyticsPage() {
         <span className="h-8 hidden sm:inline-flex items-center px-2.5 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg">
           {data?.label || '-'}
         </span>
-        <select
-          value={activeGudang ?? ''}
-          onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
-          className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors cursor-pointer"
-        >
-          <option value="">Semua Gudang</option>
-          {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
-            <option key={n} value={n}>Gudang {n}{n === sessionGudang ? ' (saya)' : ''}</option>
-          ))}
-        </select>
+        {session?.user?.role === 'admin' && (
+          <select
+            value={activeGudang ?? ''}
+            onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
+            className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors cursor-pointer"
+          >
+            <option value="">Semua Gudang</option>
+            {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+              <option key={n} value={n}>Gudang {n}{n === sessionGudang ? ' (saya)' : ''}</option>
+            ))}
+          </select>
+        )}
         <select
           value={selectedId || ''}
           onChange={e => setSelectedId(e.target.value)}
           className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors cursor-pointer"
         >
           {sessions.map(s => (
-            <option key={s.id} value={s.id}>{s.label}</option>
+            <option key={s.reportSessionId} value={s.reportSessionId}>{s.label}</option>
           ))}
         </select>
       </PageHeader>
