@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { aggregateSessionData } from "@/lib/aggregation";
+import { filterByGudang, getGudangPrefix } from "@/lib/gudang";
 import { buildGudangWhere, requireUserContext, respondError } from "@/lib/api-helpers";
 
 // GET /api/reports — list sessions visible to the caller
@@ -43,7 +44,22 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { label, dateStr, fileName, movements, stocks, stockCards } = body;
 
+  
   try {
+    let filteredMovements = movements;
+    let filteredStocks = stocks;
+    let filteredStockCards = stockCards;
+
+    // Securely filter incoming data so users only save their own gudang's data
+    if (!ctx.isAdmin && ctx.gudangId) {
+      filteredMovements = filterByGudang(movements, ctx.gudangId);
+      const prefix = getGudangPrefix(ctx.gudangId);
+      filteredStocks = stocks.filter((s: any) => (s.sloc || '').toUpperCase().startsWith(prefix));
+      if (filteredStockCards) {
+        filteredStockCards = filteredStockCards.filter((sc: any) => (sc.sloc || '').toUpperCase().startsWith(prefix));
+      }
+    }
+
     const {
       movementSummaries,
       stockSummaries,
@@ -51,7 +67,11 @@ export async function POST(req: NextRequest) {
       rawStocks,
       stats,
       stockCardsJson,
-    } = aggregateSessionData({ movements, stocks, stockCards });
+    } = aggregateSessionData({ 
+      movements: filteredMovements, 
+      stocks: filteredStocks, 
+      stockCards: filteredStockCards 
+    });
 
     // Stamp gudang: non-admin must have a gudang; admin without one → null
     // (so the session becomes "unscoped" and only admin can see it).
