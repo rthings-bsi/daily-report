@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { UploadCard } from '@/components/UploadCard';
 import { ArchiveTable } from '@/components/ArchiveTable';
 import { PageHeader } from '@/components/PageHeader';
-import { FileUp, Printer, Check, LogOut } from 'lucide-react';
+import { FileUp, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
 import { ProcessedMovement, ProcessedStock } from '@/lib/excel-parser';
 import { motion } from 'framer-motion';
 
@@ -83,48 +82,29 @@ export default function UploadPage() {
   }, [activeSessionId, router]);
 
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      <PageHeader icon={FileUp} title="Upload Data" subtitle="Import file Excel dari SAP" className="print:hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">
+      <PageHeader icon={FileUp} title="Sikronisasi Data" subtitle="Import file raw export dari SAP" className="print:hidden">
         {(saving || saved) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-[11px] font-semibold ${
-              saving ? 'text-sky-600 bg-sky-50' : 'text-emerald-600 bg-emerald-50'
+            className={`flex items-center gap-1.5 px-3 h-8 rounded-xl text-[10px] font-bold ${
+              saving ? 'text-[#1591DC] bg-[#C4E2F5]/40 border border-[#4BB8FA]/20' : 'text-emerald-600 bg-emerald-50 border border-emerald-100'
             }`}
           >
             {saving ? (
-              <div className="w-3 h-3 border-[2px] border-sky-200 border-t-sky-600 rounded-full animate-spin" />
+              <div className="w-3 h-3 border-[2px] border-[#4BB8FA]/30 border-t-[#1591DC] rounded-full animate-spin" />
             ) : (
-              <Check size={12} strokeWidth={2.5} />
+              <Check size={12} strokeWidth={3} />
             )}
-            {saving ? 'Menyimpan...' : 'Tersimpan'}
+            {saving ? 'Mensinkronisasi...' : 'Tersimpan'}
           </motion.div>
         )}
 
-        <button
-          onClick={() => window.print()}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg hover:bg-white hover:border-slate-300 transition-all duration-200"
-          aria-label="Cetak"
-        >
-          <Printer size={13} />
-          <span className="hidden sm:inline">Cetak</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-200/60" />
-
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all duration-200"
-          aria-label="Keluar"
-        >
-          <LogOut size={13} />
-          <span className="hidden sm:inline">Keluar</span>
-        </button>
       </PageHeader>
 
       {/* Content */}
-      <div className="max-w-[1600px] mx-auto px-5 py-5 space-y-5">
+      <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
         <UploadCard
           onDataLoaded={async (data) => {
             await saveToDb(data.movements, data.stocks, 'uploaded-file', data.stockCards);

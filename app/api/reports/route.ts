@@ -5,12 +5,12 @@ import { filterByGudang, getGudangPrefix } from "@/lib/gudang";
 import { buildGudangWhere, requireUserContext, respondError } from "@/lib/api-helpers";
 
 // GET /api/reports — list sessions visible to the caller
-// Admin sees all; non-admin sees own gudang (and null = legacy/unscoped).
+// Admin sees all; non-admin sees own gudang strictly.
 export async function GET() {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
 
-  const where = buildGudangWhere(ctx, undefined, { includeNull: true });
+  const where = buildGudangWhere(ctx);
 
   const sessions = await prisma.reportSession.findMany({
     where,
@@ -54,9 +54,15 @@ export async function POST(req: NextRequest) {
     if (!ctx.isAdmin && ctx.gudangId) {
       filteredMovements = filterByGudang(movements, ctx.gudangId);
       const prefix = getGudangPrefix(ctx.gudangId);
-      filteredStocks = stocks.filter((s: any) => (s.sloc || '').toUpperCase().startsWith(prefix));
+      filteredStocks = stocks.filter((s: any) => {
+        const sloc = (s.sloc || '').toUpperCase();
+        return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+      });
       if (filteredStockCards) {
-        filteredStockCards = filteredStockCards.filter((sc: any) => (sc.sloc || '').toUpperCase().startsWith(prefix));
+        filteredStockCards = filteredStockCards.filter((sc: any) => {
+          const sloc = (sc.sloc || '').toUpperCase();
+          return sloc.startsWith(prefix) || sc.status === 'Sloc Penampungan';
+        });
       }
     }
 
@@ -93,6 +99,36 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ reportSessionId: reportSession.reportSessionId });
+  } catch (err) {
+    return respondError(err);
+  }
+}
+
+// DELETE /api/reports — bulk delete sessions (Admin only)
+export async function DELETE(req: NextRequest) {
+  const ctx = await requireUserContext();
+  if (ctx instanceof NextResponse) return ctx;
+
+  if (!ctx.isAdmin) {
+    return NextResponse.json({ error: "Only admins can perform bulk delete" }, { status: 403 });
+  }
+
+  try {
+    const body = await req.json();
+    const { ids } = body as { ids: string[] };
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "Invalid IDs array" }, { status: 400 });
+    }
+
+    // Execute bulk deletion directly in database
+    const result = await prisma.reportSession.deleteMany({
+      where: {
+        reportSessionId: { in: ids },
+      },
+    });
+
+    return NextResponse.json({ ok: true, deletedCount: result.count });
   } catch (err) {
     return respondError(err);
   }

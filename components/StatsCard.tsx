@@ -35,24 +35,36 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     switch (type) {
       case 'in':
         return {
-          bg: 'bg-emerald-50',
-          icon: 'text-emerald-600',
-          border: 'border-l-emerald-500',
-          badge: 'bg-emerald-500',
+          bg: 'bg-emerald-50/50',
+          gradient: 'from-emerald-400/20 via-emerald-100/5 to-transparent',
+          iconBg: 'bg-emerald-500',
+          iconShadow: 'shadow-emerald-500/30',
+          text: 'text-emerald-900',
+          ring: 'border-emerald-200/60',
+          hoverRing: 'hover:border-emerald-400/50 hover:shadow-emerald-500/10',
+          glow: 'bg-emerald-400',
         };
       case 'out':
         return {
-          bg: 'bg-rose-50',
-          icon: 'text-rose-600',
-          border: 'border-l-rose-500',
-          badge: 'bg-rose-500',
+          bg: 'bg-rose-50/50',
+          gradient: 'from-rose-400/20 via-rose-100/5 to-transparent',
+          iconBg: 'bg-rose-500',
+          iconShadow: 'shadow-rose-500/30',
+          text: 'text-rose-900',
+          ring: 'border-rose-200/60',
+          hoverRing: 'hover:border-rose-400/50 hover:shadow-rose-500/10',
+          glow: 'bg-rose-400',
         };
       default:
         return {
-          bg: 'bg-indigo-50',
-          icon: 'text-indigo-600',
-          border: 'border-l-indigo-500',
-          badge: 'bg-indigo-500',
+          bg: 'bg-[#C4E2F5]/30',
+          gradient: 'from-[#1591DC]/20 via-[#4BB8FA]/5 to-transparent',
+          iconBg: 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]',
+          iconShadow: 'shadow-[#1591DC]/30',
+          text: 'text-[#2C5EAD]',
+          ring: 'border-[#C4E2F5]/80',
+          hoverRing: 'hover:border-[#4BB8FA]/60 hover:shadow-[#1591DC]/10',
+          glow: 'bg-[#1591DC]',
         };
     }
   };
@@ -60,50 +72,60 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   const styles = getColorStyles();
   const Icon = getIcon();
 
+  const CardContent = () => (
+    <>
+      {/* Decorative Gradient Background */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${styles.gradient} opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+
+      {/* Subtle Glow Dot */}
+      <div className={`absolute -right-4 -top-4 w-20 h-20 ${styles.glow} rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-500`} />
+
+      <div className="flex items-start justify-between relative z-10 w-full">
+        <div className={condensed ? 'space-y-1' : 'space-y-2'}>
+          <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold text-slate-500 uppercase tracking-widest`}>
+            {title}
+          </p>
+          <div className="flex items-baseline gap-1.5">
+            <h3
+              className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black ${styles.text} tabular-nums tracking-tighter`}
+            >
+              {value}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{unit}</span>
+          </div>
+          {!condensed && subtitle && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${styles.glow} animate-pulse`} />
+              <p className="text-[11px] font-bold text-slate-500">{subtitle}</p>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={`${condensed ? 'p-2' : 'p-2.5'} rounded-xl ${styles.iconBg} shadow-lg ${styles.iconShadow} group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex-shrink-0 relative overflow-hidden`}
+        >
+          <div className="absolute inset-0 bg-white/20 w-1/2 h-full skew-x-12 translate-x-[-150%] group-hover:translate-x-[250%] transition-transform duration-700 ease-in-out" />
+          <Icon size={condensed ? 16 : 20} className="text-white" strokeWidth={3} />
+        </div>
+      </div>
+    </>
+  );
+
+  const containerClasses = `relative flex overflow-hidden bg-white/80 backdrop-blur-xl border ${styles.ring} ${styles.hoverRing} shadow-sm transition-all duration-300 group ${condensed ? 'rounded-2xl p-4' : 'rounded-3xl p-5'}`;
+
   if (onClick) {
     return (
       <motion.button
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -3, scale: 1.015 }}
-        whileTap={{ scale: 0.985 }}
+        whileHover={{ y: -4, scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
         transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
         onClick={onClick}
         type="button"
-        className={`relative overflow-hidden bg-white border border-slate-200 border-l-4 ${styles.border} shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer ${condensed ? 'rounded-2xl p-4' : 'rounded-2xl p-6'}`}
+        className={`${containerClasses} cursor-pointer text-left`}
       >
-        {/* Subtle BG on hover */}
-        <div
-          className={`absolute inset-0 ${styles.bg} opacity-0 group-hover:opacity-30 transition-opacity duration-500 pointer-events-none`}
-        />
-
-        <div className="flex items-start justify-between relative z-10">
-          <div className={condensed ? 'space-y-2' : 'space-y-3'}>
-            <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold text-slate-400 uppercase tracking-widest`}>
-              {title}
-            </p>
-            <div className="flex items-baseline gap-2">
-              <h3
-                className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black text-slate-900 tabular-nums tracking-tight`}
-              >
-                {value}
-              </h3>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{unit}</span>
-            </div>
-            {!condensed && subtitle && (
-              <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${styles.badge} animate-pulse`} />
-                <p className="text-xs font-medium text-slate-400">{subtitle}</p>
-              </div>
-            )}
-          </div>
-
-          <div
-            className={`${condensed ? 'p-2.5 rounded-xl' : 'p-3.5 rounded-2xl'} ${styles.bg} group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}
-          >
-            <Icon size={condensed ? 18 : 22} className={styles.icon} strokeWidth={2.5} />
-          </div>
-        </div>
+        <CardContent />
       </motion.button>
     );
   }
@@ -112,42 +134,11 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3, scale: 1.015 }}
+      whileHover={{ y: -4, scale: 1.01 }}
       transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
-      className={`relative overflow-hidden bg-white border border-slate-200 border-l-4 ${styles.border} shadow-sm hover:shadow-lg transition-all duration-300 group ${condensed ? 'rounded-2xl p-4' : 'rounded-2xl p-6'}`}
+      className={containerClasses}
     >
-      {/* Subtle BG on hover */}
-      <div
-        className={`absolute inset-0 ${styles.bg} opacity-0 group-hover:opacity-30 transition-opacity duration-500 pointer-events-none`}
-      />
-
-      <div className="flex items-start justify-between relative z-10">
-        <div className={condensed ? 'space-y-2' : 'space-y-3'}>
-          <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold text-slate-400 uppercase tracking-widest`}>
-            {title}
-          </p>
-          <div className="flex items-baseline gap-2">
-            <h3
-              className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black text-slate-900 tabular-nums tracking-tight`}
-            >
-              {value}
-            </h3>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{unit}</span>
-          </div>
-          {!condensed && subtitle && (
-            <div className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${styles.badge} animate-pulse`} />
-              <p className="text-xs font-medium text-slate-400">{subtitle}</p>
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`${condensed ? 'p-2.5 rounded-xl' : 'p-3.5 rounded-2xl'} ${styles.bg} group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}
-        >
-          <Icon size={condensed ? 18 : 22} className={styles.icon} strokeWidth={2.5} />
-        </div>
-      </div>
+      <CardContent />
     </motion.div>
   );
 };

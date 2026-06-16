@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  FileUp, Printer, LayoutDashboard, Layout,
-  Upload, Check, X,
+  FileUp, LayoutDashboard, Layout, TrendingUp,
+  Upload, Check, X, Filter,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
@@ -18,6 +18,7 @@ import { SortableGrid, SortableItem } from '@/components/SortableGrid';
 import { PageHeader } from '@/components/PageHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut, useSession } from 'next-auth/react';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 // ─── Types ───
 interface HistorySession {
@@ -55,7 +56,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [reportMode, setReportMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'dashboard' | 'report' | 'analytics'>('dashboard');
+  const [filterOpen, setFilterOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
   const [startDate, setStartDate] = useState('');
@@ -107,7 +109,10 @@ export default function Home() {
     if (!selectedGudang || !stocks.length) return stocks;
     const prefix = getGudangPrefix(selectedGudang);
     if (!prefix) return stocks;
-    return stocks.filter(s => (s.sloc || '').toUpperCase().startsWith(prefix));
+    return stocks.filter(s => {
+      const sloc = (s.sloc || '').toUpperCase();
+      return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+    });
   }, [stocks, selectedGudang]);
 
   const filteredStats = useMemo(() => {
@@ -410,117 +415,138 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">
       <PageHeader icon={LayoutDashboard} title="Warehouse" subtitle="Dashboard gudang SPINDO" className="print:hidden">
 
-        {/* ─── Gudang Select (admin can switch; non-admin locked to own) ─── */}
-        {session?.user?.role === 'admin' && (
-          <select
-            value={selectedGudang ?? ''}
-            onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
-          className="h-8 text-[11px] font-semibold text-[#2C5EAD] bg-white/70 border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/25 cursor-pointer hover:bg-white transition-all"
-        >
-          <option value="">🌐 Semua Gudang</option>
-          {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
-            <option key={n} value={n}>📍 Gudang {n}{n === sessionGudang ? ' ★' : ''}</option>
-          ))}
-        </select>
-        )}
+        {/* ─── Collapsible Filters ─── */}
+        <div className="relative hidden sm:block mr-2">
+          <button
+            onClick={() => setFilterOpen(!filterOpen)}
+            className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[10px] font-bold border transition-all shadow-sm ${
+              selectedGudang || startDate || endDate
+                ? 'bg-[#1591DC] text-white border-[#1591DC] hover:bg-[#2C5EAD]'
+                : 'text-[#1591DC] bg-white/80 border-[#C4E2F5]/60 hover:bg-white hover:border-[#4BB8FA]/50'
+            }`}
+            title="Filter"
+          >
+            <Filter size={12} strokeWidth={2.5} />
+            <span className="hidden lg:inline">Filter</span>
+            {(selectedGudang || startDate || endDate) && (
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-black">
+                {(selectedGudang ? 1 : 0) + ((startDate || endDate) ? 1 : 0)}
+              </span>
+            )}
+          </button>
 
-        {/* ─── Date Filter ─── */}
-        <div className="flex items-center gap-1 h-8 bg-white/70 border border-[#C4E2F5]/50 rounded-xl px-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            className="h-full text-[10px] font-medium text-[#2C5EAD] bg-transparent border-none outline-none w-24 lg:w-28 cursor-pointer [color-scheme:light]"
-          />
-          <span className="text-[9px] text-[#4BB8FA] font-semibold">→</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-            className="h-full text-[10px] font-medium text-[#2C5EAD] bg-transparent border-none outline-none w-24 lg:w-28 cursor-pointer [color-scheme:light]"
-          />
-          {(startDate || endDate) && (
-            <button
-              onClick={() => { setStartDate(''); setEndDate(''); }}
-              className="p-1 text-[#1591DC] hover:text-[#2C5EAD] rounded-md hover:bg-white/60 transition-all"
-            >
-              <X size={12} strokeWidth={2.5} />
-            </button>
+          {filterOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl shadow-xl shadow-[#1591DC]/10 p-4 min-w-[260px] space-y-3">
+                <p className="text-[9px] font-bold text-[#2C5EAD]/50 uppercase tracking-widest">Filter Data</p>
+
+                {session?.user?.role === 'admin' && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-[#2C5EAD]/70 mb-1 block">Gudang</label>
+                    <select
+                      value={selectedGudang ?? ''}
+                      onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full h-8 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-3 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm"
+                    >
+                      <option value="">Semua Gudang</option>
+                      {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+                        <option key={n} value={n}>Gudang {n}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-semibold text-[#2C5EAD]/70 mb-1 block">Rentang Tanggal</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="flex-1 h-8 text-[10px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 shadow-sm"
+                    />
+                    <span className="text-[10px] text-[#1591DC]/30 font-bold">–</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="flex-1 h-8 text-[10px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                {(selectedGudang || startDate || endDate) && (
+                  <button
+                    onClick={() => { setSelectedGudang(null); setStartDate(''); setEndDate(''); setFilterOpen(false); }}
+                    className="w-full h-7 text-[10px] font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <X size={12} strokeWidth={3} /> Reset Filter
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          accept=".xlsx, .xls"
-          className="hidden"
-        />
+        <div className="w-px h-5 bg-[#C4E2F5]/50 mx-1 hidden sm:block" />
 
-        {/* ─── Saving / Saved indicator ─── */}
-        <AnimatePresence>
-          {(saving || saved) && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className={`flex items-center gap-1 px-2.5 h-8 rounded-xl text-[10px] font-bold ${
-                saving
-                  ? 'text-[#1591DC] bg-[#C4E2F5]/40'
-                  : 'text-emerald-600 bg-emerald-50'
+        {/* ─── Actions Group ─── */}
+        <div className="flex items-center gap-2 p-1 bg-white/40 border border-[#C4E2F5]/60 rounded-xl">
+          <div className="flex bg-white border border-[#C4E2F5]/50 rounded-lg p-0.5 shadow-sm">
+            <button
+              onClick={() => setViewMode('dashboard')}
+              className={`h-6 px-3 rounded-md text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'dashboard'
+                  ? 'bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] text-white shadow-sm shadow-[#1591DC]/20'
+                  : 'text-[#1591DC] hover:bg-[#C4E2F5]/20'
               }`}
             >
-              {saving ? (
-                <div className="w-3 h-3 border-[2px] border-[#4BB8FA]/30 border-t-[#1591DC] rounded-full animate-spin" />
-              ) : (
-                <Check size={12} strokeWidth={2.5} />
-              )}
-              {saving ? 'Menyimpan...' : 'Tersimpan'}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="w-px h-5 bg-[#C4E2F5]/50" />
-
-        {/* ─── Buttons ─── */}
-        <motion.button
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-          onClick={() => fileInputRef.current?.click()}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold text-[#1591DC] bg-white/70 border border-[#C4E2F5]/50 rounded-xl hover:bg-white hover:border-[#4BB8FA]/40 transition-all"
-        >
-          <FileUp size={13} strokeWidth={2} />
-          <span className="hidden sm:inline">Upload</span>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-          onClick={() => setReportMode(!reportMode)}
-          className={`h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold rounded-xl transition-all duration-200 ${
-            reportMode
-              ? 'bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] text-white shadow-sm shadow-[#1591DC]/20'
-              : 'text-[#1591DC] bg-white/70 border border-[#C4E2F5]/50 hover:bg-white hover:border-[#4BB8FA]/40'
-          }`}
-        >
-          {reportMode ? <LayoutDashboard size={13} strokeWidth={2} /> : <Layout size={13} strokeWidth={2} />}
-          <span className="hidden sm:inline">{reportMode ? 'Dashboard' : 'Report'}</span>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-          onClick={() => window.print()}
-          className="h-8 inline-flex items-center gap-1.5 px-3 text-[11px] font-semibold text-white bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] rounded-xl hover:from-[#4BB8FA] hover:to-[#1591DC] shadow-sm shadow-[#1591DC]/20 transition-all"
-        >
-          <Printer size={13} strokeWidth={2} />
-          <span className="hidden sm:inline">Cetak</span>
-        </motion.button>
+              <LayoutDashboard size={12} strokeWidth={viewMode === 'dashboard' ? 2.5 : 2} />
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
+            <button
+              onClick={() => setViewMode('report')}
+              className={`h-6 px-3 rounded-md text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'report'
+                  ? 'bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] text-white shadow-sm shadow-[#1591DC]/20'
+                  : 'text-[#1591DC] hover:bg-[#C4E2F5]/20'
+              }`}
+            >
+              <Layout size={12} strokeWidth={viewMode === 'report' ? 2.5 : 2} />
+              <span className="hidden sm:inline">Report</span>
+            </button>
+            <button
+              onClick={() => setViewMode('analytics')}
+              className={`h-6 px-3 rounded-md text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'analytics'
+                  ? 'bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] text-white shadow-sm shadow-[#1591DC]/20'
+                  : 'text-[#1591DC] hover:bg-[#C4E2F5]/20'
+              }`}
+            >
+              <TrendingUp size={12} strokeWidth={viewMode === 'analytics' ? 2.5 : 2} />
+              <span className="hidden sm:inline">Analytics</span>
+            </button>
+          </div>
+        </div>
       </PageHeader>
 
       {/* ─── Page Content ─── */}
       <div ref={contentRef} className="max-w-[1700px] mx-auto px-3 sm:px-5 lg:px-6 py-3 sm:py-5 lg:py-6">
         <AnimatePresence mode="wait">
 
-          {/* ═══════════ COMPACT / PRESENTER MODE ═══════════ */}
-          {reportMode ? (
+          {/* ═══════════ ANALYTICS MODE ═══════════ */}
+          {viewMode === 'analytics' ? (
+            <motion.div
+              key="analytics"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            >
+              <AnalyticsDashboard />
+            </motion.div>
+          ) : viewMode === 'report' ? (
             <motion.div
               key="report"
               initial={{ opacity: 0, y: 8 }}

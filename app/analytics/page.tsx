@@ -73,7 +73,7 @@ interface GudangData {
   warning?: boolean;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+const COLORS = ['#1591DC', '#2C5EAD', '#4BB8FA', '#10b981', '#f59e0b', '#06b6d4', '#f97316', '#a855f7'];
 
 const SLOC_TO_GUDANG: Record<string, string> = {
   '5A': 'Gudang 1',
@@ -148,8 +148,6 @@ export default function AnalyticsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-
-  
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       if (session.user.role !== 'admin' && session.user.gudangId) {
@@ -185,6 +183,7 @@ export default function AnalyticsPage() {
           t = t / 1000;
           return { ...s, tonnage: t };
         });
+
         setData({
           reportSessionId: d.reportSessionId,
           label: d.label,
@@ -214,7 +213,10 @@ export default function AnalyticsPage() {
   const enabledStocks = useMemo(() => {
     if (!data || !activeGudang) return data?.stocks || [];
     const prefix = '5' + String.fromCharCode(64 + activeGudang);
-    return data.stocks.filter(s => (s.sloc || '').toUpperCase().startsWith(prefix));
+    return data.stocks.filter(s => {
+      const sloc = (s.sloc || '').toUpperCase();
+      return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+    });
   }, [data, activeGudang]);
 
   const gudangData = useMemo((): GudangData[] => {
@@ -329,32 +331,32 @@ export default function AnalyticsPage() {
   if (status === 'unauthenticated') return null;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 selection:bg-indigo-200">
+    <div className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">
       <PageHeader icon={TrendingUp} title="Analytics" subtitle="Analisis kapasitas & utilisasi gudang">
-        <span className="h-8 hidden sm:inline-flex items-center px-2.5 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg">
-          {data?.label || '-'}
-        </span>
-        {session?.user?.role === 'admin' && (
+        <div className="flex items-center gap-2 p-1 bg-white/40 border border-[#C4E2F5]/60 rounded-xl mr-2">
+          {session?.user?.role === 'admin' && (
+            <select
+              value={activeGudang ?? ''}
+              onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
+              className="h-7 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-lg px-2 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm"
+            >
+              <option value="">Semua Gudang</option>
+              {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>Gudang {n}</option>
+              ))}
+            </select>
+          )}
+
           <select
-            value={activeGudang ?? ''}
-            onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
-            className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors cursor-pointer"
+            value={selectedId || ''}
+            onChange={e => setSelectedId(e.target.value)}
+            className="h-7 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-lg px-2 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm max-w-[200px] truncate"
           >
-            <option value="">Semua Gudang</option>
-            {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
-              <option key={n} value={n}>Gudang {n}{n === sessionGudang ? ' (saya)' : ''}</option>
+            {sessions.map(s => (
+              <option key={s.reportSessionId} value={s.reportSessionId}>{s.label}</option>
             ))}
           </select>
-        )}
-        <select
-          value={selectedId || ''}
-          onChange={e => setSelectedId(e.target.value)}
-          className="h-8 text-xs font-medium text-slate-600 bg-white/80 border border-slate-200 rounded-lg px-2.5 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors cursor-pointer"
-        >
-          {sessions.map(s => (
-            <option key={s.reportSessionId} value={s.reportSessionId}>{s.label}</option>
-          ))}
-        </select>
+        </div>
       </PageHeader>
 
       <div className="max-w-[1700px] mx-auto px-5 py-6 space-y-6">
@@ -382,9 +384,9 @@ export default function AnalyticsPage() {
                 const cards = [
                   {
                     label: 'Total Gudang', numValue: gudangData.length, suffix: '', icon: Warehouse,
-                    accent: 'indigo', desc: 'Warehouse terdaftar',
-                    grad1: 'from-indigo-500/15', grad2: 'via-indigo-500/5',
-                    dot: 'bg-indigo-400/20',
+                    accent: 'brand', desc: 'Warehouse terdaftar',
+                    grad1: 'from-[#1591DC]/20', grad2: 'via-[#4BB8FA]/5',
+                    dot: 'bg-[#1591DC]/20',
                   },
                   {
                     label: 'Total Stok', numValue: totalStok, suffix: 'T', icon: Box,
@@ -394,9 +396,9 @@ export default function AnalyticsPage() {
                   },
                   {
                     label: 'Rata-rata Utilisasi', numValue: avgUtil, suffix: '%', icon: TrendingUp,
-                    accent: 'sky', desc: `${gudangData.filter(g => g.utilization > 75).length} gudang > 75%`,
-                    grad1: 'from-sky-500/15', grad2: 'via-sky-500/5',
-                    dot: 'bg-sky-400/20',
+                    accent: 'brandAlt', desc: `${gudangData.filter(g => g.utilization > 75).length} gudang > 75%`,
+                    grad1: 'from-[#2C5EAD]/15', grad2: 'via-[#2C5EAD]/5',
+                    dot: 'bg-[#2C5EAD]/20',
                   },
                   {
                     label: 'Slow Moving', numValue: slowPct, suffix: '%', icon: AlertTriangle,
@@ -407,10 +409,10 @@ export default function AnalyticsPage() {
                 ];
 
                 const accentStyles: Record<string, { ring: string; text: string; iconBg: string; iconRing: string; borderGlow: string; via: string }> = {
-                  indigo: { ring: 'hover:ring-indigo-400/25', text: 'text-indigo-600', iconBg: 'bg-indigo-500', iconRing: 'ring-indigo-400/30', borderGlow: 'shadow-indigo-500/10', via: 'via-indigo-400/40' },
-                  emerald: { ring: 'hover:ring-emerald-400/25', text: 'text-emerald-600', iconBg: 'bg-emerald-500', iconRing: 'ring-emerald-400/30', borderGlow: 'shadow-emerald-500/10', via: 'via-emerald-400/40' },
-                  sky: { ring: 'hover:ring-sky-400/25', text: 'text-sky-600', iconBg: 'bg-sky-500', iconRing: 'ring-sky-400/30', borderGlow: 'shadow-sky-500/10', via: 'via-sky-400/40' },
-                  amber: { ring: 'hover:ring-amber-400/25', text: 'text-amber-600', iconBg: 'bg-amber-500', iconRing: 'ring-amber-400/30', borderGlow: 'shadow-amber-500/10', via: 'via-amber-400/40' },
+                  brand: { ring: 'hover:ring-[#4BB8FA]/30', text: 'text-[#1591DC]', iconBg: 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]', iconRing: 'ring-[#4BB8FA]/30', borderGlow: 'shadow-[#1591DC]/10', via: 'via-[#4BB8FA]/40' },
+                  emerald: { ring: 'hover:ring-emerald-400/25', text: 'text-emerald-600', iconBg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', iconRing: 'ring-emerald-400/30', borderGlow: 'shadow-emerald-500/10', via: 'via-emerald-400/40' },
+                  brandAlt: { ring: 'hover:ring-[#2C5EAD]/30', text: 'text-[#2C5EAD]', iconBg: 'bg-gradient-to-br from-[#2C5EAD] to-[#1591DC]', iconRing: 'ring-[#2C5EAD]/30', borderGlow: 'shadow-[#2C5EAD]/10', via: 'via-[#2C5EAD]/40' },
+                  amber: { ring: 'hover:ring-amber-400/25', text: 'text-amber-600', iconBg: 'bg-gradient-to-br from-amber-500 to-amber-600', iconRing: 'ring-amber-400/30', borderGlow: 'shadow-amber-500/10', via: 'via-amber-400/40' },
                 };
 
                 return cards.map((item, i) => {
@@ -472,39 +474,39 @@ export default function AnalyticsPage() {
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.2, duration: 0.55, ease: easeOut }}
-              className="relative bg-white border border-slate-200/70 rounded-2xl shadow-sm overflow-hidden group/section"
+              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden group/section hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
               {/* Gradient splash */}
-              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-indigo-500/8 via-indigo-500/4 to-transparent blur-3xl pointer-events-none" />
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
 
               {/* Dot pattern */}
-              <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{
-                backgroundImage: `radial-gradient(circle, #6366f1 1px, transparent 1px)`,
+              <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{
+                backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`,
                 backgroundSize: '16px 16px',
               }} />
 
               {/* Top accent glow */}
-              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
+              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
 
               <div className="relative">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Capacity Analysis</h3>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Stock vs Kapasitas per Gudang</p>
+                    <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Capacity Analysis</h3>
+                    <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Stock vs Kapasitas per Gudang</p>
                   </div>
-                  <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2.5 py-1 rounded-lg cursor-default">Klik kapasitas untuk edit</span>
+                  <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 px-2.5 py-1 rounded-lg cursor-default border border-[#C4E2F5]/50">Klik kapasitas untuk edit</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="text-left px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gudang</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Items</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kapasitas</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Utilisasi</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Progres</th>
-                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                      <tr className="border-b border-[#C4E2F5]/40 bg-[#C4E2F5]/10">
+                        <th className="text-left px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Gudang</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Items</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Stock</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Kapasitas</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Utilisasi</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Progres</th>
+                        <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -514,26 +516,26 @@ export default function AnalyticsPage() {
                         const barColor = isHigh ? 'bg-red-500' : isMid ? 'bg-amber-500' : 'bg-emerald-500';
                         const dotColor = isHigh ? 'bg-red-500' : isMid ? 'bg-amber-500' : 'bg-emerald-500';
                         const textColor = isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-emerald-600';
-                        const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30';
+                        const rowBg = i % 2 === 0 ? 'bg-white/60' : 'bg-[#C4E2F5]/5';
                         return (
                           <motion.tr
                             key={g.name}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.25 + i * 0.04, duration: 0.4, ease: easeOut }}
-                            className={`${rowBg} hover:bg-indigo-50/40 transition-colors duration-200 group/row`}
+                            className={`${rowBg} hover:bg-[#C4E2F5]/20 transition-colors duration-200 group/row`}
                           >
                             <td className="px-6 py-3.5">
                               <div className="flex items-center gap-2.5">
                                 <span className={`w-2 h-2 rounded-full ${dotColor} ring-2 ring-inset ring-white shadow-sm`} />
-                                <span className="font-semibold text-slate-800 text-[13px]">{g.name}</span>
+                                <span className="font-bold text-[#2C5EAD] text-[13px]">{g.name}</span>
                               </div>
                             </td>
                             <td className="px-6 py-3.5 text-right">
-                              <span className="text-slate-500 text-[13px] font-medium">{g.items}</span>
+                              <span className="text-[#1591DC]/70 text-[13px] font-bold">{g.items}</span>
                             </td>
                             <td className="px-6 py-3.5 text-right">
-                              <span className="font-semibold text-slate-700 text-[13px] tabular-nums">
+                              <span className="font-black text-[#2C5EAD] text-[13px] tabular-nums">
                                 {g.stock.toFixed(0)}
                                 {g.warning && <span className="ml-1.5 text-[10px] text-red-400 font-bold" title="Nilai tonase tidak wajar">⚠</span>}
                               </span>
@@ -549,23 +551,23 @@ export default function AnalyticsPage() {
                                     value={editValue}
                                     onChange={e => setEditValue(e.target.value)}
                                     autoFocus
-                                    className="w-20 text-right text-xs font-semibold bg-white border border-indigo-300 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-200/60"
+                                    className="w-20 text-right text-xs font-bold bg-white border border-[#4BB8FA] rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[#4BB8FA]/30"
                                   />
-                                  <button type="submit" className="p-1 text-indigo-600 hover:text-indigo-700 transition-colors">
+                                  <button type="submit" className="p-1 text-[#1591DC] hover:text-[#2C5EAD] transition-colors">
                                     <Save size={14} />
                                   </button>
                                 </form>
                               ) : (
                                 <button
                                   onClick={() => { setEditing(g.name); setEditValue(String(g.capacity)); }}
-                                  className="inline-flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 transition-colors font-semibold text-[13px] group/cap"
+                                  className="inline-flex items-center gap-1.5 text-[#2C5EAD]/70 hover:text-[#1591DC] transition-colors font-bold text-[13px] group/cap"
                                 >
                                   <span className="tabular-nums">{g.capacity.toFixed(0)}</span>
-                                  <Edit3 size={11} className="text-slate-300 group-hover/cap:text-indigo-400 transition-colors" />
+                                  <Edit3 size={11} className="text-[#C4E2F5] group-hover/cap:text-[#1591DC] transition-colors" />
                                 </button>
                               )}
                             </td>
-                            <td className={`px-6 py-3.5 text-right font-bold text-[13px] tabular-nums ${textColor}`}>
+                            <td className={`px-6 py-3.5 text-right font-black text-[13px] tabular-nums ${textColor}`}>
                               {g.utilization}%
                             </td>
                             <td className="px-6 py-3.5 text-right">
@@ -611,19 +613,19 @@ export default function AnalyticsPage() {
                 initial={{ opacity: 0, y: 24, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.3, duration: 0.55, ease: easeOut }}
-                className="relative bg-white border border-slate-200/70 rounded-2xl shadow-sm overflow-hidden group/section"
+                className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden group/section hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
               >
-                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-indigo-500/8 via-indigo-500/4 to-transparent blur-3xl pointer-events-none" />
-                <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{
-                  backgroundImage: `radial-gradient(circle, #6366f1 1px, transparent 1px)`,
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
+                <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{
+                  backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`,
                   backgroundSize: '16px 16px',
                 }} />
-                <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
+                <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
 
                 <div className="relative">
-                  <div className="px-6 py-4 border-b border-slate-100">
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Stock vs Kapasitas</h3>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Perbandingan stok aktual dengan kapasitas (ton)</p>
+                  <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
+                    <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stock vs Kapasitas</h3>
+                    <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Perbandingan stok aktual dengan kapasitas (ton)</p>
                   </div>
                   <div className="px-5 pt-5 pb-4">
                     <div style={{ height: 280 }}>
@@ -705,22 +707,22 @@ export default function AnalyticsPage() {
                 initial={{ opacity: 0, y: 24, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.35, duration: 0.55, ease: easeOut }}
-                className="relative bg-white border border-slate-200/70 rounded-2xl shadow-sm overflow-hidden group/section"
+                className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden group/section hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
               >
-                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-amber-500/8 via-amber-500/4 to-transparent blur-3xl pointer-events-none" />
-                <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
+                <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{
                   backgroundImage: `radial-gradient(circle, #f59e0b 1px, transparent 1px)`,
                   backgroundSize: '16px 16px',
                 }} />
                 <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-amber-400/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
 
                 <div className="relative">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
                     <div>
-                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Stok Tertinggi</h3>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Gudang dengan persentase stok terbesar</p>
+                      <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stok Tertinggi</h3>
+                      <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Gudang dengan persentase stok terbesar</p>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100/80 px-2.5 py-1 rounded-lg">Tonase</span>
+                    <span className="text-[10px] font-bold text-[#1591DC]/60 uppercase bg-[#C4E2F5]/30 border border-[#C4E2F5]/50 px-2.5 py-1 rounded-lg">Tonase</span>
                   </div>
                   <div className="px-5 pt-4 pb-4">
                     {top5Utilization.length > 0 ? (
@@ -790,11 +792,11 @@ export default function AnalyticsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, ease: easeOut }}
-                className="bg-white border border-slate-200/70 rounded-2xl shadow-sm"
+                className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
               >
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Stock Distribution</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Proporsi stok per gudang</p>
+                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
+                  <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stock Distribution</h3>
+                  <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Proporsi stok per gudang</p>
                 </div>
                 <div className="px-5 pt-5 pb-4">
                   <div style={{ height: 300 }} className="relative">
@@ -854,11 +856,11 @@ export default function AnalyticsPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45, ease: easeOut }}
-                className="bg-white border border-slate-200/70 rounded-2xl shadow-sm"
+                className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
               >
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Movement Overview</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Distribusi tipe pergerakan barang</p>
+                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
+                  <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Movement Overview</h3>
+                  <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Distribusi tipe pergerakan barang</p>
                 </div>
                 <div className="px-5 pt-5 pb-4">
                   <div style={{ height: 300 }} className="relative">
@@ -920,22 +922,22 @@ export default function AnalyticsPage() {
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.48, duration: 0.55, ease: easeOut }}
-              className="relative bg-white border border-slate-200/70 rounded-2xl shadow-sm overflow-hidden group/section"
+              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden group/section hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
-              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-violet-500/8 via-violet-500/4 to-transparent blur-3xl pointer-events-none" />
-              <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{
-                backgroundImage: `radial-gradient(circle, #8b5cf6 1px, transparent 1px)`,
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#2C5EAD]/10 via-[#1591DC]/5 to-transparent blur-3xl pointer-events-none" />
+              <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{
+                backgroundImage: `radial-gradient(circle, #2C5EAD 1px, transparent 1px)`,
                 backgroundSize: '16px 16px',
               }} />
-              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-violet-400/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
+              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 group-hover/section:opacity-100 transition-opacity duration-500" />
 
               <div className="relative">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Top 5 Customer</h3>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Customer dengan stok terbanyak</p>
+                    <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Top 5 Customer</h3>
+                    <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Customer dengan stok terbanyak</p>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100/80 px-2.5 py-1 rounded-lg">Tonase</span>
+                  <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 border border-[#C4E2F5]/50 px-2.5 py-1 rounded-lg">Tonase</span>
                 </div>
                 <div className="px-5 pt-4 pb-4">
                   {customerStockTop5.length > 0 ? (
@@ -995,11 +997,11 @@ export default function AnalyticsPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, ease: easeOut }}
-              className="bg-white border border-slate-200/70 rounded-2xl shadow-sm"
+              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
-              <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Recommendations</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Analisis dan saran tindak lanjut</p>
+              <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
+                <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Recommendations</h3>
+                <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Analisis dan saran tindak lanjut</p>
               </div>
               <div className="p-5 space-y-2.5">
                 {(() => {
@@ -1071,23 +1073,23 @@ export default function AnalyticsPage() {
                           ))}
                         </div>
                       )}
-                      <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200/60">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Ringkasan</p>
-                        <ul className="space-y-2 text-xs text-slate-600">
+                      <div className="mt-4 p-4 bg-[#C4E2F5]/10 rounded-xl border border-[#C4E2F5]/50">
+                        <p className="text-[10px] font-bold text-[#2C5EAD] uppercase tracking-wider mb-2.5">Ringkasan</p>
+                        <ul className="space-y-2 text-xs text-[#2C5EAD]/80">
                           <li className="flex items-center gap-2.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
                             Total slow-moving: <strong>{Math.round((movementSummary.slow / movementSummary.total) * 100)}%</strong> dari seluruh transaksi
                           </li>
                           <li className="flex items-center gap-2.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
                             Evaluasi item slow-moving untuk <strong>write-off</strong> atau promosi
                           </li>
                           <li className="flex items-center gap-2.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
                             Optimalkan alokasi fast-moving items ke gudang dengan akses cepat
                           </li>
                           <li className="flex items-center gap-2.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
                             Lakukan review kapasitas secara periodik setiap bulan
                           </li>
                         </ul>

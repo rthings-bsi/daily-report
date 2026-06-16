@@ -33,19 +33,23 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
   const penampunganList = React.useMemo(() => loadPenampunganSlocs(), []);
 
   const inPenampungan = React.useMemo(() => {
-    if (summaryProp) return []; // unused when summary prop is provided
-    if (penampunganList.length === 0) return [];
-    return data.filter(s => isPenampunganSloc(s.sloc));
-  }, [data, penampunganList, summaryProp]);
+    // Selalu kalkulasi dari data raw agar sinkron dengan Pengaturan terbaru
+    return data.filter(s =>
+      s.status === 'Sloc Penampungan' ||
+      (penampunganList.length > 0 && isPenampunganSloc(s.sloc))
+    );
+  }, [data, penampunganList]);
 
   const nonPenampungan = React.useMemo(() => {
-    if (summaryProp) return []; // unused when summary prop is provided
-    if (penampunganList.length === 0) return data;
-    return data.filter(s => !isPenampunganSloc(s.sloc));
-  }, [data, penampunganList, summaryProp]);
+    return data.filter(s =>
+      !(s.status === 'Sloc Penampungan' || (penampunganList.length > 0 && isPenampunganSloc(s.sloc)))
+    );
+  }, [data, penampunganList]);
 
   const summary: StockReportSummary = React.useMemo(() => {
-    if (summaryProp) return summaryProp;
+    // Jika kita menggunakan summaryProp mentah dari server dan abaikan 'data',
+    // perubahan Pengaturan Sloc Penampungan di client-side tidak akan terbaca.
+    // Oleh karena itu, kita selalu kalkulasi realtime dari filtered data:
     const fast = nonPenampungan.filter(s => s.status === 'Fast Moving');
     const slow = nonPenampungan.filter(s => s.status === 'Slow Moving');
     return {
@@ -62,7 +66,7 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
         totalTon: inPenampungan.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
       },
     };
-  }, [nonPenampungan, inPenampungan, summaryProp]);
+  }, [nonPenampungan, inPenampungan]);
 
   if (data.length === 0) return null;
 

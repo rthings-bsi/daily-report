@@ -9,7 +9,6 @@ import {
   LogOut,
   ChevronRight,
   ChevronLeft,
-  TrendingUp,
   Package,
   Users,
   ShieldCheck,
@@ -21,7 +20,6 @@ import { useSidebar } from "./SidebarContext";
 
 const baseMenuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Upload", href: "/upload", icon: FileUp },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

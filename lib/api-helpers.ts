@@ -85,7 +85,8 @@ export async function assertOwnsSession(
     select: { gudangId: true },
   });
   if (!s) throw new ApiError(404, "Not found");
-  if (s.gudangId !== null && s.gudangId !== ctx.gudangId) {
+  // Non-admin can ONLY access sessions explicitly tagged with their gudangId
+  if (s.gudangId !== ctx.gudangId) {
     throw new ApiError(404, "Not found");
   }
 }

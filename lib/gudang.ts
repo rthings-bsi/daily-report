@@ -51,16 +51,22 @@ export const filterByGudang = <T extends { moveType?: string; storageLocation?: 
   const prefix = getGudangPrefix(gudangNum);
   if (!prefix) return items;
   return items.filter(item => {
+    const userGudang = getUserGudang(item.userName);
+
     // 311 entries: show if related to this gudang (source or destination)
     if (item.moveType === '311') {
-      const userGudang = getUserGudang(item.userName);
       const slocGudang = gudangFromSloc((item.storageLocation || '').toUpperCase());
       const isFromThis = userGudang === gudangNum;
       const isToThis = slocGudang === gudangNum;
       // Always show if either source or destination is this gudang
       if (isFromThis || isToThis) return true;
     }
-    // Non-311: filter by SLOC as before
+
+    // For non-311:
+    // Jika transaksi ini BUKTI nyata dilakukan oleh user gudang terkait, maka LOLOS.
+    if (userGudang === gudangNum) return true;
+
+    // Fallback: Jika username tidak terdeteksi, filter berdasarkan prefix SLOC
     const sloc = (item.storageLocation || '').toUpperCase();
     return sloc.startsWith(prefix);
   });

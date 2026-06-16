@@ -65,9 +65,9 @@ export function SortableItem({ id, children }: SortableItemProps) {
       <div
         {...attributes}
         {...listeners}
-        className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/90 border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity hover:shadow-md"
+        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-4 rounded-full bg-white/80 backdrop-blur-md border border-[#C4E2F5]/80 shadow-sm shadow-[#1591DC]/10 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 hover:bg-white transition-all hover:scale-110 hover:shadow-md hover:border-[#4BB8FA]/50"
       >
-        <GripVertical size={10} className="text-slate-400" />
+        <GripVertical size={11} className="text-[#1591DC]/60" strokeWidth={3} />
       </div>
       {children}
     </div>
