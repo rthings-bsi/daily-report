@@ -149,6 +149,15 @@ export default function AnalyticsPage() {
   const [editValue, setEditValue] = useState('');
 
 
+  
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      if (session.user.role !== 'admin' && session.user.gudangId) {
+        setSelectedGudang(session.user.gudangId);
+      }
+    }
+  }, [status, session]);
+
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);

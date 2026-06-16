@@ -140,7 +140,17 @@ function OutboundDestinationContent() {
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
   const toggleDest = (k: string) => setExpandedDest(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-  useEffect(() => { if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
+  
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      if (session.user.role !== 'admin' && session.user.gudangId) {
+        setSelectedGudang(session.user.gudangId);
+      }
+    }
+  }, [status, session]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
 
   useEffect(() => {
     if (!sessionId) { setLoading(false); return; }
