@@ -56,7 +56,11 @@ export function buildGudangWhere(
     base.gudangId = ctx.gudangId === null ? null : { in: [ctx.gudangId] };
     // For non-admin: own gudangId OR null (legacy unscoped) — but only if ctx.gudangId is set
     if (ctx.gudangId !== null) {
-      base.gudangId = { in: [ctx.gudangId, null] };
+      delete base.gudangId;
+      base.OR = [
+        { gudangId: ctx.gudangId },
+        { gudangId: null }
+      ];
     } else {
       base.gudangId = null;
     }
