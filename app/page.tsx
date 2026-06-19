@@ -309,7 +309,14 @@ export default function Home() {
         }));
       }
 
-      setMovements(movs);
+      // ── Hanya update movements jika:
+      //    - Server balikin data (movs.length > 0), ATAU
+      //    - Lagi tanpa filter (qs === '') — loading semua data
+      //    Biar data gak ilang pas filter gudang/tanggal aktif tapi
+      //    server gak nemu session dengan gudangId yg cocok.
+      if (movs.length > 0 || qs === '') {
+        setMovements(movs);
+      }
       setStocks(stks);
 
       // Build pre-aggregated stock summary
