@@ -54,6 +54,56 @@ export interface RawMovementRow {
   userName: string | null;
 }
 
+/**
+ * Composite dedup key for material movements.
+ * Fields that together uniquely identify a SAP material movement
+ * (material document) within the same day:
+ *   dateStr + moveType + material + batch + quantity + userName + workCenter + storageLocation
+ */
+export function movementDedupKey(m: RawMovementRow): string {
+  return [
+    m.dateStr,
+    m.moveType,
+    m.material ?? '',
+    m.batch ?? '',
+    m.quantity,
+    m.userName ?? '',
+    m.workCenter ?? '',
+    m.storageLocation ?? '',
+  ].join('|');
+}
+
+/**
+ * Deduplicate an array of RawMovementRow by composite key.
+ * First occurrence wins (keeps the earliest-seen copy).
+ */
+export function deduplicateMovements(rows: RawMovementRow[]): RawMovementRow[] {
+  const seen = new Set<string>();
+  const result: RawMovementRow[] = [];
+  for (const r of rows) {
+    const key = movementDedupKey(r);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(r);
+  }
+  return result;
+}
+
+/**
+ * Dedup stocks by sloc + status + quantity + tonnage.
+ */
+export function deduplicateStocks(stocks: any[]): any[] {
+  const seen = new Set<string>();
+  const result: any[] = [];
+  for (const s of stocks) {
+    const key = [s.sloc ?? '', s.status ?? '', s.quantity ?? 0, s.tonnage ?? 0].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(s);
+  }
+  return result;
+}
+
 export interface AggregatedSession {
   movementSummaries: MovementSummaryRow[];
   stockSummaries: StockSummaryRow[];

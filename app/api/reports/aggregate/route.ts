@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
-import { aggregateSessionData, RawMovementRow } from "@/lib/aggregation";
+import { aggregateSessionData, RawMovementRow, deduplicateMovements, deduplicateStocks } from "@/lib/aggregation";
 import { classifyBatch } from "@/lib/gudang";
 
 // GET /api/reports/aggregate?gudangId=5&start=2026-01-01&end=2026-06-30
@@ -83,6 +83,12 @@ export async function GET(req: NextRequest) {
         allStockCards.push(...JSON.parse(s.stockCards));
       }
     }
+
+    // ── Deduplicate across sessions ──
+    // Shift 1 & Shift 2 upload same-day data, causing duplicates.
+    // Using composite key: dateStr|moveType|material|batch|quantity|userName|workCenter|storageLocation
+    allRawMovements = deduplicateMovements(allRawMovements);
+    allStocks = deduplicateStocks(allStocks);
 
     // ── Build hydrated movements (matching loadSession format) ──
     const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
