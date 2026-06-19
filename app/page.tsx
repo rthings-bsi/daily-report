@@ -258,7 +258,7 @@ export default function Home() {
   };
 
   // ─── Load aggregated data across multiple sessions ───
-  const lastAggregateQs = useRef('');
+  const lastAggregateQs = useRef<string | null>(null);
 
   const loadAggregate = useCallback(async (params: URLSearchParams) => {
     const gen = ++loadGen.current;
@@ -352,11 +352,11 @@ export default function Home() {
     if (endDate) params.set('end', endDate);
 
     const qs = params.toString();
-    if (qs === lastAggregateQs.current && activeSessionId?.startsWith('aggregate-') && !loading) return;
+    if (qs === lastAggregateQs.current) return;
     lastAggregateQs.current = qs;
 
     loadAggregate(params);
-  }, [startDate, endDate, selectedGudang, history, loadAggregate, activeSessionId, loading]);
+  }, [startDate, endDate, selectedGudang, history, loadAggregate]);
 
   
   useEffect(() => {
