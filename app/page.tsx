@@ -352,11 +352,11 @@ export default function Home() {
     if (endDate) params.set('end', endDate);
 
     const qs = params.toString();
-    if (qs === lastAggregateQs.current && activeSessionId?.startsWith('aggregate-')) return;
+    if (qs === lastAggregateQs.current && activeSessionId?.startsWith('aggregate-') && !loading) return;
     lastAggregateQs.current = qs;
 
     loadAggregate(params);
-  }, [startDate, endDate, selectedGudang, history, loadAggregate, activeSessionId]);
+  }, [startDate, endDate, selectedGudang, history, loadAggregate, activeSessionId, loading]);
 
   
   useEffect(() => {
