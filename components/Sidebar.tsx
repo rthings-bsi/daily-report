@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -48,11 +49,14 @@ export default function Sidebar() {
           isOpen ? "px-5" : "px-4"
         )}>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-200">
-                <Package size={18} />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+              <Image
+                src="https://irp.cdn-website.com/2f73b385/dms3rep/multi/SPINDO+MAIN+LOGO.png"
+                alt="SPINDO Logo"
+                width={36}
+                height={36}
+                className="object-contain scale-[1.6]"
+              />
             </div>
             {isOpen && (
               <div className="overflow-hidden">

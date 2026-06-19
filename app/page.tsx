@@ -28,6 +28,7 @@ interface HistorySession {
   fileName?: string;
   createdAt: string;
   totalCount: number;
+  gudangId?: number | null;
 }
 
 interface MovementSummaryItem {
@@ -250,16 +251,112 @@ export default function Home() {
 
       setActiveSessionId(id);
     } finally {
-      setLoading(false);
+      if (gen === loadGen.current) {
+        setLoading(false);
+      }
     }
   };
 
-  // Auto-load latest session when page opens with no data
-  useEffect(() => {
-    if (!movements.length && !stocks.length && history.length > 0 && !loading) {
-      loadSession(history[0].reportSessionId);
+  // ─── Load aggregated data across multiple sessions ───
+  const lastAggregateQs = useRef('');
+
+  const loadAggregate = useCallback(async (params: URLSearchParams) => {
+    const gen = ++loadGen.current;
+    setLoading(true);
+    try {
+      const qs = params.toString();
+      const res = await fetch(`/api/reports/aggregate${qs ? `?${qs}` : ''}`);
+      if (!res.ok) return;
+      if (gen !== loadGen.current) return;
+      const data = await res.json();
+
+      if (data.stats) {
+        setStats(data.stats);
+        setMovementSummaries(data.movementSummaries || null);
+      }
+
+      const movs: ProcessedMovement[] = data.movements.map((m: any) => ({
+        movementId: m.movementId || `agg-${Math.random()}`,
+        postingDate: new Date(m.postingDate),
+        dateStr: m.dateStr,
+        moveType: m.moveType,
+        description: m.description,
+        workCenter: m.workCenter || '',
+        batch: m.batch || '',
+        quantity: m.quantity,
+        unitQuantity: m.unitQuantity || 0,
+        userName: m.userName || '',
+        storageLocation: m.storageLocation || '',
+        group: m.group || 'Transfer',
+        color: m.color || '#94a3b8',
+        movementStatus: classifyBatch(m.batch || ''),
+      }));
+
+      if (!data.stats) {
+        setStats(calculateStats(movs));
+        setMovementSummaries(null);
+      }
+
+      let stks: ProcessedStock[] = data.stocks || [];
+      if (stks.length === 0 && data.stockCards?.length > 0) {
+        stks = data.stockCards.map((sc: any) => ({
+          status: (sc.pasm || '').toUpperCase() === 'FAST' ? 'Fast Moving'
+                : (sc.pasm || '').toUpperCase() === 'SLOW' ? 'Slow Moving'
+                : 'Unknown',
+          sloc: sc.sloc || '',
+          quantity: sc.ttlStokEom || 0,
+          tonnage: sc.ttlStokEom || 0,
+        }));
+      }
+
+      setMovements(movs);
+      setStocks(stks);
+
+      // Build pre-aggregated stock summary
+      if (Array.isArray(data.stockSummaries) && data.stockSummaries.length > 0) {
+        const bucket = (): { count: number; totalTon: number } => ({ count: 0, totalTon: 0 });
+        const next: StockReportSummary = { fast: bucket(), slow: bucket(), penampungan: bucket() };
+        for (const r of data.stockSummaries) {
+          const ton = (r.totalWeight || 0) / 1000;
+          if (r.status === 'Fast Moving') {
+            next.fast.count += r.itemCount || 0;
+            next.fast.totalTon += ton;
+          } else if (r.status === 'Slow Moving') {
+            next.slow.count += r.itemCount || 0;
+            next.slow.totalTon += ton;
+          } else if (r.status === 'Sloc Penampungan') {
+            next.penampungan.count += r.itemCount || 0;
+            next.penampungan.totalTon += ton;
+          }
+        }
+        setStockSummary(next);
+      } else {
+        setStockSummary(undefined);
+      }
+
+      setActiveSessionId(`aggregate-${qs || 'all'}`);
+    } finally {
+      if (gen === loadGen.current) {
+        setLoading(false);
+      }
     }
-  }, [history, movements, stocks, loading]);
+  }, []);
+
+  // Load aggregated data whenever filters change
+  useEffect(() => {
+    if (!history.length) return;
+
+    const params = new URLSearchParams();
+    if (selectedGudang) params.set('gudangId', String(selectedGudang));
+    if (startDate) params.set('start', startDate);
+    if (endDate) params.set('end', endDate);
+
+    const qs = params.toString();
+    if (qs === lastAggregateQs.current && activeSessionId?.startsWith('aggregate-')) return;
+    lastAggregateQs.current = qs;
+
+    loadAggregate(params);
+  }, [startDate, endDate, selectedGudang, history, loadAggregate, activeSessionId]);
 
   
   useEffect(() => {
@@ -426,7 +523,7 @@ export default function Home() {
       <PageHeader icon={LayoutDashboard} title="Warehouse" subtitle="Dashboard gudang SPINDO" className="print:hidden">
 
         {/* ─── Collapsible Filters ─── */}
-        <div className="relative hidden sm:block mr-2">
+        <div className="relative mr-1 sm:mr-2">
           <button
             onClick={() => setFilterOpen(!filterOpen)}
             className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[10px] font-bold border transition-all shadow-sm ${
@@ -436,7 +533,7 @@ export default function Home() {
             }`}
             title="Filter"
           >
-            <Filter size={12} strokeWidth={2.5} />
+            <Filter size={12} strokeWidth={2.5} className="shrink-0" />
             <span className="hidden lg:inline">Filter</span>
             {(selectedGudang || startDate || endDate) && (
               <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-black">
