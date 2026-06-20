@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
       dateStr: m.dateStr,
       moveType: m.moveType,
       description: m.description,
+      material: m.material || undefined,
       workCenter: m.workCenter || "",
       batch: m.batch || "",
       quantity: m.quantity,
