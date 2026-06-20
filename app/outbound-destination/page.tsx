@@ -156,7 +156,8 @@ function OutboundDestinationContent() {
     setLoading(true);
 
     let url = '';
-    if (!sessionId && (selectedGudang || startDate || endDate)) {
+    // Jika tidak ada sessionId spesifik yang dipassing tapi ada selectedGudang atau date, atau Admin ingin "Semua Gudang", ambil dari /api/reports/aggregate
+    if (!sessionId) {
         const params = new URLSearchParams();
         if (selectedGudang) params.set('gudangId', String(selectedGudang));
         if (startDate) params.set('start', startDate);
