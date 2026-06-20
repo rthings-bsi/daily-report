@@ -15,14 +15,10 @@ export default function LayoutContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-hidden">
       <Sidebar />
       <main
-        style={{
-          marginLeft: isOpen ? 256 : 64,
-          transition: 'margin-left 350ms cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-        className="flex-1"
+        className={`flex-1 transition-all duration-300 ease-in-out w-full ${isOpen ? 'md:ml-64' : 'md:ml-16'} ml-0`}
       >
         {children}
       </main>

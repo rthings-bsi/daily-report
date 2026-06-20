@@ -3,6 +3,8 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { Menu } from 'lucide-react';
+import { useSidebar } from './SidebarContext';
 
 interface PageHeaderProps {
   icon: React.ElementType;
@@ -22,13 +24,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   className,
   children,
-}) => (
+}) => {
+  const { toggle, isOpen } = useSidebar();
+  
+  return (
   <motion.header
     initial={{ y: -16, opacity: 0 }}
     animate={{ y: 0, opacity: 1 }}
     transition={spring}
     className={cn(
-      'sticky top-0 z-50',
+      'sticky top-0 z-40',
       'bg-white/70 backdrop-blur-2xl',
       'border-b border-[#C4E2F5]/40',
       'shadow-sm shadow-[#1591DC]/5',
@@ -37,7 +42,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   >
     <div className="max-w-[1700px] mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-4">
       {/* ─── Left: Title ─── */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <button
+          onClick={toggle}
+          className="md:hidden p-1.5 -ml-1 text-[#2C5EAD] hover:bg-[#C4E2F5]/40 rounded-lg transition-colors"
+        >
+          <Menu size={20} />
+        </button>
         <motion.div
           initial={{ rotate: -8, scale: 0.85 }}
           animate={{ rotate: 0, scale: 1 }}

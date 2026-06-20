@@ -36,12 +36,19 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* ─── Mobile Overlay ─── */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm md:hidden"
+          onClick={toggle}
+        />
+      )}
+
       <aside
-        className="fixed left-0 top-0 z-[51] h-screen flex flex-col bg-white/80 backdrop-blur-xl border-r border-slate-200/60 shadow-lg shadow-slate-200/20"
-        style={{
-          width: isOpen ? 256 : 64,
-          transition: 'width 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
+        className={cn(
+          "fixed left-0 top-0 z-[51] h-screen flex flex-col bg-white/95 backdrop-blur-xl border-r border-slate-200/60 shadow-lg shadow-slate-200/20 transition-all duration-300 ease-in-out",
+          isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-16 w-64"
+        )}
       >
         {/* ─── Logo ─── */}
         <div className={cn(

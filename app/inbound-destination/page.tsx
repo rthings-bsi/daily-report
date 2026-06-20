@@ -341,7 +341,7 @@ function InboundDestinationContent() {
 
         {/* ─── Bento Stats ─── */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={spring}
-          className="grid grid-cols-3 gap-3 sm:gap-4">
+          className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {([
             { title: 'Total Inbound', val: breakdown.totalQuantity.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), unit: 'TON', sub: `${breakdown.totalCount} transaksi masuk`, type: 'in' as const, hue: '#059669' },
             { title: 'Total Transaksi', val: breakdown.totalCount.toLocaleString('id-ID'), unit: 'TRX', sub: 'Total transaksi inbound', type: 'total' as const, hue: '#065f46' },
@@ -510,8 +510,8 @@ function InboundDestinationContent() {
                                           {isExpanded && item.materials.length > 0 && (
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
                                               exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
-                                              <div className="mx-4 sm:mx-6 bg-gradient-to-br from-emerald-50/50 via-white to-emerald-100/20 rounded-xl border border-emerald-200/40 mb-2">
-                                                <div className="px-4 py-3">
+                                              <div className="mx-2 sm:mx-6 bg-gradient-to-br from-emerald-50/50 via-white to-emerald-100/20 rounded-xl border border-emerald-200/40 mb-2 overflow-x-auto custom-scrollbar">
+                                                <div className="px-3 sm:px-4 py-3 min-w-[360px]">
                                                   <div className="grid grid-cols-5 gap-2 text-[8px] font-bold text-emerald-600 uppercase tracking-widest mb-2 px-1">
                                                     <span>Kode</span><span>Batch</span><span className="text-right">Qty</span><span className="text-right">Ton</span><span className="text-right">Status</span>
                                                   </div>
