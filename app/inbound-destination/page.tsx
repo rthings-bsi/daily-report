@@ -190,7 +190,7 @@ function InboundDestinationContent() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [sessionId]);
+  }, [sessionId, selectedGudang, startDate, endDate]);
 
   const filteredMovements = useMemo(() => {
     let r = movements;
