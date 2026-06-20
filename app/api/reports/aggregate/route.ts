@@ -4,6 +4,8 @@ import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { aggregateSessionData, RawMovementRow, deduplicateMovements, deduplicateStocks } from "@/lib/aggregation";
 import { classifyBatch } from "@/lib/gudang";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/reports/aggregate?gudangId=5&start=2026-01-01&end=2026-06-30
 // Aggregates ALL matching sessions into one combined dataset.
 // Admin: can filter by gudangId (optional) + date range (optional)

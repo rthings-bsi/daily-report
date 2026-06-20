@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertOwnsSession, requireUserContext, respondError } from "@/lib/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/reports/:reportSessionId — load a specific session
 export async function GET(
   _req: NextRequest,
