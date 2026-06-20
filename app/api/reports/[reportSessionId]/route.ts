@@ -38,9 +38,20 @@ export async function GET(
     const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
 
     const parsedMovements = rawMovements.map((m: any, idx: number) => ({
-      ...m,
       movementId: `move-${idx}`,
       postingDate: new Date(m.dateStr).toISOString(),
+      dateStr: m.dateStr,
+      moveType: m.moveType,
+      description: m.description,
+      material: m.material || undefined,
+      workCenter: m.workCenter || "",
+      batch: m.batch || "",
+      quantity: m.quantity,
+      unitQuantity: m.unitQuantity || 0,
+      userName: m.userName || "",
+      storageLocation: m.storageLocation || "",
+      group: m.group,
+      color: m.color,
       movementStatus: 'Unknown',
     }));
 
