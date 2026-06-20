@@ -22,9 +22,14 @@ export async function GET(req: NextRequest) {
 
   if (ctx.isAdmin) {
     if (gudangIdParam) {
-      where.gudangId = parseInt(gudangIdParam, 10);
+      // Saat admin memfilter Gudang 1, ambil session Gudang 1 ATAU session global (null)
+      // Karena session global berisi data gabungan semua gudang
+      where.OR = [
+        { gudangId: parseInt(gudangIdParam, 10) },
+        { gudangId: null }
+      ];
     }
-    // admin tanpa gudangIdParam → ambil SEMUA gudang
+    // Jika admin tanpa filter, tidak ada filter di mana-mana -> ambil SEMUA
   } else {
     // non-admin: strictly gudang mereka sendiri
     where.gudangId = ctx.gudangId;
