@@ -154,9 +154,26 @@ function InboundDestinationContent() {
     if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
 
   useEffect(() => {
-    if (!sessionId) { setLoading(false); return; }
     setLoading(true);
-    fetch(`/api/reports/${sessionId}`)
+
+    let url = '';
+    // Jika tidak ada sessionId spesifik yang dipassing tapi ada selectedGudang atau date, ambil dari /api/reports/aggregate
+    if (!sessionId && (selectedGudang || startDate || endDate)) {
+        const params = new URLSearchParams();
+        if (selectedGudang) params.set('gudangId', String(selectedGudang));
+        if (startDate) params.set('start', startDate);
+        if (endDate) params.set('end', endDate);
+        url = `/api/reports/aggregate?${params.toString()}`;
+    } else if (sessionId) {
+        url = `/api/reports/${sessionId}`;
+    }
+
+    if (!url) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(url)
       .then(r => r.json())
       .then((data: any) => {
         setMovements((data.movements || []).map((m: any) => ({
