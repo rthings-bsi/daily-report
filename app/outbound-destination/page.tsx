@@ -173,7 +173,16 @@ function OutboundDestinationContent() {
     }
 
     fetch(url)
-      .then(r => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Failed to fetch data');
+        const text = await r.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          // If response is HTML (redirected to login), throw error
+          throw new Error('Unauthorized or session expired');
+        }
+      })
       .then((data: any) => {
         setMovements((data.movements || []).map((m: any) => ({
           movementId: m.movementId || `m-${Math.random()}`,
