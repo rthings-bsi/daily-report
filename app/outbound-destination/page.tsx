@@ -172,6 +172,7 @@ function OutboundDestinationContent() {
       return;
     }
 
+    // Harus pakai credential include supaya cookie dikirim ke Route Handler /api Next Auth
     fetch(url)
       .then(async (r) => {
         if (!r.ok) throw new Error('Failed to fetch data');
@@ -179,7 +180,6 @@ function OutboundDestinationContent() {
         try {
           return JSON.parse(text);
         } catch (e) {
-          // If response is HTML (redirected to login), throw error
           throw new Error('Unauthorized or session expired');
         }
       })
