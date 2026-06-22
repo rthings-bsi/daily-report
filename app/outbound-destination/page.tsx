@@ -124,7 +124,7 @@ function OutboundDestinationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('reportSessionId');
-  const initialGudang = searchParams.get('gudang');
+  const initialGudang = searchParams.get('gudangId') || searchParams.get('gudang');
   const initialStart = searchParams.get('start');
   const initialEnd = searchParams.get('end');
 
