@@ -123,10 +123,34 @@ export default function Home() {
   }, [stocks, selectedGudang]);
 
   const filteredStats = useMemo(() => {
-    if (!filteredMovements.length) return null;
-    if (!selectedGudang && !startDate && !endDate && stats) return stats;
-    return calculateStats(filteredMovements);
-  }, [filteredMovements, selectedGudang, startDate, endDate, stats]);
+    // Kalau ada filter gudang/tanggal ATAU kalau movements ada isinya (hasil filter client-side), hitung manual
+    if (selectedGudang || startDate || endDate || filteredMovements.length > 0) {
+      // PERBAIKAN: Jika filteredMovements kosong, tapi ada movementSummaries, hitung stats dari movementSummaries
+      if (filteredMovements.length === 0 && movementSummaries && movementSummaries.length > 0) {
+          let incoming = 0, outgoing = 0, incCount = 0, outCount = 0;
+          movementSummaries.forEach(m => {
+              if (m.group === 'Masuk') {
+                  incoming += m.totalQuantity;
+                  incCount += m.totalCount;
+              } else if (m.group === 'Keluar') {
+                  outgoing += Math.abs(m.totalQuantity);
+                  outCount += m.totalCount;
+              }
+          });
+          return {
+              totalIncoming: incoming,
+              totalOutgoing: outgoing,
+              netMovement: incoming - outgoing,
+              incomingCount: incCount,
+              outgoingCount: outCount,
+              totalCount: incCount + outCount // perkiraan kasar, karena yg lain masuk 'Transfer'
+          };
+      }
+      return calculateStats(filteredMovements);
+    }
+    // Kalau nggak ada filter, panggil stats bawaan server
+    return stats;
+  }, [filteredMovements, movementSummaries, selectedGudang, startDate, endDate, stats]);
 
   // ─── Navigate to outbound destination breakdown ───
   const handleOutboundClick = useCallback(() => {
@@ -155,8 +179,8 @@ export default function Home() {
     // Kalo movements (detail) nya kosong, tapi ada movementSummaries, PAKE SUMMARY
     // Ini terjadi waktu aggregate (no date filter) jalan, karena kita ga select rawMovements lagi dari DB untuk hemat memory.
     if ((filteredMovements.length === 0 || (!selectedGudang && !startDate && !endDate)) && movementSummaries && movementSummaries.length > 0) {
-      return movementSummaries.map(s => ({
-        movementId: s.movementSummaryId,
+      return movementSummaries.map((s, idx) => ({
+        movementId: s.movementSummaryId || `ms-${idx}`,
         postingDate: s.dateStr as any,
         dateStr: s.dateStr,
         moveType: s.moveType,
@@ -206,6 +230,30 @@ export default function Home() {
       if (data.stats) {
         setStats(data.stats);
         setMovementSummaries(data.movementSummaries || null);
+      } else if (data.movementSummaries && data.movementSummaries.length > 0) {
+        let incoming = 0, outgoing = 0, incCount = 0, outCount = 0, totalCount = 0;
+        data.movementSummaries.forEach((m: any) => {
+          if (m.group === 'Masuk') {
+              incoming += m.totalQuantity;
+              incCount += m.totalCount;
+          } else if (m.group === 'Keluar') {
+              outgoing += Math.abs(m.totalQuantity);
+              outCount += m.totalCount;
+          }
+          totalCount += m.totalCount;
+        });
+        setStats({
+            totalIncoming: incoming,
+            totalOutgoing: outgoing,
+            netMovement: incoming - outgoing,
+            incomingCount: incCount,
+            outgoingCount: outCount,
+            totalCount: totalCount
+        });
+        setMovementSummaries(data.movementSummaries);
+      } else {
+        setStats(null);
+        setMovementSummaries(null);
       }
 
       // ── Raw movements for detail table & gudang filtering ──
@@ -307,6 +355,30 @@ export default function Home() {
       if (data.stats) {
         setStats(data.stats);
         setMovementSummaries(data.movementSummaries || null);
+      } else if (data.movementSummaries && data.movementSummaries.length > 0) {
+        let incoming = 0, outgoing = 0, incCount = 0, outCount = 0, totalCount = 0;
+        data.movementSummaries.forEach((m: any) => {
+          if (m.group === 'Masuk') {
+              incoming += m.totalQuantity;
+              incCount += m.totalCount;
+          } else if (m.group === 'Keluar') {
+              outgoing += Math.abs(m.totalQuantity);
+              outCount += m.totalCount;
+          }
+          totalCount += m.totalCount;
+        });
+        setStats({
+            totalIncoming: incoming,
+            totalOutgoing: outgoing,
+            netMovement: incoming - outgoing,
+            incomingCount: incCount,
+            outgoingCount: outCount,
+            totalCount: totalCount
+        });
+        setMovementSummaries(data.movementSummaries);
+      } else {
+        setStats(null);
+        setMovementSummaries(null);
       }
 
       const movs: ProcessedMovement[] = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
