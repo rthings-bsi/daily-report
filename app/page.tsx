@@ -152,7 +152,9 @@ export default function Home() {
 
   // ─── Aggregated chart data: use MovementSummary when no filter ───
   const chartMovements = useMemo((): ProcessedMovement[] => {
-    if (!selectedGudang && !startDate && !endDate && movementSummaries && movementSummaries.length > 0) {
+    // Kalo movements (detail) nya kosong, tapi ada movementSummaries, PAKE SUMMARY
+    // Ini terjadi waktu aggregate (no date filter) jalan, karena kita ga select rawMovements lagi dari DB untuk hemat memory.
+    if ((filteredMovements.length === 0 || (!selectedGudang && !startDate && !endDate)) && movementSummaries && movementSummaries.length > 0) {
       return movementSummaries.map(s => ({
         movementId: s.movementSummaryId,
         postingDate: s.dateStr as any,
@@ -731,8 +733,8 @@ export default function Home() {
                   >
                     {rightOrder.map(id => {
                       if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData selectedGudang={selectedGudang} /></SortableItem>;
-                      if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={filteredMovements} condensed /></SortableItem>;
-                      if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={filteredMovements} condensed /></SortableItem>;
+                      if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={chartMovements} condensed /></SortableItem>;
+                      if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={chartMovements} condensed /></SortableItem>;
                       return null;
                     })}
                   </SortableGrid>
@@ -771,7 +773,7 @@ export default function Home() {
                 <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
                 <div className="flex flex-col gap-5">
                   <StockReport data={filteredStocks} summary={stockSummary} />
-                  <FastSlowTransactionChart data={filteredMovements} />
+                  <FastSlowTransactionChart data={chartMovements} />
                 </div>
               </section>
 
@@ -784,7 +786,7 @@ export default function Home() {
                     <WorkCenterBreakdown data={chartMovements} />
                   </div>
                   <div className="lg:col-span-5">
-                    <MovementTable data={filteredMovements} />
+                    <MovementTable data={chartMovements} />
                   </div>
                 </div>
               </section>
