@@ -47,28 +47,36 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
   }, [data, penampunganList]);
 
   const summary: StockReportSummary = React.useMemo(() => {
-    // Jika kita menggunakan summaryProp mentah dari server dan abaikan 'data',
-    // perubahan Pengaturan Sloc Penampungan di client-side tidak akan terbaca.
-    // Oleh karena itu, kita selalu kalkulasi realtime dari filtered data:
-    const fast = nonPenampungan.filter(s => s.status === 'Fast Moving');
-    const slow = nonPenampungan.filter(s => s.status === 'Slow Moving');
-    return {
-      fast: {
-        count: fast.length,
-        totalTon: fast.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
-      },
-      slow: {
-        count: slow.length,
-        totalTon: slow.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
-      },
-      penampungan: {
-        count: inPenampungan.length,
-        totalTon: inPenampungan.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
-      },
-    };
-  }, [nonPenampungan, inPenampungan]);
+    // Jika data mentah tersedia, kalkulasi realtime (lebih akurat untuk perubahan Pengaturan)
+    if (data.length > 0) {
+      const fast = nonPenampungan.filter(s => s.status === 'Fast Moving');
+      const slow = nonPenampungan.filter(s => s.status === 'Slow Moving');
+      return {
+        fast: {
+          count: fast.length,
+          totalTon: fast.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+        },
+        slow: {
+          count: slow.length,
+          totalTon: slow.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+        },
+        penampungan: {
+          count: inPenampungan.length,
+          totalTon: inPenampungan.reduce((sum, s) => sum + ((s.tonnage || 0) / 1000), 0),
+        },
+      };
+    }
+    // Fallback: pakai summaryProp dari server (aggregate mode — raw stocks tidak dikirim)
+    if (summaryProp) return summaryProp;
+    // Fallback terakhir: kosong
+    return { fast: { count: 0, totalTon: 0 }, slow: { count: 0, totalTon: 0 }, penampungan: { count: 0, totalTon: 0 } };
+  }, [nonPenampungan, inPenampungan, summaryProp, data]);
 
-  if (data.length === 0) return null;
+  // Jangan skip kalau data raw kosong tapi masih ada summary dari server
+  if (data.length === 0 && !summaryProp) return null;
+  // Kalau summary-nya 0 semua, skip
+  const totalNonZero = summary.fast.count + summary.slow.count + summary.penampungan.count;
+  if (totalNonZero === 0) return null;
 
   const total = summary.fast.count + summary.slow.count;
   const fastPct = total > 0 ? Math.round((summary.fast.count / total) * 100) : 0;

@@ -25,7 +25,19 @@ export const FastSlowTransactionChart: React.FC<FastSlowTransactionChartProps> =
       if (m.group === 'Masuk') { b[k].mi++; b[k].mt += w; }
       else if (m.group === 'Keluar') { b[k].ki++; b[k].kt += w; }
     }
-    return STATUS.map(s => ({ ...s, ...b[s.key] })).filter(r => r.mi + r.ki > 0);
+    const known = STATUS.map(s => ({ ...s, ...b[s.key] })).filter(r => r.mi + r.ki > 0) as { key: string; label: string; color: string; icon: any; mi: number; ki: number; mt: number; kt: number }[];
+    // Kalau ada data Fast/Slow, tampilkan itu + Unknown (jika ada)
+    if (known.length > 0) {
+      if (b.U.mi + b.U.ki > 0) {
+        known.push({ key: 'U', label: 'Unknown', color: '#94a3b8', icon: Clock, ...b.U });
+      }
+      return known;
+    }
+    // Kalau semuanya Unknown (karena data dari movementSummaries), tampilkan sebagai Total Transaksi
+    if (b.U.mi + b.U.ki > 0) {
+      return [{ key: 'U', label: 'Total Transaksi', color: '#1591DC', icon: Zap, ...b.U }];
+    }
+    return [];
   }, [data]);
 
   if (!rows.length) return null;
