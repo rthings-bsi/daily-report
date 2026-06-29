@@ -48,6 +48,9 @@ export async function GET(req: NextRequest) {
     const sessions = await prisma.reportSession.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      // OPTIMIZATION: Jika tidak ada filter tanggal, cukup ambil 1 sesi TERBARU
+      // Ini mencegah API menarik puluhan megabyte JSON dari seluruh history ke memori
+      ...(start || end ? {} : { take: 1 }),
       select: {
         reportSessionId: true,
         gudangId: true,
@@ -58,6 +61,8 @@ export async function GET(req: NextRequest) {
         rawStocks: true,
         stats: true,
         stockCards: true,
+        movementSummaries: true,
+        stockSummaries: true
       },
     });
 
@@ -100,7 +105,7 @@ export async function GET(req: NextRequest) {
     // ── Build hydrated movements (matching loadSession format) ──
     const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
       movementId: `agg-${idx}`,
-      postingDate: new Date(m.dateStr).toISOString(),
+      postingDate: m.dateStr,
       dateStr: m.dateStr,
       moveType: m.moveType,
       description: m.description,
@@ -117,45 +122,52 @@ export async function GET(req: NextRequest) {
     }));
 
     // ── Re-aggregate summaries from combined data ──
-    const aggregated = aggregateSessionData({
-      movements: allRawMovements.map((m: RawMovementRow, idx: number) => ({
-        movementId: `agg-${idx}`,
-        postingDate: new Date(m.dateStr),
-        dateStr: m.dateStr,
-        moveType: m.moveType,
-        description: m.description,
-        group: m.group as any,
-        workCenter: m.workCenter || "",
-        batch: m.batch || "",
-        quantity: m.quantity,
-        unitQuantity: m.unitQuantity || 0,
-        userName: m.userName || "",
-        storageLocation: m.storageLocation || "",
-        color: m.color,
-        movementStatus: classifyBatch(m.batch || ""),
-      })),
-      stocks: allStocks,
-      stockCards: allStockCards.length > 0 ? allStockCards : undefined,
-    });
+    // const aggregated = aggregateSessionData({
+    const aggregated = {
+        movementSummaries: sessions.flatMap(s => s.movementSummaries),
+        stockSummaries: sessions.flatMap(s => s.stockSummaries)
+    };
 
     // ── Calculate combined stats ──
-    const totalIncoming = aggregated.stats.totalIncoming;
-    const totalOutgoing = aggregated.stats.totalOutgoing;
+    let totalIncoming = 0;
+    let totalOutgoing = 0;
+    let incomingCount = 0;
+    let outgoingCount = 0;
+    let totalCount = 0;
+    
+    for (const s of sessions) {
+        if (s.stats) {
+            let st = null;
+            try {
+                st = typeof s.stats === 'string' ? JSON.parse(s.stats) : s.stats;
+            } catch(e) {
+                // Ignore parse error on individual stat
+            }
+            if (st) {
+                totalIncoming += st.totalIncoming || 0;
+                totalOutgoing += st.totalOutgoing || 0;
+                incomingCount += st.incomingCount || 0;
+                outgoingCount += st.outgoingCount || 0;
+                totalCount += st.totalCount || 0;
+            }
+        }
+    }
+    
     const stats = {
       totalIncoming,
       totalOutgoing,
       netMovement: totalIncoming - totalOutgoing,
-      incomingCount: aggregated.stats.incomingCount,
-      outgoingCount: aggregated.stats.outgoingCount,
-      totalCount: aggregated.stats.totalCount,
+      incomingCount,
+      outgoingCount,
+      totalCount,
     };
 
     return NextResponse.json({
-      movements,
+      movements: [],
       movementSummaries: aggregated.movementSummaries,
       stockSummaries: aggregated.stockSummaries,
-      stocks: allStocks,
-      stockCards: allStockCards,
+      stocks: [],
+      stockCards: [],
       stats,
       sessionCount: sessions.length,
       sessions: sessions.map((s) => ({

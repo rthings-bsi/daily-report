@@ -3,87 +3,87 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  directUrl  = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Gudang {
-  gudangId  Int      @id // 1..14
-  name      String   // "Gudang 1"
-  prefix    String   // "5A".."5N"
-  active    Boolean  @default(true)
-  users     User[]
-  sessions  ReportSession[]
+  gudangId  Int             @id
+  name      String
+  prefix    String
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   settings  GudangSetting[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sessions  ReportSession[]
+  users     User[]
 }
 
 model GudangSetting {
   settingId String   @id @default(cuid())
   gudangId  Int
-  key       String   // "mvt_overrides" | "mvt_disabled" | "wc_custom" | "wc_disabled" | "sloc_exit" | "penampungan" | "capacity"
-  value     String   // JSON-encoded
-  gudang    Gudang   @relation(fields: [gudangId], references: [gudangId], onDelete: Cascade)
+  key       String
+  value     String
   updatedAt DateTime @updatedAt
+  gudang    Gudang   @relation(fields: [gudangId], references: [gudangId], onDelete: Cascade)
 
   @@unique([gudangId, key])
   @@index([gudangId])
 }
 
 model User {
-  userId    String   @id @default(cuid())
   username  String   @unique
   password  String
-  role      String   @default("user") // "admin" | "user"
-  gudangId  Int?     // null = admin (cross-tenant access)
-  gudang    Gudang?  @relation(fields: [gudangId], references: [gudangId])
+  role      String   @default("user")
   createdAt DateTime @default(now())
+  gudangId  Int?
   updatedAt DateTime @updatedAt
+  userId    String   @id @default(cuid())
+  gudang    Gudang?  @relation(fields: [gudangId], references: [gudangId])
 
   @@index([gudangId])
 }
 
 model ReportSession {
-  reportSessionId   String     @id @default(cuid())
-  gudangId          Int?       // null = legacy/unscoped; admin still sees these
-  gudang            Gudang?    @relation(fields: [gudangId], references: [gudangId])
   label             String
   dateStr           String
   fileName          String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  movements         Movement[]              @relation("MovementToSession")   // Legacy — existing sessions
-  movementSummaries MovementSummary[]       @relation("MovementSummaryToSession") // Aggregated (new saves)
-  stocks            Stock[]                 @relation("StockToSession")           // Legacy — existing sessions
-  stockSummaries    StockSummary[]          @relation("StockSummaryToSession")   // Aggregated (new saves)
+  createdAt         DateTime          @default(now())
+  gudangId          Int?
+  rawMovements      String?
+  rawStocks         String?
+  reportSessionId   String            @id @default(cuid())
+  stats             String?
   stockCards        String?
-  stats             String?                 // JSON: pre-calculated KPI
-  rawMovements      String?                 // JSON: raw rows for detail table / gudang filter
-  rawStocks         String?                 // JSON: raw stock rows (new saves, replaces Stock rows)
+  updatedAt         DateTime          @updatedAt
+  movements         Movement[]        @relation("MovementToSession")
+  movementSummaries MovementSummary[] @relation("MovementSummaryToSession")
+  gudang            Gudang?           @relation(fields: [gudangId], references: [gudangId])
+  stocks            Stock[]           @relation("StockToSession")
+  stockSummaries    StockSummary[]    @relation("StockSummaryToSession")
 
   @@index([gudangId])
 }
 
 model Movement {
-  movementId        String        @id @default(cuid())
-  reportSessionId   String
-  postingDate       DateTime
-  dateStr           String
-  moveType          String
-  description       String
-  workCenter        String?
-  batch             String?
-  storageLocation   String?
-  quantity          Float
-  unitQuantity      Float
-  group             String
-  color             String
-  userName          String?
-  reportSession     ReportSession @relation("MovementToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  postingDate     DateTime
+  dateStr         String
+  moveType        String
+  description     String
+  workCenter      String?
+  batch           String?
+  storageLocation String?
+  quantity        Float
+  unitQuantity    Float
+  group           String
+  color           String
+  userName        String?
+  createdAt       DateTime      @default(now())
+  movementId      String        @id @default(cuid())
+  reportSessionId String
+  updatedAt       DateTime      @updatedAt
+  reportSession   ReportSession @relation("MovementToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
 
   @@index([reportSessionId])
 }
@@ -100,9 +100,9 @@ model MovementSummary {
   totalQuantity     Float
   totalUnitQuantity Float
   totalCount        Int
-  reportSession     ReportSession @relation("MovementSummaryToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  reportSession     ReportSession @relation("MovementSummaryToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
 
   @@index([reportSessionId])
   @@index([reportSessionId, group])
@@ -114,34 +114,34 @@ model MovementSummary {
 }
 
 model StockSummary {
-  stockSummaryId   String        @id @default(cuid())
-  reportSessionId  String
-  sloc             String?
-  status           String        // "Fast Moving" | "Slow Moving" | "Sloc Penampungan" | "Unknown"
-  totalUnitQty     Float
-  totalWeight      Float         // KG (display layer divides by 1000 for ton)
-  itemCount        Int
-  reportSession    ReportSession @relation("StockSummaryToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  stockSummaryId  String        @id @default(cuid())
+  reportSessionId String
+  sloc            String?
+  status          String
+  totalUnitQty    Float
+  totalWeight     Float
+  itemCount       Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  reportSession   ReportSession @relation("StockSummaryToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
 
   @@index([reportSessionId])
   @@index([reportSessionId, sloc])
 }
 
 model Stock {
-  stockId          String        @id @default(cuid())
-  reportSessionId  String
-  material         String
-  description      String
-  batch            String?
-  sloc             String?
-  category         String?
-  unitQty          Float
-  weight           Float
-  reportSession    ReportSession @relation("StockToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  material        String
+  description     String
+  batch           String?
+  sloc            String?
+  category        String?
+  unitQty         Float
+  weight          Float
+  createdAt       DateTime      @default(now())
+  reportSessionId String
+  stockId         String        @id @default(cuid())
+  updatedAt       DateTime      @updatedAt
+  reportSession   ReportSession @relation("StockToSession", fields: [reportSessionId], references: [reportSessionId], onDelete: Cascade)
 
   @@index([reportSessionId])
   @@index([reportSessionId, sloc])

@@ -154,11 +154,14 @@ function InboundDestinationContent() {
     if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
 
   useEffect(() => {
+    // Jangan fetch sebelum session siap — hindari redirect 307
+    if (status !== 'authenticated') return;
+
     setLoading(true);
 
     let url = '';
-    // Jika tidak ada sessionId spesifik yang dipassing tapi ada selectedGudang atau date, atau Admin ingin "Semua Gudang", ambil dari /api/reports/aggregate
-    if (!sessionId) {
+    // Kalau ada sessionId asli, ambil spesifik via /api/reports/{id}
+    if (!sessionId || sessionId.startsWith('aggregate')) {
         const params = new URLSearchParams();
         if (selectedGudang) params.set('gudangId', String(selectedGudang));
         if (startDate) params.set('start', startDate);
@@ -173,30 +176,59 @@ function InboundDestinationContent() {
       return;
     }
 
+    // Pakai cancelled flag
+    let cancelled = false;
+
     fetch(url)
-      .then(r => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Failed to fetch data');
+        const text = await r.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error("JSON parse error from API", e, text.substring(0, 100));
+          throw new Error('Unauthorized or session expired');
+        }
+      })
       .then((data: any) => {
-        setMovements((data.movements || []).map((m: any) => ({
+        if (cancelled) return;
+
+        const movs = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
           movementId: m.movementId || `m-${Math.random()}`,
-          postingDate: new Date(m.postingDate), dateStr: m.dateStr,
+          postingDate: m.dateStr, dateStr: m.dateStr,
           moveType: m.moveType, description: m.description,
           material: m.material || undefined, workCenter: m.workCenter || '',
           batch: m.batch || '', quantity: m.quantity || 0,
           unitQuantity: m.unitQuantity || 0, userName: m.userName || '',
           storageLocation: m.storageLocation || '', group: m.group || 'Transfer',
           color: m.color || '#94a3b8', movementStatus: classifyBatch(m.batch || ''),
-        })));
+        })) : [];
+
+        setMovements(movs);
         setStockCards(data.stockCards || []);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [sessionId, selectedGudang, startDate, endDate]);
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Fetch data error:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [sessionId, selectedGudang, startDate, endDate, status]);
 
   const filteredMovements = useMemo(() => {
     let r = movements;
     if (selectedGudang) r = reclassify311(filterByGudang(removeInternalTfSloc(r), selectedGudang), selectedGudang);
-    if (startDate) r = r.filter(m => m.dateStr >= startDate);
-    if (endDate) r = r.filter(m => m.dateStr <= endDate);
+    if (startDate) r = r.filter(m => {
+        const mDate = m.dateStr?.split('T')[0];
+        return mDate ? mDate >= startDate : true;
+    });
+    if (endDate) r = r.filter(m => {
+        const mDate = m.dateStr?.split('T')[0];
+        return mDate ? mDate <= endDate : true;
+    });
     return r;
   }, [movements, selectedGudang, startDate, endDate]);
 

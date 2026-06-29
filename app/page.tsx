@@ -101,8 +101,14 @@ export default function Home() {
 
   const filteredMovements = useMemo(() => {
     let result = gudangFiltered;
-    if (startDate) result = result.filter(m => m.dateStr >= startDate);
-    if (endDate) result = result.filter(m => m.dateStr <= endDate);
+    if (startDate) result = result.filter(m => {
+        const mDate = m.dateStr?.split('T')[0];
+        return mDate ? mDate >= startDate : true;
+    });
+    if (endDate) result = result.filter(m => {
+        const mDate = m.dateStr?.split('T')[0];
+        return mDate ? mDate <= endDate : true;
+    });
     return result;
   }, [gudangFiltered, startDate, endDate]);
 
@@ -125,7 +131,8 @@ export default function Home() {
   // ─── Navigate to outbound destination breakdown ───
   const handleOutboundClick = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeSessionId) params.set('reportSessionId', activeSessionId);
+    // Jangan kirim reportSessionId kalo aggregate — biar destination page pake API aggregate
+    if (activeSessionId && !activeSessionId.startsWith('aggregate')) params.set('reportSessionId', activeSessionId);
     if (selectedGudang) params.set('gudang', String(selectedGudang));
     if (startDate) params.set('start', startDate);
     if (endDate) params.set('end', endDate);
@@ -135,7 +142,8 @@ export default function Home() {
   // ─── Navigate to inbound destination breakdown ───
   const handleInboundClick = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeSessionId) params.set('reportSessionId', activeSessionId);
+    // Jangan kirim reportSessionId kalo aggregate — biar destination page pake API aggregate
+    if (activeSessionId && !activeSessionId.startsWith('aggregate')) params.set('reportSessionId', activeSessionId);
     if (selectedGudang) params.set('gudang', String(selectedGudang));
     if (startDate) params.set('start', startDate);
     if (endDate) params.set('end', endDate);
@@ -147,7 +155,7 @@ export default function Home() {
     if (!selectedGudang && !startDate && !endDate && movementSummaries && movementSummaries.length > 0) {
       return movementSummaries.map(s => ({
         movementId: s.movementSummaryId,
-        postingDate: new Date(s.dateStr),
+        postingDate: s.dateStr as any,
         dateStr: s.dateStr,
         moveType: s.moveType,
         description: s.description,
@@ -177,9 +185,20 @@ export default function Home() {
     setLoading(true);
     try {
       const res = await fetch(`/api/reports/${id}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 401) {
+            router.push('/login');
+        }
+        return;
+      }
       if (gen !== loadGen.current) return; // superseded by newer operation
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Unauthorized or session expired');
+      }
 
       // ── New session: pre-calculated stats + aggregated summaries ──
       if (data.stats) {
@@ -188,12 +207,13 @@ export default function Home() {
       }
 
       // ── Raw movements for detail table & gudang filtering ──
-      const movs: ProcessedMovement[] = data.movements.map((m: any) => ({
+      const movs: ProcessedMovement[] = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
         movementId: m.movementId || `move-${Math.random()}`,
-        postingDate: new Date(m.postingDate),
+        postingDate: m.dateStr,
         dateStr: m.dateStr,
         moveType: m.moveType,
         description: m.description,
+        material: m.material || undefined,
         workCenter: m.workCenter || '',
         batch: m.batch || '',
         quantity: m.quantity,
@@ -203,7 +223,7 @@ export default function Home() {
         group: m.group || 'Transfer',
         color: m.color || '#94a3b8',
         movementStatus: classifyBatch(m.batch || ''),
-      }));
+      })) : [];
       // Fallback: if no stats, calculate from raw movements (legacy)
       if (!data.stats) {
         setStats(calculateStats(movs));
@@ -266,21 +286,34 @@ export default function Home() {
     try {
       const qs = params.toString();
       const res = await fetch(`/api/reports/aggregate${qs ? `?${qs}` : ''}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status === 401) {
+            router.push('/login');
+        }
+        return;
+      }
       if (gen !== loadGen.current) return;
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("JSON parse error from /api/reports/aggregate", e, text.substring(0, 100));
+        throw new Error('Unauthorized or session expired');
+      }
 
       if (data.stats) {
         setStats(data.stats);
         setMovementSummaries(data.movementSummaries || null);
       }
 
-      const movs: ProcessedMovement[] = data.movements.map((m: any) => ({
+      const movs: ProcessedMovement[] = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
         movementId: m.movementId || `agg-${Math.random()}`,
-        postingDate: new Date(m.postingDate),
+        postingDate: m.dateStr,
         dateStr: m.dateStr,
         moveType: m.moveType,
         description: m.description,
+        material: m.material || undefined,
         workCenter: m.workCenter || '',
         batch: m.batch || '',
         quantity: m.quantity,
@@ -290,7 +323,7 @@ export default function Home() {
         group: m.group || 'Transfer',
         color: m.color || '#94a3b8',
         movementStatus: classifyBatch(m.batch || ''),
-      }));
+      })) : [];
 
       if (!data.stats) {
         setStats(calculateStats(movs));

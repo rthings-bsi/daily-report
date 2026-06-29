@@ -27,11 +27,22 @@ export async function GET() {
     },
   });
 
-  const result = sessions.map(({ stats, _count, gudangId, ...s }) => ({
-    ...s,
-    gudangId,
-    totalCount: stats ? JSON.parse(stats).totalCount : _count.movements,
-  }));
+  const result = sessions.map(({ stats, _count, gudangId, ...s }) => {
+    let totalCount = _count.movements;
+    if (stats) {
+      try {
+        const st = typeof stats === 'string' ? JSON.parse(stats) : stats;
+        if (st && st.totalCount !== undefined) totalCount = st.totalCount;
+      } catch (e) {
+        // Ignore parse error
+      }
+    }
+    return {
+      ...s,
+      gudangId,
+      totalCount,
+    };
+  });
 
   return NextResponse.json(result);
 }

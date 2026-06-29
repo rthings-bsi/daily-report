@@ -39,9 +39,10 @@ export async function GET(
     const stocks = report.rawStocks ? JSON.parse(report.rawStocks) : [];
     const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
 
+    // Parse the date directly instead of putting it into new Date() which can cause timezone shifts
     const parsedMovements = rawMovements.map((m: any, idx: number) => ({
       movementId: `move-${idx}`,
-      postingDate: new Date(m.dateStr).toISOString(),
+      postingDate: m.dateStr,
       dateStr: m.dateStr,
       moveType: m.moveType,
       description: m.description,
