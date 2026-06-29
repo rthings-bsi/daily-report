@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
-import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch } from '@/lib/gudang';
+import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
 import { StatsCard } from '@/components/StatsCard';
 import { MovementTable } from '@/components/MovementTable';
 import { MovementChart } from '@/components/MovementChart';
@@ -432,7 +432,12 @@ export default function Home() {
         const next: StockReportSummary = { fast: bucket(), slow: bucket(), penampungan: bucket() };
         for (const r of data.stockSummaries) {
           const ton = (r.totalWeight || 0) / 1000;
-          if (r.status === 'Fast Moving') {
+          // Cek client-side penampungan SLOC (walau di DB statusnya Fast/Slow Moving)
+          const isPenampungan = isPenampunganSloc(r.sloc);
+          if (isPenampungan) {
+            next.penampungan.count += r.itemCount || 0;
+            next.penampungan.totalTon += ton;
+          } else if (r.status === 'Fast Moving') {
             next.fast.count += r.itemCount || 0;
             next.fast.totalTon += ton;
           } else if (r.status === 'Slow Moving') {
