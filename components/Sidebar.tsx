@@ -54,32 +54,35 @@ export default function Sidebar() {
       >
         {/* ─── Logo ─── */}
         <div className={cn(
-          "flex items-center h-16 shrink-0 border-b border-slate-200/50",
-          isOpen ? "px-5" : "px-4"
+          "flex items-center h-20 shrink-0 border-b border-slate-100",
+          isOpen ? "px-6" : "px-3"
         )}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 w-full">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <Image
                 src="https://irp.cdn-website.com/2f73b385/dms3rep/multi/SPINDO+MAIN+LOGO.png"
                 alt="SPINDO Logo"
-                width={36}
-                height={36}
-                className="object-contain scale-[1.6]"
+                width={40}
+                height={40}
+                className="object-contain scale-[1.7]"
               />
             </div>
             {isOpen && (
-              <div className="overflow-hidden">
-                <span className="text-base font-bold text-slate-900 tracking-tight block leading-tight">SPINDO</span>
-                <span className="text-[9px] font-medium text-slate-400 tracking-wider uppercase block leading-tight">Warehouse</span>
+              <div className="overflow-hidden flex-1">
+                <span className="text-[17px] font-black text-slate-900 tracking-wide block leading-tight">SPINDO</span>
+                <span className="text-[9px] font-bold text-slate-400 tracking-[0.2em] uppercase block leading-tight mt-0.5">Warehouse</span>
               </div>
             )}
           </div>
         </div>
 
         {/* ─── Navigation ─── */}
-        <nav className="flex-1 space-y-0.5 px-2.5 py-5 overflow-hidden">
-          <div className={cn("text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-2.5 mb-3", isOpen ? "block" : "sr-only")}>
-            Menu
+        <nav className="flex-1 space-y-1 px-3 py-6 overflow-x-hidden overflow-y-auto">
+          <div className={cn("flex items-center gap-2 px-3 mb-4", isOpen ? "block" : "sr-only")}>
+            <div className="w-1 h-3 bg-gradient-to-b from-sky-400 to-indigo-500 rounded-full" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              MENU
+            </span>
           </div>
           {baseMenuItems.map((item) => {
             const isActive = pathname === item.href;
@@ -88,22 +91,16 @@ export default function Sidebar() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "group flex items-center rounded-xl text-sm font-medium relative overflow-hidden",
-                  isOpen ? "px-3 py-2.5 gap-3" : "justify-center py-3",
+                  "group flex items-center rounded-xl text-sm font-semibold relative overflow-hidden transition-all duration-300",
+                  isOpen ? "px-4 py-3 gap-3" : "justify-center py-3",
                   isActive
-                    ? "text-sky-700"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "text-white shadow-md shadow-sky-600/20"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 hover:translate-x-1"
                 )}
               >
                 {isActive && (
                   <span className={cn(
-                    "absolute inset-0 rounded-xl bg-gradient-to-r from-sky-50 to-indigo-50/50",
-                    "transition-all duration-300"
-                  )} />
-                )}
-                {isActive && (
-                  <span className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-full bg-gradient-to-b from-sky-500 to-sky-600",
+                    "absolute inset-0 rounded-xl bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]",
                     "transition-all duration-300"
                   )} />
                 )}
@@ -114,10 +111,10 @@ export default function Sidebar() {
                   <item.icon
                     size={20}
                     className={cn(
-                      "shrink-0 transition-all duration-200",
+                      "shrink-0 transition-all duration-300",
                       isActive
-                        ? "text-sky-600"
-                        : "text-slate-400 group-hover:text-slate-600"
+                        ? "text-white drop-shadow-sm"
+                        : "text-slate-400 group-hover:text-slate-600 group-hover:scale-110"
                     )}
                   />
                 </div>
@@ -125,7 +122,7 @@ export default function Sidebar() {
                   <>
                     <span className="relative flex-1 text-[13px]">{item.name}</span>
                     {isActive && (
-                      <ChevronRight size={14} className="relative text-sky-400" />
+                      <ChevronRight size={14} className="relative text-sky-100 opacity-80" />
                     )}
                   </>
                 )}
@@ -136,9 +133,12 @@ export default function Sidebar() {
           {/* Admin-only section */}
           {session.user?.role === 'admin' && (
             <>
-              <div className={cn("text-[10px] font-semibold text-amber-500 uppercase tracking-widest px-2.5 mb-1 mt-4 flex items-center gap-1", isOpen ? "block" : "sr-only")}>
-                <ShieldCheck size={9} />
-                Admin
+              <div className={cn("flex items-center gap-2 px-3 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
+                <div className="w-1 h-3 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full" />
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <ShieldCheck size={10} strokeWidth={3} />
+                  ADMIN
+                </span>
               </div>
               {[adminMenuItem].map((item) => {
                 const isActive = pathname === item.href;
@@ -147,18 +147,21 @@ export default function Sidebar() {
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      "group flex items-center rounded-xl text-sm font-medium relative overflow-hidden",
-                      isOpen ? "px-3 py-2.5 gap-3" : "justify-center py-3",
+                      "group flex items-center rounded-xl text-sm font-semibold relative overflow-hidden transition-all duration-300",
+                      isOpen ? "px-4 py-3 gap-3" : "justify-center py-3",
                       isActive
-                        ? "text-amber-700"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-white shadow-md shadow-amber-600/20"
+                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 hover:translate-x-1"
                     )}
                   >
                     {isActive && (
-                      <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-50 to-amber-50/50" />
+                      <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 transition-all duration-300" />
                     )}
                     <div className={cn("relative flex items-center justify-center", isOpen ? "gap-3" : "gap-0")}>
-                      <item.icon size={20} className={isActive ? "text-amber-600" : "text-slate-400 group-hover:text-slate-600"} />
+                      <item.icon size={20} className={cn(
+                        "transition-all duration-300",
+                        isActive ? "text-white drop-shadow-sm" : "text-slate-400 group-hover:text-amber-500 group-hover:scale-110"
+                      )} />
                     </div>
                     {isOpen && (
                       <span className="relative flex-1 text-[13px]">{item.name}</span>
