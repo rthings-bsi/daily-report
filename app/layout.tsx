@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "SPINDO Warehouse | Daily Report System",
   description: "Advanced Warehouse Inventory Movement Reporting System for SPINDO",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icon.png",
   },
 };
 
