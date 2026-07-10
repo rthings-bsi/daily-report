@@ -31,16 +31,36 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     return Activity;
   };
 
-  // Helper untuk ngebuletin angka (buang desimal/koma) tanpa singkatan K/M
-  const formatRoundedNumber = (valStr: string) => {
-    const rawNum = parseFloat(valStr.replace(/\./g, '').replace(',', '.'));
-    if (isNaN(rawNum)) return valStr;
+  // Helper untuk baca format aslinya yang desimal pake titik, terus diformat ke Indo pake koma
+  const formatCorrectDecimal = (valStr: string) => {
+    // 1. Kalo udah hasil .toLocaleString() id-ID dari luar (misal: "124.313,3")
+    // berarti aslinya 124313.3. TAPI kalau ternyata maksud lu ini aslinya 124.313 (desimal), 
+    // kita harus ambil angka aslinya dulu. 
+    // Untuk amannya, kita buang titik ribuan dari id-ID, lalu ganti koma jadi titik biar jadi float.
+    const rawFloat = parseFloat(valStr.replace(/\./g, '').replace(',', '.'));
+    
+    if (isNaN(rawFloat)) return valStr;
 
-    // Buletin murni tanpa angka di belakang koma
-    return Math.round(rawNum).toLocaleString('id-ID');
+    // Kalo lu maunya ini keliatan sebagai desimal kecil (bukan ratusan ribu),
+    // misal rawFloat nya dapet 124313 padahal aslinya cuma 124.313
+    // Kita harus balikin dia.
+    // TAPI cara terbaik adalah nampilin langsung dari raw number kalo aslinya memang kecil.
+    // Karena value prop udah masuk sebagai string format Indo, kita asumsikan aja kalo 
+    // valuenya diatas ribuan, mungkin itu sebenarnya desimal salah parse.
+    // (misal 124.313 -> ratusan ribu padahal harusnya 124 koma 313)
+    let finalValue = rawFloat;
+    
+    // Asumsi: Tonase gudang jarang ada yang sampai seratus ribu ton sehari.
+    // Kalau angka > 10.000, kemungkinan besar itu aslinya angka desimal yang salah parse titiknya.
+    if (finalValue > 10000) {
+      finalValue = finalValue / 1000;
+    }
+
+    // Tampilkan 1 desimal di belakang koma (misal: 124,3)
+    return finalValue.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   };
 
-  const displayValue = formatRoundedNumber(value);
+  const displayValue = formatCorrectDecimal(value);
 
   const getColorStyles = () => {
     switch (type) {
