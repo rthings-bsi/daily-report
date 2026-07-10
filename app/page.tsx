@@ -838,15 +838,17 @@ export default function Home() {
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
               className="flex flex-col gap-4"
             >
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4 mb-4">
                 <StatsCard title="Incoming" value={filteredStats ? (filteredStats.totalIncoming).toString() : '0'} unit="TON" type="in" condensed delay={0.05} onClick={handleInboundClick} />
                 <StatsCard title="Outgoing" value={filteredStats ? (filteredStats.totalOutgoing).toString() : '0'} unit="TON" type="out" condensed delay={0.1} onClick={handleOutboundClick} />
                 <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toString()} unit="TON" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} condensed delay={0.15} />
                 <StatsCard title="Transactions" value={(filteredStats?.totalCount ?? filteredMovements.length).toString()} unit="TRX" type="total" condensed delay={0.2} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 xl:gap-4">
-                <div className="md:col-span-12 lg:col-span-5">
+              {/* ─── Pipa NC Section ─── */}
+              <section>
+                  <SectionTitle>Data Pipa NC</SectionTitle>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                   <div 
                     className="group relative flex-none rounded-2xl bg-white border border-[#10b981]/20 p-5 shadow-sm shadow-[#10b981]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/10 hover:border-[#10b981]/40 hover:-translate-y-1" 
                     onClick={() => router.push('/pipa-nc')}
