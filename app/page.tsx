@@ -847,494 +847,526 @@ export default function Home() {
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 xl:gap-4">
                 <div className="md:col-span-12 lg:col-span-5">
-                  <SortableGrid
-                    items={leftOrder}
-                    onReorder={items => { setLeftOrder(items); localStorage.setItem('report-layout-left', JSON.stringify(items)); }}
-                    className="flex flex-col gap-4"
+                  <div 
+                    className="group relative flex-none rounded-2xl bg-white border border-[#10b981]/20 p-5 shadow-sm shadow-[#10b981]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/10 hover:border-[#10b981]/40 hover:-translate-y-1" 
+                    onClick={() => router.push('/pipa-nc')}
                   >
-                    {leftOrder.map(id => {
-                      if (id === 'workcenter') return <SortableItem key="workcenter" id="workcenter"><WorkCenterBreakdown data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} summary={adjustedStockSummary} condensed /></SortableItem>;
-                      if (id === 'pipa-nc') return (
-                        <SortableItem key="pipa-nc" id="pipa-nc">
-                          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-[#C4E2F5]/50 p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
-                                <Package size={11} className="text-white" strokeWidth={2.5} />
-                              </div>
-                              <span className="text-[11px] font-bold text-indigo-700">Data Pipa NC</span>
-                              <div className="ml-auto flex items-center gap-2">
-                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-indigo-400 hover:text-indigo-600 bg-white/50 hover:bg-white p-1 rounded-md border border-indigo-100/50 shadow-sm transition-all" title="Pindah Kolom">
-                                  <ArrowLeftRight size={12} strokeWidth={2.5} />
-                                </button>
-                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                              {/* Grade C */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#ecfdf5] to-white border border-[#10b981]/20 p-3 shadow-sm shadow-[#10b981]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/10 hover:border-[#10b981]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <Box size={40} className="text-[#047857] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">GRADE C</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#10b981] shadow-md shadow-[#10b981]/30 text-white"><TrendingUp size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#10b981] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
-                                </div>
-                              </div>
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                      <Box size={64} className="text-[#047857] -rotate-12" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start mb-6">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">GRADE C</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-500/20 text-white"><TrendingUp size={16} /></div>
+                    </div>
+                    <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                      <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
+                    </div>
+                    <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-40"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                    </div>
+                  </div>
 
-                              {/* Grade E */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#fff1f2] to-white border border-[#e11d48]/20 p-3 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <Box size={40} className="text-[#be123c] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">GRADE E</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#e11d48] shadow-md shadow-[#e11d48]/30 text-white"><TrendingUp size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#e11d48] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e11d48] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#e11d48]"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
-                                </div>
-                              </div>
+                  {/* Grade E */}
+                  <div 
+                    className="group relative flex-none rounded-2xl bg-white border border-[#e11d48]/20 p-5 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40 hover:-translate-y-1" 
+                    onClick={() => router.push('/pipa-nc')}
+                  >
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                      <Box size={64} className="text-[#be123c] -rotate-12" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start mb-6">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">GRADE E</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/20 text-white"><TrendingUp size={16} /></div>
+                    </div>
+                    <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                      <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
+                    </div>
+                    <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-40"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+                    </div>
+                  </div>
 
-                              {/* Total Item */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#eff6ff] to-white border border-[#3b82f6]/20 p-3 shadow-sm shadow-[#3b82f6]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#3b82f6]/10 hover:border-[#3b82f6]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <BarChartIcon size={40} className="text-[#1d4ed8] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">TOTAL ITEM</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#3b82f6] shadow-md shadow-[#3b82f6]/30 text-white"><BarChartIcon size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#3b82f6] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3b82f6] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#3b82f6]"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Total Pipa NC</span>
-                                </div>
-                              </div>
+                  {/* Total Pipa NC */}
+                  <div 
+                    className="group relative flex-none rounded-2xl bg-white border border-indigo-200/50 p-5 shadow-sm shadow-indigo-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-500/30 hover:-translate-y-1" 
+                    onClick={() => router.push('/pipa-nc')}
+                  >
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                      <Package size={64} className="text-indigo-600 -rotate-12" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start mb-6">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL ITEM</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/20 text-white"><Box size={16} /></div>
+                    </div>
+                    <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                      <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{(pipaNCStats.gradeC + pipaNCStats.gradeE).toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
+                    </div>
+                    <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-40"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">Total pipa NC</span>
+                    </div>
+                  </div>
 
-                              {/* Total Qty */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-3 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                                  <Package size={40} className="text-slate-800 -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/50 backdrop-blur-sm">TOTAL QTY</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Package size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Pcs</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Berdasarkan BOM</span>
+                  {/* Total Qty */}
+                  <div 
+                    className="group relative flex-none rounded-2xl bg-white border border-sky-200/50 p-5 shadow-sm shadow-sky-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/10 hover:border-sky-500/30 hover:-translate-y-1" 
+                    onClick={() => router.push('/pipa-nc')}
+                  >
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                      <Box size={64} className="text-sky-600 -rotate-12" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start mb-6">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL QTY</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-sky-400 to-sky-600 shadow-md shadow-sky-500/20 text-white"><Package size={16} /></div>
+                    </div>
+                    <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                      <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PC</span>
+                    </div>
+                    <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-500 opacity-40"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
+                    </div>
+                  </div>
+
+                  {/* Total Tonase */}
+                  <div 
+                    className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+                    onClick={() => router.push('/pipa-nc')}
+                  >
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                      <Box size={64} className="text-violet-600 -rotate-12" />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start mb-6">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+                    </div>
+                    <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                      <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                        {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                    </div>
+                    <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                    </div>
+                  </div>[11px] font-medium text-slate-500 truncate">Stok BOM</span>
                                 </div>
                               </div>
 
                               {/* Total Tonase */}
                               <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-3 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300 hover:-translate-y-0.5" 
+                                className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                                  <Scale size={40} className="text-slate-800 -rotate-12" />
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                                  <Box size={64} className="text-violet-600 -rotate-12" />
                                 </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/50 backdrop-blur-sm">TOTAL TONASE</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Scale size={10} /></div>
+                                <div className="relative z-10 flex justify-between items-start mb-6">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
                                 </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Ton</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400"></span>
+                                <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                                  <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                                    {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                   </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Berdasarkan EOM</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
                                 </div>
-                              </div>
-                            </div>
-                          </div>
-                        </SortableItem>
-                      );
-                      return null;
-                    })}
-                  </SortableGrid>
-                </div>
-                <div className="md:col-span-12 lg:col-span-7">
-                  <SortableGrid
-                    items={rightOrder}
-                    onReorder={items => { setRightOrder(items); localStorage.setItem('report-layout-right', JSON.stringify(items)); }}
-                    className="flex flex-col gap-4"
-                  >
-                    {rightOrder.map(id => {
-                      if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData selectedGudang={selectedGudang} /></SortableItem>;
-                      if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'pipa-nc') return (
-                        <SortableItem key="pipa-nc" id="pipa-nc">
-                          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-[#C4E2F5]/50 p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
-                                <Package size={11} className="text-white" strokeWidth={2.5} />
-                              </div>
-                              <span className="text-[11px] font-bold text-indigo-700">Data Pipa NC</span>
-                              <div className="ml-auto flex items-center gap-2">
-                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-indigo-400 hover:text-indigo-600 bg-white/50 hover:bg-white p-1 rounded-md border border-indigo-100/50 shadow-sm transition-all" title="Pindah Kolom">
-                                  <ArrowLeftRight size={12} strokeWidth={2.5} />
-                                </button>
-                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                              {/* Grade C */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#ecfdf5] to-white border border-[#10b981]/20 p-3 shadow-sm shadow-[#10b981]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/10 hover:border-[#10b981]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <Box size={40} className="text-[#047857] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">GRADE C</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#10b981] shadow-md shadow-[#10b981]/30 text-white"><TrendingUp size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#10b981] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
+                                <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                                  <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
                                   </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
                                 </div>
-                              </div>
-
-                              {/* Grade E */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#fff1f2] to-white border border-[#e11d48]/20 p-3 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <Box size={40} className="text-[#be123c] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">GRADE E</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#e11d48] shadow-md shadow-[#e11d48]/30 text-white"><TrendingUp size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#e11d48] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e11d48] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#e11d48]"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
-                                </div>
-                              </div>
-
-                              {/* Total Item */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-[#eff6ff] to-white border border-[#3b82f6]/20 p-3 shadow-sm shadow-[#3b82f6]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#3b82f6]/10 hover:border-[#3b82f6]/40 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                                  <BarChartIcon size={40} className="text-[#1d4ed8] -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded border border-slate-100 backdrop-blur-sm">TOTAL ITEM</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#3b82f6] shadow-md shadow-[#3b82f6]/30 text-white"><BarChartIcon size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-[#3b82f6] uppercase tracking-wider">Item</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3b82f6] opacity-40"></span>
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#3b82f6]"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Total Pipa NC</span>
-                                </div>
-                              </div>
-
-                              {/* Total Qty */}
-                              <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-3 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300 hover:-translate-y-0.5" 
-                                onClick={() => router.push('/pipa-nc')}
-                              >
-                                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                                  <Package size={40} className="text-slate-800 -rotate-12" />
-                                </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/50 backdrop-blur-sm">TOTAL QTY</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Package size={10} /></div>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Pcs</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400"></span>
-                                  </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Berdasarkan BOM</span>
+                              </div>            </span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
                                 </div>
                               </div>
 
                               {/* Total Tonase */}
                               <div 
-                                className="group relative flex-none rounded-xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-3 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300 hover:-translate-y-0.5" 
+                                className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                                  <Scale size={40} className="text-slate-800 -rotate-12" />
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                                  <Box size={64} className="text-violet-600 -rotate-12" />
                                 </div>
-                                <div className="relative z-10 flex justify-between items-start mb-2">
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/50 backdrop-blur-sm">TOTAL TONASE</span>
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Scale size={10} /></div>
+                                <div className="relative z-10 flex justify-between items-start mb-6">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
                                 </div>
-                                <div className="relative z-10 flex items-baseline gap-1 mb-2">
-                                  <span className="text-xl font-black tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Ton</span>
-                                </div>
-                                <div className="relative z-10 flex items-center gap-1.5 mt-auto">
-                                  <span className="flex h-1.5 w-1.5 relative">
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400"></span>
+                                <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                                  <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                                    {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                   </span>
-                                  <span className="text-[8px] font-semibold text-slate-500 truncate">Berdasarkan EOM</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
                                 </div>
-                              </div>
-                            </div>
-                          </div>
-                        </SortableItem>
-                      );
-                      return null;
-                    })}
-                  </SortableGrid>
-                </div>
-              </div>
-            </motion.div>
-
-          ) : (
-
-          /* ═══════════ FULL DASHBOARD MODE ═══════════ */
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col gap-7 pb-12"
-            >
-              <section>
-                <SectionTitle>Key Performance Indicators</SectionTitle>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-                  <StatsCard title="Total Inbound" value={filteredStats ? (filteredStats.totalIncoming).toString() : '0'} unit="TON" subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`} type="in" delay={0.05} onClick={handleInboundClick} />
-                  <StatsCard title="Total Outbound" value={filteredStats ? (filteredStats.totalOutgoing).toString() : '0'} unit="TON" subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`} type="out" delay={0.1} onClick={handleOutboundClick} />
-                  <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toString()} unit="TON" subtitle="Selisih material masuk & keluar" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} delay={0.15} />
-                  <StatsCard title="Total Transaksi" value={(filteredStats?.totalCount ?? filteredMovements.length).toString()} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
-                </div>
-              </section>
-
-              {/* ─── Pipa NC Section ─── */}
-              <section>
-                  <SectionTitle>Data Pipa NC</SectionTitle>
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                    {/* Grade C */}
-                    <div 
-                      className="group relative flex-none rounded-2xl bg-gradient-to-b from-[#ecfdf5] to-white border border-[#10b981]/20 p-5 shadow-sm shadow-[#10b981]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/10 hover:border-[#10b981]/40" 
-                      onClick={() => router.push('/pipa-nc')}
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                        <Box size={64} className="text-[#047857] -rotate-12" />
-                      </div>
-                      <div className="relative z-10 flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-2 py-1 rounded-md border border-slate-100 backdrop-blur-sm">GRADE C</span>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#10b981] shadow-md shadow-[#10b981]/30 text-white"><TrendingUp size={16} /></div>
-                      </div>
-                      <div className="relative z-10 flex items-baseline gap-1.5 mb-4">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
-                        <span className="text-[10px] font-bold text-[#10b981] uppercase tracking-wider">Item</span>
-                      </div>
-                      <div className="relative z-10 flex items-center gap-2 mt-auto">
-                        <span className="flex h-2 w-2 relative">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-40"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                                <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                                  <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                                  </span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                                </div>
+                              </div>        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
                       </div>
                     </div>
 
                     {/* Grade E */}
                     <div 
-                      className="group relative flex-none rounded-2xl bg-gradient-to-b from-[#fff1f2] to-white border border-[#e11d48]/20 p-5 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40" 
+                      className="group relative flex-none rounded-2xl bg-white border border-[#e11d48]/20 p-5 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40 hover:-translate-y-1" 
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
                         <Box size={64} className="text-[#be123c] -rotate-12" />
                       </div>
-                      <div className="relative z-10 flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-2 py-1 rounded-md border border-slate-100 backdrop-blur-sm">GRADE E</span>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#e11d48] shadow-md shadow-[#e11d48]/30 text-white"><TrendingUp size={16} /></div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">GRADE E</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/20 text-white"><TrendingUp size={16} /></div>
                       </div>
-                      <div className="relative z-10 flex items-baseline gap-1.5 mb-4">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
-                        <span className="text-[10px] font-bold text-[#e11d48] uppercase tracking-wider">Item</span>
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                        <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
                       </div>
-                      <div className="relative z-10 flex items-center gap-2 mt-auto">
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
                         <span className="flex h-2 w-2 relative">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e11d48] opacity-40"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#e11d48]"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
                       </div>
                     </div>
 
-                    {/* Total Item */}
+                    {/* Total Pipa NC */}
                     <div 
-                      className="group relative flex-none rounded-2xl bg-gradient-to-b from-[#eff6ff] to-white border border-[#3b82f6]/20 p-5 shadow-sm shadow-[#3b82f6]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#3b82f6]/10 hover:border-[#3b82f6]/40" 
+                      className="group relative flex-none rounded-2xl bg-white border border-indigo-200/50 p-5 shadow-sm shadow-indigo-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-500/30 hover:-translate-y-1" 
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
-                        <BarChartIcon size={64} className="text-[#1d4ed8] -rotate-12" />
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                        <Package size={64} className="text-indigo-600 -rotate-12" />
                       </div>
-                      <div className="relative z-10 flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/60 px-2 py-1 rounded-md border border-slate-100 backdrop-blur-sm">TOTAL ITEM</span>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#3b82f6] shadow-md shadow-[#3b82f6]/30 text-white"><BarChartIcon size={16} /></div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL ITEM</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/20 text-white"><Box size={16} /></div>
                       </div>
-                      <div className="relative z-10 flex items-baseline gap-1.5 mb-4">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
-                        <span className="text-[10px] font-bold text-[#3b82f6] uppercase tracking-wider">Item</span>
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                        <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{(pipaNCStats.gradeC + pipaNCStats.gradeE).toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
                       </div>
-                      <div className="relative z-10 flex items-center gap-2 mt-auto">
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
                         <span className="flex h-2 w-2 relative">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3b82f6] opacity-40"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3b82f6]"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 truncate">Total Pipa NC</span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Total pipa NC</span>
                       </div>
                     </div>
 
                     {/* Total Qty */}
                     <div 
-                      className="group relative flex-none rounded-2xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-5 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300" 
+                      className="group relative flex-none rounded-2xl bg-white border border-sky-200/50 p-5 shadow-sm shadow-sky-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/10 hover:border-sky-500/30 hover:-translate-y-1" 
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                        <Package size={64} className="text-slate-800 -rotate-12" />
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                        <Box size={64} className="text-sky-600 -rotate-12" />
                       </div>
-                      <div className="relative z-10 flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-2 py-1 rounded-md border border-slate-200/50 backdrop-blur-sm">TOTAL QTY</span>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Package size={16} /></div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL QTY</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-sky-400 to-sky-600 shadow-md shadow-sky-500/20 text-white"><Package size={16} /></div>
                       </div>
-                      <div className="relative z-10 flex items-baseline gap-1.5 mb-4">
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
                         <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pcs</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PC</span>
                       </div>
-                      <div className="relative z-10 flex items-center gap-2 mt-auto">
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
                         <span className="flex h-2 w-2 relative">
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 truncate">Berdasarkan BOM</span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
                       </div>
                     </div>
 
                     {/* Total Tonase */}
                     <div 
-                      className="group relative flex-none rounded-2xl bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 p-5 shadow-sm cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200 hover:border-slate-300" 
+                      className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                        <Scale size={64} className="text-slate-800 -rotate-12" />
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                        <Box size={64} className="text-violet-600 -rotate-12" />
                       </div>
-                      <div className="relative z-10 flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100/80 px-2 py-1 rounded-md border border-slate-200/50 backdrop-blur-sm">TOTAL TONASE</span>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 shadow-md shadow-slate-800/20 text-white"><Scale size={16} /></div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
                       </div>
-                      <div className="relative z-10 flex items-baseline gap-1.5 mb-4">
-                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ton</span>
-                      </div>
-                      <div className="relative z-10 flex items-center gap-2 mt-auto">
-                        <span className="flex h-2 w-2 relative">
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                          {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 truncate">Berdasarkan EOM</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                      </div>
+                    </div>[11px] font-medium text-slate-500 truncate">Stok BOM</span>
+                                </div>
+                              </div>
+
+                              {/* Total Tonase */}
+                              <div 
+                                className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+                                onClick={() => router.push('/pipa-nc')}
+                              >
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                                  <Box size={64} className="text-violet-600 -rotate-12" />
+                                </div>
+                                <div className="relative z-10 flex justify-between items-start mb-6">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                                  <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                                    {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                                </div>
+                                <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                                  <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                                  </span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                                </div>
+                              </div>            </span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
+                                </div>
+                              </div>
+
+                              {/* Total Tonase */}
+                              <div 
+                                className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+                                onClick={() => router.push('/pipa-nc')}
+                              >
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                                  <Box size={64} className="text-violet-600 -rotate-12" />
+                                </div>
+                                <div className="relative z-10 flex justify-between items-start mb-6">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                                  <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                                    {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                                </div>
+                                <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                                  <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                                  </span>
+                                  <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                                </div>
+                              </div>to pt-4 border-t border-slate-50">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+            </div>
+          </div>
+
+          {/* Grade E */}
+          <div 
+            className="group relative flex-none rounded-2xl bg-white border border-[#e11d48]/20 p-5 shadow-sm shadow-[#e11d48]/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-[#e11d48]/10 hover:border-[#e11d48]/40 hover:-translate-y-1" 
+            onClick={() => router.push('/pipa-nc')}
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+              <Box size={64} className="text-[#be123c] -rotate-12" />
+            </div>
+            <div className="relative z-10 flex justify-between items-start mb-6">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">GRADE E</span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-rose-400 to-rose-600 shadow-md shadow-rose-500/20 text-white"><TrendingUp size={16} /></div>
+            </div>
+            <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+              <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+            </div>
+          </div>
+
+          {/* Total Pipa NC */}
+          <div 
+            className="group relative flex-none rounded-2xl bg-white border border-indigo-200/50 p-5 shadow-sm shadow-indigo-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-500/30 hover:-translate-y-1" 
+            onClick={() => router.push('/pipa-nc')}
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+              <Package size={64} className="text-indigo-600 -rotate-12" />
+            </div>
+            <div className="relative z-10 flex justify-between items-start mb-6">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL ITEM</span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/20 text-white"><Box size={16} /></div>
+            </div>
+            <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+              <span className="text-4xl font-extrabold tabular-nums tracking-tight text-slate-800">{(pipaNCStats.gradeC + pipaNCStats.gradeE).toLocaleString('id-ID')}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item</span>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 truncate">Total pipa NC</span>
+            </div>
+          </div>
+
+          {/* Total Qty */}
+          <div 
+            className="group relative flex-none rounded-2xl bg-white border border-sky-200/50 p-5 shadow-sm shadow-sky-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/10 hover:border-sky-500/30 hover:-translate-y-1" 
+            onClick={() => router.push('/pipa-nc')}
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+              <Box size={64} className="text-sky-600 -rotate-12" />
+            </div>
+            <div className="relative z-10 flex justify-between items-start mb-6">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">TOTAL QTY</span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-sky-400 to-sky-600 shadow-md shadow-sky-500/20 text-white"><Package size={16} /></div>
+            </div>
+            <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+              <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PC</span>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-500 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
+            </div>
+          </div>
+
+          {/* Total Tonase */}
+          <div 
+            className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+            onClick={() => router.push('/pipa-nc')}
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+              <Box size={64} className="text-violet-600 -rotate-12" />
+            </div>
+            <div className="relative z-10 flex justify-between items-start mb-6">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+            </div>
+            <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+              <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              </span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+            </div>
+          </div>ex rounded-full h-2 w-2 bg-sky-500"></span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
                       </div>
                     </div>
-                  </div>
-                </section>
 
-              <section>
-                <SectionTitle>Analisis Pergerakan Material</SectionTitle>
-                <MovementChart data={chartMovements} useAllData selectedGudang={selectedGudang} />
-              </section>
+                    {/* Total Tonase */}
+                    <div 
+                      className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+                      onClick={() => router.push('/pipa-nc')}
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                        <Box size={64} className="text-violet-600 -rotate-12" />
+                      </div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+                      </div>
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                          {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                      </div>
+                    </div>nded-full bg-sky-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok BOM</span>
+                      </div>
+                    </div>
 
-              <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-
-              <section>
-                <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
-                <div className="flex flex-col gap-5">
-                  <StockReport data={filteredStocks} summary={adjustedStockSummary} />
-                  <FastSlowTransactionChart data={chartMovements} />
-                </div>
-              </section>
-
-              <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-
-              <section>
-                <SectionTitle>Work Center & Analitik Transaksi</SectionTitle>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  <div className="lg:col-span-7">
-                    <WorkCenterBreakdown data={chartMovements} />
-                  </div>
-                  <div className="lg:col-span-5">
-                    <MovementTable data={chartMovements} />
-                  </div>
+                    {/* Total Tonase */}
+                    <div 
+                      className="group relative flex-none rounded-2xl bg-white border border-violet-200/50 p-5 shadow-sm shadow-violet-500/5 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10 hover:border-violet-500/30 hover:-translate-y-1" 
+                      onClick={() => router.push('/pipa-nc')}
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                        <Box size={64} className="text-violet-600 -rotate-12" />
+                      </div>
+                      <div className="relative z-10 flex justify-between items-start mb-6">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 leading-tight">TOTAL<br/>TONASE</span>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-violet-400 to-violet-600 shadow-md shadow-violet-500/20 text-white"><TrendingUp size={16} /></div>
+                      </div>
+                      <div className="relative z-10 flex items-baseline gap-1.5 mb-6">
+                        <span className="text-3xl font-extrabold tabular-nums tracking-tight text-slate-800">
+                          {pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TON</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-40"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 truncate">Stok EOM</span>
+                      </div>
+                    </div>
                 </div>
               </section>
             </motion.div>
