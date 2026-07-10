@@ -227,21 +227,19 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
         <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-[#C4E2F5]/50 z-10 shadow-sm shadow-[#1591DC]/5">
             <tr>
-              {isAdmin && (
-                <th className="px-5 py-3 w-10 text-left">
-                  <div
-                    onClick={toggleAll}
-                    className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${
-                      selectedIds.size > 0 && selectedIds.size === filtered.length
-                        ? 'bg-[#1591DC] border-[#1591DC]'
-                        : 'border-[#1591DC]/40 hover:border-[#1591DC]'
-                    }`}
-                  >
-                    {selectedIds.size > 0 && selectedIds.size === filtered.length && <CheckSquare size={12} className="text-white" strokeWidth={3} />}
-                    {selectedIds.size > 0 && selectedIds.size < filtered.length && <div className="w-2 h-0.5 bg-white rounded-full" />}
-                  </div>
-                </th>
-              )}
+              <th className="px-5 py-3 w-10 text-left border-b border-[#C4E2F5]/50">
+                <div
+                  onClick={toggleAll}
+                  className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${
+                    selectedIds.size > 0 && selectedIds.size === filtered.length
+                      ? 'bg-[#1591DC] border-[#1591DC]'
+                      : 'border-[#1591DC]/40 hover:border-[#1591DC]'
+                  }`}
+                >
+                  {selectedIds.size > 0 && selectedIds.size === filtered.length && <CheckSquare size={12} className="text-white" strokeWidth={3} />}
+                  {selectedIds.size > 0 && selectedIds.size < filtered.length && <div className="w-2 h-0.5 bg-white rounded-full" />}
+                </div>
+              </th>
               <SortHeader k="dateStr">Tanggal</SortHeader>
               <SortHeader k="label">Label</SortHeader>
               <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-left text-[#2C5EAD]/60">Diupload Oleh</th>
@@ -255,7 +253,7 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
             <AnimatePresence initial={false}>
               {loading && sessions.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center">
+                  <td colSpan={8} className="px-5 py-16 text-center">
                     <div className="inline-flex flex-col items-center gap-3 text-[#1591DC]/60">
                       <div className="w-6 h-6 border-[3px] border-[#C4E2F5]/50 border-t-[#1591DC] rounded-full animate-spin" />
                       <span className="text-[11px] font-medium tracking-wide">Mencari arsip sinkronisasi...</span>
@@ -264,8 +262,8 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center">
-                    <div className="inline-flex flex-col items-center gap-3 text-[#1591DC]/50">
+                  <td colSpan={8} className="px-5 py-16">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
                       <FileSpreadsheet size={32} strokeWidth={1.2} />
                       <span className="text-[12px] font-medium">
                         {sessions.length === 0
@@ -289,20 +287,18 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
                     onClick={() => openSession(s.reportSessionId)}
                     className={`group cursor-pointer border-b border-[#C4E2F5]/20 last:border-b-0 hover:bg-gradient-to-r hover:from-transparent hover:via-[#1591DC]/5 hover:to-transparent transition-colors ${isSelected ? 'bg-[#1591DC]/5' : ''}`}
                   >
-                    {isAdmin && (
-                      <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
-                        <div
-                          onClick={(e) => toggleSelection(s.reportSessionId, e)}
-                          className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'bg-[#1591DC] border-[#1591DC]'
-                              : 'border-[#1591DC]/40 hover:border-[#1591DC] bg-white'
-                          }`}
-                        >
-                          {isSelected && <CheckSquare size={12} className="text-white" strokeWidth={3} />}
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        onClick={(e) => toggleSelection(s.reportSessionId, e)}
+                        className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-[#1591DC] border-[#1591DC]'
+                            : 'border-slate-300 hover:border-[#1591DC] bg-white'
+                        }`}
+                      >
+                        {isSelected && <CheckSquare size={12} className="text-white" strokeWidth={3} />}
+                      </div>
+                    </td>
                     <td className="px-5 py-3.5">
                       <div className="inline-flex items-center gap-2 text-[11px] font-bold text-[#2C5EAD]">
                         <Calendar size={12} className="text-[#1591DC]/60" />
@@ -347,9 +343,9 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
                         title="Hapus sinkronisasi"
                       >
                         {deletingId === s.reportSessionId ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
-                          <Trash2 size={13} strokeWidth={2.5} />
+                          <Trash2 size={16} />
                         )}
                       </button>
                     </td>
