@@ -78,8 +78,8 @@ export default function Sidebar() {
 
         {/* ─── Navigation ─── */}
         <nav className="flex-1 space-y-1 px-3 py-6 overflow-x-hidden overflow-y-auto">
-          <div className={cn("flex items-center gap-2 px-3 mb-4", isOpen ? "block" : "sr-only")}>
-            <div className="w-1 h-3 bg-gradient-to-b from-sky-400 to-indigo-500 rounded-full" />
+          <div className={cn("px-4 mb-4", isOpen ? "block" : "sr-only")}>
+            
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               MENU
             </span>
@@ -133,8 +133,8 @@ export default function Sidebar() {
           {/* Admin-only section */}
           {session.user?.role === 'admin' && (
             <>
-              <div className={cn("flex items-center gap-2 px-3 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
-                <div className="w-1 h-3 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full" />
+              <div className={cn("px-4 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
+                
                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1.5">
                   <ShieldCheck size={10} strokeWidth={3} />
                   ADMIN
@@ -173,8 +173,8 @@ export default function Sidebar() {
           )}
 
           {/* Settings Section (Separated at the bottom) */}
-          <div className={cn("flex items-center gap-2 px-3 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
-            <div className="w-1 h-3 bg-slate-300 rounded-full" />
+          <div className={cn("px-4 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
+            
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               PREFERENCES
             </span>
