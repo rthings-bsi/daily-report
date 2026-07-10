@@ -22,12 +22,12 @@ import { useSidebar } from "./SidebarContext";
 
 const baseMenuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Upload", href: "/upload", icon: FileUp },
   { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Upload", href: "/upload", icon: FileUp },
 ];
 
 const adminMenuItem = { name: "Manajemen User", href: "/admin/users", icon: Users };
+const settingsMenuItem = { name: "Settings", href: "/settings", icon: Settings };
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -171,6 +171,37 @@ export default function Sidebar() {
               })}
             </>
           )}
+
+          {/* Settings Section (Separated at the bottom) */}
+          <div className={cn("flex items-center gap-2 px-3 mt-8 mb-4", isOpen ? "block" : "sr-only")}>
+            <div className="w-1 h-3 bg-slate-300 rounded-full" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              PREFERENCES
+            </span>
+          </div>
+          <Link
+            href={settingsMenuItem.href}
+            className={cn(
+              "group flex items-center rounded-xl text-sm font-semibold relative overflow-hidden transition-all duration-300",
+              isOpen ? "px-4 py-3 gap-3" : "justify-center py-3",
+              pathname === settingsMenuItem.href
+                ? "text-white shadow-md shadow-slate-400/20"
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 hover:translate-x-1"
+            )}
+          >
+            {pathname === settingsMenuItem.href && (
+              <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-slate-400 to-slate-500 transition-all duration-300" />
+            )}
+            <div className={cn("relative flex items-center justify-center", isOpen ? "gap-3" : "gap-0")}>
+              <settingsMenuItem.icon size={20} className={cn(
+                "transition-all duration-300",
+                pathname === settingsMenuItem.href ? "text-white drop-shadow-sm" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-110"
+              )} />
+            </div>
+            {isOpen && (
+              <span className="relative flex-1 text-[13px]">{settingsMenuItem.name}</span>
+            )}
+          </Link>
         </nav>
 
         {/* ─── User ─── */}
