@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       
         const newSessions = await prisma.reportSession.findMany({
           where: { ...sessionWhere, rawMovements: { not: null } },
-          select: { rawMovements: true, id: true }, // tambah id buat safety log
+          select: { rawMovements: true },
           orderBy: { createdAt: 'desc' },
           take: 30,
         });
