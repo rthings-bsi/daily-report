@@ -974,8 +974,3 @@ export default function Home() {
                   </div>
                 </div>
               </section>
-
-              <section>
-                <SectionTitle>Analisis Pergerakan Material</SectionTitle>
-                <MovementChart data={chartMovements} useAllData selectedGudang={selectedGudang} />
-              </section>
