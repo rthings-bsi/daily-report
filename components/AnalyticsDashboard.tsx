@@ -355,11 +355,17 @@ export default function AnalyticsDashboard() {
           {/* Data Pipa NC (Custom Cards from /pipa-nc) */}
           {data.stockCards && data.stockCards.some(sc => isPipaNC(sc.batch)) && (
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-4 bg-[#2C5EAD] rounded-full" />
-                <h3 className="text-sm font-bold text-[#2C5EAD] uppercase tracking-wider">Data Pipa NC</h3>
+              <div className="flex items-center justify-between mb-4 mt-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-full shadow-sm shadow-indigo-500/20" />
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.1em]">Distribusi Pipa NC</h3>
+                </div>
+                <div className="px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Tracking</span>
+                </div>
               </div>
-              <div className="flex flex-nowrap overflow-x-auto gap-4 pb-2 snap-x scrollbar-hide">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pb-2">
                 {(() => {
                   const scData = data.stockCards || [];
                   const pipaNCData = scData.filter(sc => isPipaNC(sc.batch) && sc.ttlStokBom > 0);
@@ -370,30 +376,80 @@ export default function AnalyticsDashboard() {
                   const totalTonase = pipaNCData.reduce((sum, d) => sum + d.ttlStokEom, 0);
 
                   const cards = [
-                    { label: 'GRADE C', value: gradeCCount, suffix: 'ITEM', icon: TrendingUp, bg: 'bg-[#ecfdf5]', text: 'text-[#047857]', iconBg: 'bg-[#10b981]', dot: 'bg-[#10b981]', desc: `${gradeCCount} batch akhiran C` },
-                    { label: 'GRADE E', value: gradeECount, suffix: 'ITEM', icon: TrendingUp, bg: 'bg-[#fff1f2]', text: 'text-[#be123c]', iconBg: 'bg-[#e11d48]', dot: 'bg-[#e11d48]', desc: `${gradeECount} batch akhiran E` },
-                    { label: 'TOTAL ITEM', value: totalItems, suffix: 'ITEM', icon: BarChartIcon, bg: 'bg-[#eff6ff]', text: 'text-[#1d4ed8]', iconBg: 'bg-[#3b82f6]', dot: 'bg-[#3b82f6]', desc: 'Total pipa NC' },
-                    { label: 'TOTAL QTY', value: totalQty, suffix: 'PC', icon: TrendingUp, bg: 'bg-[#ecfdf5]', text: 'text-[#047857]', iconBg: 'bg-[#10b981]', dot: 'bg-[#10b981]', desc: 'Stok BOM', format: 'number' },
-                    { label: 'TOTAL TONASE', value: totalTonase, suffix: 'TON', icon: TrendingUp, bg: 'bg-[#fff1f2]', text: 'text-[#be123c]', iconBg: 'bg-[#e11d48]', dot: 'bg-[#e11d48]', desc: 'Stok EOM', format: 'decimal' },
+                    { 
+                      label: 'GRADE C', 
+                      value: gradeCCount, 
+                      suffix: 'Batch', 
+                      bg: 'bg-gradient-to-br from-emerald-50 to-teal-50', 
+                      border: 'border-emerald-100',
+                      text: 'text-emerald-900', 
+                      descText: 'text-emerald-600',
+                      desc: `Pipa Akhiran C` 
+                    },
+                    { 
+                      label: 'GRADE E', 
+                      value: gradeECount, 
+                      suffix: 'Batch', 
+                      bg: 'bg-gradient-to-br from-rose-50 to-pink-50', 
+                      border: 'border-rose-100',
+                      text: 'text-rose-900', 
+                      descText: 'text-rose-600',
+                      desc: `Pipa Akhiran E` 
+                    },
+                    { 
+                      label: 'Total Material', 
+                      value: totalItems, 
+                      suffix: 'Item', 
+                      bg: 'bg-gradient-to-br from-indigo-50 to-blue-50', 
+                      border: 'border-indigo-100',
+                      text: 'text-indigo-900', 
+                      descText: 'text-indigo-600',
+                      desc: 'Total Pipa Terdata' 
+                    },
+                    { 
+                      label: 'Total Kuantitas', 
+                      value: totalQty, 
+                      suffix: 'Pcs', 
+                      bg: 'bg-white', 
+                      border: 'border-slate-200',
+                      text: 'text-slate-800', 
+                      descText: 'text-slate-500',
+                      desc: 'Berdasarkan BOM', 
+                      format: 'number' 
+                    },
+                    { 
+                      label: 'Total Berat', 
+                      value: totalTonase, 
+                      suffix: 'Ton', 
+                      bg: 'bg-white', 
+                      border: 'border-slate-200',
+                      text: 'text-slate-800', 
+                      descText: 'text-slate-500',
+                      desc: 'Berdasarkan EOM', 
+                      format: 'decimal' 
+                    },
                   ];
 
                   return cards.map((item, i) => (
-                    <div key={i} className={`flex-none w-[200px] snap-center rounded-2xl ${item.bg} border border-white/50 p-4 shadow-sm hover:shadow-md transition-shadow`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
-                        <div className={`w-7 h-7 rounded-lg ${item.iconBg} flex items-center justify-center shadow-sm`}>
-                          <item.icon size={14} className="text-white" />
-                        </div>
-                      </div>
-                      <div className="flex items-baseline gap-1.5 mb-3">
-                        <span className={`text-2xl font-black tabular-nums tracking-tight ${item.text}`}>
-                          {item.format === 'decimal' ? item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString('id-ID')}
+                    <div key={i} className={`relative overflow-hidden rounded-2xl ${item.bg} border ${item.border} p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group`}>
+                      <div className="absolute -right-6 -top-6 w-20 h-20 bg-white/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                      <div className="relative z-10 flex flex-col h-full">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                          {item.label}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-500">{item.suffix}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-auto">
-                        <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`} />
-                        <span className="text-[10px] font-medium text-slate-500 truncate">{item.desc}</span>
+                        <div className="flex items-baseline gap-1.5 mb-1 sm:mb-2">
+                          <span className={`text-2xl sm:text-3xl font-black tabular-nums tracking-tighter ${item.text}`}>
+                            {item.format === 'decimal' ? item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString('id-ID')}
+                          </span>
+                          <span className={`text-[10px] sm:text-xs font-bold ${item.descText} opacity-80 uppercase tracking-wider`}>
+                            {item.suffix}
+                          </span>
+                        </div>
+                        <div className="mt-auto pt-2 border-t border-black/5">
+                          <span className={`text-[10px] sm:text-[11px] font-medium ${item.descText}`}>
+                            {item.desc}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ));
