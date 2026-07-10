@@ -25,7 +25,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname === "/login";
 
-      if (nextUrl.pathname.startsWith("/api/auth")) return true;
+      if (nextUrl.pathname.startsWith("/api/auth") || nextUrl.pathname.startsWith("/api/chat")) return true;
 
       if (isOnLogin) {
         if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));

@@ -33,7 +33,7 @@ export async function GET() {
       try {
         const st = typeof stats === 'string' ? JSON.parse(stats) : stats;
         if (st && st.totalCount !== undefined) totalCount = st.totalCount;
-      } catch (e) {
+      } catch {
         // Ignore parse error
       }
     }

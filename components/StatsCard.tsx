@@ -72,7 +72,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   const styles = getColorStyles();
   const Icon = getIcon();
 
-  const CardContent = () => (
+  const containerClasses = `relative flex overflow-hidden bg-white/80 backdrop-blur-xl border ${styles.ring} ${styles.hoverRing} shadow-sm transition-all duration-300 group ${condensed ? 'rounded-2xl p-4' : 'rounded-3xl p-5'}`;
+
+  const renderContent = () => (
     <>
       {/* Decorative Gradient Background */}
       <div className={`absolute inset-0 bg-gradient-to-br ${styles.gradient} opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
@@ -111,8 +113,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     </>
   );
 
-  const containerClasses = `relative flex overflow-hidden bg-white/80 backdrop-blur-xl border ${styles.ring} ${styles.hoverRing} shadow-sm transition-all duration-300 group ${condensed ? 'rounded-2xl p-4' : 'rounded-3xl p-5'}`;
-
   if (onClick) {
     return (
       <motion.button
@@ -125,7 +125,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
         type="button"
         className={`${containerClasses} cursor-pointer text-left`}
       >
-        <CardContent />
+        {renderContent()}
       </motion.button>
     );
   }
@@ -138,7 +138,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
       transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
       className={containerClasses}
     >
-      <CardContent />
+      {renderContent()}
     </motion.div>
   );
 };

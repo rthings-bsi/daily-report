@@ -66,27 +66,39 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // ── No gudang filter (admin global view): use aggregated MovementSummary ──
-      const summaryData = await prisma.movementSummary.groupBy({
-        by: ['dateStr', 'group'],
-        _sum: { totalQuantity: true },
-        orderBy: { dateStr: 'desc' },
-        take: 20,
-      });
+        // KOREKSI: Hindari ambil data double dari legacy (Movement) dan summary (MovementSummary) secara bersamaan
+        // kalo raw data (ReportSession) atau Summary udah nangkep semuanya. Kita cuma query ReportSession & Movement legacy.
+      
+        const newSessions = await prisma.reportSession.findMany({
+          where: { ...sessionWhere, rawMovements: { not: null } },
+          select: { rawMovements: true, id: true }, // tambah id buat safety log
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        });
 
-      for (const d of summaryData) {
-        merge(d.dateStr, d.group, d._sum.totalQuantity || 0);
-      }
+        // Bikin Set buat nge-track ID/Date biar ngga muter double
+        for (const s of newSessions) {
+          if (!s.rawMovements) continue;
+          const raw: { dateStr: string; group: string; quantity: number; storageLocation?: string | null }[] = JSON.parse(s.rawMovements);
+          for (const m of raw) {
+            merge(m.dateStr, m.group, m.quantity);
+          }
+        }
 
-      const legacyData = await prisma.movement.groupBy({
-        by: ['dateStr', 'group'],
-        _sum: { quantity: true },
-        orderBy: { dateStr: 'desc' },
-        take: 20,
-      });
+        // Kalo data session rawMovements kosong (belum ada import sama sekali), 
+        // baru deh fallback ambil dari database Movement Legacy.
+        if (newSessions.length === 0) {
+          const legacyData = await prisma.movement.groupBy({
+            by: ['dateStr', 'group'],
+            _sum: { quantity: true },
+            orderBy: { dateStr: 'desc' },
+            take: 50,
+          });
 
-      for (const d of legacyData) {
-        merge(d.dateStr, d.group, d._sum.quantity || 0);
-      }
+          for (const d of legacyData) {
+            merge(d.dateStr, d.group, d._sum.quantity || 0);
+          }
+        }
     }
 
     const result = Array.from(map.values())

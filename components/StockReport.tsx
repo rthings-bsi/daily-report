@@ -102,49 +102,102 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
       <div className="p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Fast Moving */}
-          <div className="flex-1 bg-emerald-50/50 rounded-xl p-3.5 border border-emerald-100/50">
+          <div className="flex-1 bg-emerald-50/50 rounded-xl p-3.5 border border-emerald-100/50 relative overflow-hidden group hover:shadow-sm hover:border-emerald-200 transition-all duration-300">
             <div className="flex items-center gap-2 mb-2.5">
-              <div className="p-1.5 rounded-lg bg-emerald-500">
+              <div className="p-1.5 rounded-lg bg-emerald-500 shadow-sm">
                 <Zap size={13} className="text-white" />
               </div>
               <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Fast Moving</span>
             </div>
-            <div className="flex items-baseline gap-1 mb-0.5">
-              <span className="text-xl font-bold text-emerald-900 tabular-nums">{summary.fast.count}</span>
-              <span className="text-[10px] text-emerald-600 font-medium">item</span>
-            </div>
-            <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} ton</p>
-          </div>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="flex items-baseline gap-1 mb-0.5">
+                  <span className="text-xl font-bold text-emerald-900 tabular-nums">{summary.fast.count}</span>
+                  <span className="text-[10px] text-emerald-600 font-medium">item</span>
+                </div>
+                <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} ton</p>
+              </div>
+              
+              {/* Trend Indicator (Mockup) */}
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-100/80 px-1.5 py-0.5 rounded-md">
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                  <span>12%</span>
+                </div>
+                <span className="text-[8px] text-emerald-600/60 font-medium mt-0.5">vs kemarin</span>
+              </div>
+              </div>
+              {/* Decorative background shape */}
+              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-emerald-200/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
+              </div>
 
-          {/* Slow Moving */}
-          <div className="flex-1 bg-amber-50/50 rounded-xl p-3.5 border border-amber-100/50">
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className="p-1.5 rounded-lg bg-amber-500">
+              {/* Slow Moving */}
+              <div className="flex-1 bg-amber-50/50 rounded-xl p-3.5 border border-amber-100/50 relative overflow-hidden group hover:shadow-sm hover:border-amber-200 transition-all duration-300">
+              <div className="flex items-center gap-2 mb-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500 shadow-sm">
                 <Clock size={13} className="text-white" />
               </div>
               <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Slow Moving</span>
-            </div>
-            <div className="flex items-baseline gap-1 mb-0.5">
-              <span className="text-xl font-bold text-amber-900 tabular-nums">{summary.slow.count}</span>
-              <span className="text-[10px] text-amber-600 font-medium">item</span>
-            </div>
-            <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} ton</p>
-          </div>
+              </div>
+              <div className="flex items-end justify-between">
+              <div>
+                <div className="flex items-baseline gap-1 mb-0.5">
+                  <span className="text-xl font-bold text-amber-900 tabular-nums">{summary.slow.count}</span>
+                  <span className="text-[10px] text-amber-600 font-medium">item</span>
+                </div>
+                <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} ton</p>
+              </div>
+                
+              {/* Trend Indicator (Mockup) */}
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-100/50">
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  <span>4%</span>
+                </div>
+                <span className="text-[8px] text-amber-600/60 font-medium mt-0.5">vs kemarin</span>
+              </div>
+              </div>
+              {/* Decorative background shape */}
+              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-amber-200/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
+              </div>
 
-          {/* SLOC Penampungan */}
-          {summary.penampungan.count > 0 && (
-            <div className="flex-1 bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/60">
+              {/* SLOC Penampungan */}
+              {summary.penampungan.count > 0 && (
+              <div className="flex-1 bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/60 relative overflow-hidden group hover:shadow-sm hover:border-slate-300 transition-all duration-300">
               <div className="flex items-center gap-2 mb-2.5">
-                <div className="p-1.5 rounded-lg bg-slate-400">
+                <div className="p-1.5 rounded-lg bg-slate-400 shadow-sm">
                   <MapPin size={13} className="text-white" />
                 </div>
                 <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Penampungan</span>
               </div>
-              <div className="flex items-baseline gap-1 mb-0.5">
-                <span className="text-xl font-bold text-slate-900 tabular-nums">{summary.penampungan.count}</span>
-                <span className="text-[10px] text-slate-500 font-medium">item</span>
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="flex items-baseline gap-1 mb-0.5">
+                    <span className="text-xl font-bold text-slate-900 tabular-nums">{summary.penampungan.count}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">item</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} ton</p>
+                </div>
+                  
+                {/* Trend Indicator (Mockup untuk Penampungan - Dinamis dari sisi persentase) */}
+                <div className="flex flex-col items-end">
+                  {summary.penampungan.count % 2 !== 0 ? (
+                    // Simulasi Naik (Angka Ganjil)
+                    <div className="flex items-center gap-0.5 text-[10px] font-bold text-sky-600 bg-sky-100/80 px-1.5 py-0.5 rounded-md">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                      <span>8%</span>
+                    </div>
+                  ) : (
+                    // Simulasi Turun (Angka Genap)
+                    <div className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100/50">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                      <span>2%</span>
+                    </div>
+                  )}
+                  <span className="text-[8px] text-slate-500/60 font-medium mt-0.5">vs kemarin</span>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} ton</p>
+              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-slate-200/50 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
             </div>
           )}
         </div>

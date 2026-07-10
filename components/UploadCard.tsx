@@ -25,7 +25,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
       setError('Hanya file Excel (.xlsx, .xls) atau CSV yang diperbolehkan');
       setState('error');
@@ -52,7 +52,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
       setState('error');
       setFileName(null);
     }
-  };
+  }, [onDataLoaded]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -69,7 +69,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
-  }, []);
+  }, [handleFile]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

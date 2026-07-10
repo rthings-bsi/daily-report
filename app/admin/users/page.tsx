@@ -322,10 +322,11 @@ const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) 
   const [gudangId, setGudangId] = useState<number | null>(mode.kind === 'edit' ? mode.user.gudangId : 1);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (role === 'admin') setGudangId(null);
+  const handleRoleChange = (newRole: 'admin' | 'user') => {
+    setRole(newRole);
+    if (newRole === 'admin') setGudangId(null);
     else if (gudangId === null) setGudangId(1);
-  }, [role]);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,7 +412,7 @@ const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) 
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setRole('user')}
+                onClick={() => handleRoleChange('user')}
                 className={`h-9 px-3 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                   role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
@@ -421,7 +422,7 @@ const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) 
               </button>
               <button
                 type="button"
-                onClick={() => setRole('admin')}
+                onClick={() => handleRoleChange('admin')}
                 className={`h-9 px-3 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                   role === 'admin' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}

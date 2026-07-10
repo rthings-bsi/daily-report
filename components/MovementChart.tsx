@@ -43,12 +43,21 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     if (useAllData && trendData) {
       if (!trendData.length) return [];
       const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: d.keluar, net: d.masuk - d.keluar }]));
-      const lastDate = trendData.reduce((a, b) => a > b.date ? a : b.date, '');
+      
+      let minDateStr = '';
+      let maxDateStr = '';
+      trendData.forEach(d => {
+        if (!minDateStr || d.date < minDateStr) minDateStr = d.date;
+        if (!maxDateStr || d.date > maxDateStr) maxDateStr = d.date;
+      });
+
+      if (!minDateStr || !maxDateStr) return [];
+
+      const startDate = new Date(`${minDateStr}T12:00:00Z`);
+      const endDate = new Date(`${maxDateStr}T12:00:00Z`);
       const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
-      const end = new Date(lastDate);
-      for (let i = 4; i >= 0; i--) {
-        const d = new Date(end);
-        d.setDate(d.getDate() - i);
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const key = d.toISOString().split('T')[0];
         const existing = map.get(key);
         result.push(existing || { date: key, masuk: 0, keluar: 0, net: 0 });
@@ -66,18 +75,34 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       if (item.group === 'Keluar') entry.keluar += item.quantity;
       entry.net = entry.masuk - entry.keluar;
     });
-    if (!latestDate) return [];
+    // Dapatkan rentang tanggal dari data yang tersedia
+    let minDateStr = '';
+    let maxDateStr = '';
+    
+    data.forEach(item => {
+      const date = item.dateStr;
+      if (!minDateStr || date < minDateStr) minDateStr = date;
+      if (!maxDateStr || date > maxDateStr) maxDateStr = date;
+    });
+
+    if (!minDateStr || !maxDateStr) return [];
+
+    // Konversi string ke objek Date untuk looping (set ke tengah hari untuk hindari masalah timezone)
+    const startDate = new Date(`${minDateStr}T12:00:00Z`);
+    const endDate = new Date(`${maxDateStr}T12:00:00Z`);
+    
     const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
-    const end = new Date(latestDate);
-    for (let i = 4; i >= 0; i--) {
-      const d = new Date(end);
-      d.setDate(d.getDate() - i);
+    
+    // Looping setiap hari dari minDate sampai maxDate
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0];
       const existing = map.get(key);
       result.push(existing || { date: key, masuk: 0, keluar: 0, net: 0 });
     }
+    
+    // Pastikan selalu tampil dari kiri ke kanan (tanggal lama ke tanggal baru)
     return result;
-  }, [data, useAllData, trendData, selectedGudang]);
+  }, [data, useAllData, trendData]);
 
   const typeData = React.useMemo(() => {
     const map = new Map<string, { name: string; value: number; color: string; group: string }>();

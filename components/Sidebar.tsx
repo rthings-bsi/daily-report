@@ -13,6 +13,7 @@ import {
   Package,
   Users,
   ShieldCheck,
+  ClipboardList,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ import { useSidebar } from "./SidebarContext";
 const baseMenuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Upload", href: "/upload", icon: FileUp },
+  { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

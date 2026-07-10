@@ -21,12 +21,12 @@ import { getUserGudang, filterByGudang, removeInternalTfSloc, reclassify311, cla
 /* ══════════════════════════════════════════
    PALETTE Gen Z: #2C5EAD · #1591DC · #4BB8FA · #C4E2F5
    ══════════════════════════════════════════ */
-const C = {
-  deep: '#2C5EAD',
-  bold: '#1591DC',
-  light: '#4BB8FA',
-  soft: '#C4E2F5',
-} as const;
+// const C = {
+//   deep: '#2C5EAD',
+//   bold: '#1591DC',
+//   light: '#4BB8FA',
+//   soft: '#C4E2F5',
+// } as const;
 
 const tw = {
   bg: 'bg-[#C4E2F5]/30',
@@ -141,22 +141,25 @@ function OutboundDestinationContent() {
   const toggleDest = (k: string) => setExpandedDest(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   
+  
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      if (session.user.role !== 'admin' && session.user.gudangId) {
-        setSelectedGudang(session.user.gudangId);
+      if (session.user.role !== 'admin' && session.user.gudangId && selectedGudang === null) {
+        Promise.resolve().then(() => setSelectedGudang(session.user.gudangId!));
       }
     }
-  }, [status, session]);
+  }, [status, session, selectedGudang]);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
 
   useEffect(() => {
-    // Jangan fetch sebelum session siap — hindari redirect 307
+    let active = true;
     if (status !== 'authenticated') return;
 
-    setLoading(true);
+    if (!loading) {
+        Promise.resolve().then(() => setLoading(true));
+    }
 
     let url = '';
     // Gunakan /api/reports/aggregate kalau:
@@ -174,7 +177,7 @@ function OutboundDestinationContent() {
     }
 
     if (!url) {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
 
@@ -194,7 +197,7 @@ function OutboundDestinationContent() {
         }
       })
       .then((data: any) => {
-        if (cancelled) return;
+        if (cancelled || !active) return;
         
         // Optimasi: Kalau yang dateng cuma summary (gaada movements), set array kosong buat movements
         const movs = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
@@ -212,14 +215,17 @@ function OutboundDestinationContent() {
         setStockCards(data.stockCards || []);
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (cancelled || !active) return;
         console.error("Fetch data error:", err);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && active) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true; 
+      active = false;
+    };
   }, [sessionId, selectedGudang, startDate, endDate, status]);
 
   const filteredMovements = useMemo(() => {
@@ -501,9 +507,9 @@ function OutboundDestinationContent() {
                                     const pct = group.totalQuantity > 0 ? ((item.quantity / group.totalQuantity) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0.0';
                                     const isTop3 = itemIdx < 3;
                                     const ranks = [
-                                      <Award size={11} className="text-amber-500" fill="#f59e0b" strokeWidth={1.5} />,
-                                      <Award size={11} className="text-slate-400" fill="#94a3b8" strokeWidth={1.5} />,
-                                      <Award size={11} className="text-amber-700" fill="#d97706" strokeWidth={1.5} />,
+                                      <Award key="rank-1" size={11} className="text-amber-500" fill="#f59e0b" strokeWidth={1.5} />,
+                                      <Award key="rank-2" size={11} className="text-slate-400" fill="#94a3b8" strokeWidth={1.5} />,
+                                      <Award key="rank-3" size={11} className="text-amber-700" fill="#d97706" strokeWidth={1.5} />,
                                     ];
                                     return (
                                       <motion.div key={destKey} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: itemIdx * 0.02 }}>

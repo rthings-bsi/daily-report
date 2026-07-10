@@ -72,7 +72,7 @@ export const filterByGudang = <T extends { moveType?: string; storageLocation?: 
   });
 };
 
-const getSlocPrefix = (sloc?: string): string => (sloc || '').toUpperCase().slice(0, 2);
+// const getSlocPrefix = (sloc?: string): string => (sloc || '').toUpperCase().slice(0, 2);
 
 // ─── SLOC Exit Settings (per-gudang) ───
 // Storage format: { "1": ["5A10","5A11"], "13": ["5M16"], ... }

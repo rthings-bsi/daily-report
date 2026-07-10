@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import {
-  FileUp, LayoutDashboard, Layout, TrendingUp,
-  Upload, Check, X, Filter,
-} from 'lucide-react';
+import { FileUp, LayoutDashboard, Layout, TrendingUp, Upload, Check, X, Filter, Package, ArrowLeftRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
 import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
@@ -45,6 +42,8 @@ interface MovementSummaryItem {
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
+import { adjustStockSummaryWithMovements } from '@/lib/stock-adjustment';
+
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -52,6 +51,7 @@ export default function Home() {
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [movementSummaries, setMovementSummaries] = useState<MovementSummaryItem[] | null>(null);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
+  const [stockCards, setStockCards] = useState<any[]>([]);
   const [stockSummary, setStockSummary] = useState<StockReportSummary | undefined>(undefined);
   const [stats, setStats] = useState<MovementStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,16 +69,50 @@ export default function Home() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   // ─── Drag & drop layout order (report mode) ───
-  const [leftOrder, setLeftOrder] = useState<string[]>(['workcenter', 'stock']);
+  const [leftOrder, setLeftOrder] = useState<string[]>(['workcenter', 'stock', 'pipa-nc']);
   const [rightOrder, setRightOrder] = useState<string[]>(['movement-chart', 'movement-table', 'fastslow']);
+  
   useEffect(() => {
     try {
-      const l = localStorage.getItem('report-layout-left');
-      if (l) setLeftOrder(JSON.parse(l));
-      const r = localStorage.getItem('report-layout-right');
-      if (r) setRightOrder(JSON.parse(r));
+      let l = ['workcenter', 'stock', 'pipa-nc'];
+      let r = ['movement-chart', 'movement-table', 'fastslow'];
+      
+      const storedL = localStorage.getItem('report-layout-left');
+      if (storedL) l = JSON.parse(storedL);
+      
+      const storedR = localStorage.getItem('report-layout-right');
+      if (storedR) r = JSON.parse(storedR);
+
+      // Pastikan pipa-nc selalu ada (jika user punya layout lama)
+      if (!l.includes('pipa-nc') && !r.includes('pipa-nc')) {
+        l.push('pipa-nc'); // Default ke kolom kiri bawah
+        localStorage.setItem('report-layout-left', JSON.stringify(l));
+      }
+
+      setLeftOrder(l);
+      setRightOrder(r);
     } catch { /* ignore */ }
   }, []);
+
+  const moveToLeft = (id: string) => {
+    if (leftOrder.includes(id)) return;
+    const newR = rightOrder.filter(item => item !== id);
+    const newL = [...leftOrder, id];
+    setRightOrder(newR);
+    setLeftOrder(newL);
+    localStorage.setItem('report-layout-right', JSON.stringify(newR));
+    localStorage.setItem('report-layout-left', JSON.stringify(newL));
+  };
+
+  const moveToRight = (id: string) => {
+    if (rightOrder.includes(id)) return;
+    const newL = leftOrder.filter(item => item !== id);
+    const newR = [...rightOrder, id];
+    setLeftOrder(newL);
+    setRightOrder(newR);
+    localStorage.setItem('report-layout-left', JSON.stringify(newL));
+    localStorage.setItem('report-layout-right', JSON.stringify(newR));
+  };
 
   // ─── Load history list ───
   const loadHistory = useCallback(async () => {
@@ -122,6 +156,10 @@ export default function Home() {
     });
   }, [stocks, selectedGudang]);
 
+  const adjustedStockSummary = useMemo(() => {
+    return adjustStockSummaryWithMovements(stockSummary, filteredStocks, filteredMovements);
+  }, [stockSummary, filteredStocks, filteredMovements]);
+
   const filteredStats = useMemo(() => {
     // Kalau ada filter gudang/tanggal ATAU kalau movements ada isinya (hasil filter client-side), hitung manual
     if (selectedGudang || startDate || endDate || filteredMovements.length > 0) {
@@ -151,6 +189,22 @@ export default function Home() {
     // Kalau nggak ada filter, panggil stats bawaan server
     return stats;
   }, [filteredMovements, movementSummaries, selectedGudang, startDate, endDate, stats]);
+
+  // ─── Pipa NC stats ───
+  const pipaNCStats = useMemo(() => {
+    const isPipaNC = (batch: string) => {
+      const t = batch.trim().toUpperCase();
+      return t.endsWith('C') || t.endsWith('E');
+    };
+    const filtered = stockCards.filter((sc: any) => isPipaNC(sc.batch || '') && (sc.ttlStokBom || 0) > 0);
+    return {
+      gradeC: filtered.filter((sc: any) => (sc.batch || '').trim().toUpperCase().endsWith('C')).length,
+      gradeE: filtered.filter((sc: any) => (sc.batch || '').trim().toUpperCase().endsWith('E')).length,
+      totalItem: filtered.length,
+      totalQty: filtered.reduce((s: number, sc: any) => s + (sc.ttlStokBom || 0), 0),
+      totalTonase: filtered.reduce((s: number, sc: any) => s + (sc.ttlStokEom || 0), 0),
+    };
+  }, [stockCards]);
 
   // ─── Navigate to outbound destination breakdown ───
   const handleOutboundClick = useCallback(() => {
@@ -293,6 +347,7 @@ export default function Home() {
       }
 
       setMovements(movs);
+      setStockCards(data.stockCards || []);
       setStocks(stks);
 
       // ── Build pre-aggregated stock summary from server-side StockSummary rows ──
@@ -423,6 +478,7 @@ export default function Home() {
       //    server gak nemu session dengan gudangId yg cocok.
       if (movs.length > 0 || qs === '') {
         setMovements(movs);
+        if (data.stockCards) setStockCards(data.stockCards);
       }
       setStocks(stks);
 
@@ -459,7 +515,7 @@ export default function Home() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [history.length]);
 
   // Load aggregated data whenever filters change
   useEffect(() => {
@@ -719,6 +775,7 @@ export default function Home() {
 
         {/* ─── Actions Group ─── */}
         <div className="flex items-center gap-2 p-1 bg-white/40 border border-[#C4E2F5]/60 rounded-xl">
+
           <div className="flex bg-white border border-[#C4E2F5]/50 rounded-lg p-0.5 shadow-sm">
             <button
               onClick={() => setViewMode('dashboard')}
@@ -797,7 +854,102 @@ export default function Home() {
                   >
                     {leftOrder.map(id => {
                       if (id === 'workcenter') return <SortableItem key="workcenter" id="workcenter"><WorkCenterBreakdown data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} summary={stockSummary} condensed /></SortableItem>;
+                      if (id === 'stock') return <SortableItem key="stock" id="stock"><StockReport data={filteredStocks} summary={adjustedStockSummary} condensed /></SortableItem>;
+                      if (id === 'pipa-nc') return (
+                        <SortableItem key="pipa-nc" id="pipa-nc">
+                          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-[#C4E2F5]/50 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                                <Package size={11} className="text-white" strokeWidth={2.5} />
+                              </div>
+                              <span className="text-[11px] font-bold text-indigo-700">Data Pipa NC</span>
+                              <div className="ml-auto flex items-center gap-2">
+                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-indigo-400 hover:text-indigo-600 bg-white/50 hover:bg-white p-1 rounded-md border border-indigo-100/50 shadow-sm transition-all" title="Pindah Kolom">
+                                  <ArrowLeftRight size={12} strokeWidth={2.5} />
+                                </button>
+                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                              {/* Grade C */}
+                              <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">GRADE C</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                                </div>
+                              </div>
+                              {/* Grade E */}
+                              <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">GRADE E</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+                                </div>
+                              </div>
+                              {/* Total Item */}
+                              <div className="flex-none rounded-xl bg-[#eff6ff] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#3b82f6] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Total pipa NC</span>
+                                </div>
+                              </div>
+                              {/* Total Qty */}
+                              <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">PC</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Stok BOM</span>
+                                </div>
+                              </div>
+                              {/* Total Tonase */}
+                              <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">TON</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Stok EOM</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </SortableItem>
+                      );
                       return null;
                     })}
                   </SortableGrid>
@@ -812,6 +964,101 @@ export default function Home() {
                       if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData selectedGudang={selectedGudang} /></SortableItem>;
                       if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={chartMovements} condensed /></SortableItem>;
                       if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={chartMovements} condensed /></SortableItem>;
+                      if (id === 'pipa-nc') return (
+                        <SortableItem key="pipa-nc" id="pipa-nc">
+                          <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-[#C4E2F5]/50 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                                <Package size={11} className="text-white" strokeWidth={2.5} />
+                              </div>
+                              <span className="text-[11px] font-bold text-indigo-700">Data Pipa NC</span>
+                              <div className="ml-auto flex items-center gap-2">
+                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-indigo-400 hover:text-indigo-600 bg-white/50 hover:bg-white p-1 rounded-md border border-indigo-100/50 shadow-sm transition-all" title="Pindah Kolom">
+                                  <ArrowLeftRight size={12} strokeWidth={2.5} />
+                                </button>
+                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                              {/* Grade C */}
+                              <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">GRADE C</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                                </div>
+                              </div>
+                              {/* Grade E */}
+                              <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">GRADE E</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+                                </div>
+                              </div>
+                              {/* Total Item */}
+                              <div className="flex-none rounded-xl bg-[#eff6ff] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#3b82f6] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">ITEM</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Total pipa NC</span>
+                                </div>
+                              </div>
+                              {/* Total Qty */}
+                              <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">PC</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Stok BOM</span>
+                                </div>
+                              </div>
+                              {/* Total Tonase */}
+                              <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-3 shadow-sm">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
+                                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={10} className="text-white" /></div>
+                                </div>
+                                <div className="flex items-baseline gap-1 mb-2">
+                                  <span className="text-xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                                  <span className="text-[9px] font-bold text-slate-500">TON</span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-auto">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                                  <span className="text-[9px] font-medium text-slate-500 truncate">Stok EOM</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </SortableItem>
+                      );
                       return null;
                     })}
                   </SortableGrid>
@@ -839,6 +1086,88 @@ export default function Home() {
                 </div>
               </section>
 
+              {/* ─── Pipa NC Section ─── */}
+              <section>
+                  <SectionTitle>Data Pipa NC</SectionTitle>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    {/* Grade C */}
+                    <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/pipa-nc')}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">GRADE C</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={14} className="text-white" /></div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-2xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-500">ITEM</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">{pipaNCStats.gradeC} batch akhiran C</span>
+                      </div>
+                    </div>
+                    {/* Grade E */}
+                    <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/pipa-nc')}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">GRADE E</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={14} className="text-white" /></div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-2xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-500">ITEM</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE} batch akhiran E</span>
+                      </div>
+                    </div>
+                    {/* Total Item */}
+                    <div className="flex-none rounded-xl bg-[#eff6ff] border border-white/50 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/pipa-nc')}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#3b82f6] shadow-sm"><TrendingUp size={14} className="text-white" /></div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-2xl font-black tabular-nums tracking-tight text-[#1d4ed8]">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-500">ITEM</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">Total pipa NC</span>
+                      </div>
+                    </div>
+                    {/* Total Qty */}
+                    <div className="flex-none rounded-xl bg-[#ecfdf5] border border-white/50 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/pipa-nc')}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#10b981] shadow-sm"><TrendingUp size={14} className="text-white" /></div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-2xl font-black tabular-nums tracking-tight text-[#047857]">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                        <span className="text-[10px] font-bold text-slate-500">PC</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">Stok BOM</span>
+                      </div>
+                    </div>
+                    {/* Total Tonase */}
+                    <div className="flex-none rounded-xl bg-[#fff1f2] border border-white/50 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/pipa-nc')}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#e11d48] shadow-sm"><TrendingUp size={14} className="text-white" /></div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-2xl font-black tabular-nums tracking-tight text-[#be123c]">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                        <span className="text-[10px] font-bold text-slate-500">TON</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48]" />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">Stok EOM</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
               <section>
                 <SectionTitle>Analisis Pergerakan Material</SectionTitle>
                 <MovementChart data={chartMovements} useAllData selectedGudang={selectedGudang} />
@@ -849,7 +1178,7 @@ export default function Home() {
               <section>
                 <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
                 <div className="flex flex-col gap-5">
-                  <StockReport data={filteredStocks} summary={stockSummary} />
+                  <StockReport data={filteredStocks} summary={adjustedStockSummary} />
                   <FastSlowTransactionChart data={chartMovements} />
                 </div>
               </section>

@@ -6,9 +6,9 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, ArrowUpRight, MapPin, Truck, X,
-  Hash, Factory, Building2,
+  Hash,
   Loader2, ChevronDown, Circle,
-  Zap, Compass, Route,
+  Compass, Route,
   Dot, Radio,
   Package, Bolt,
   FileSearch, Award,
@@ -22,7 +22,7 @@ import { getUserGudang, filterByGudang, removeInternalTfSloc, reclassify311, cla
 /* ══════════════════════════════════════════
    PALETTE Inbound: Emerald / Teal / SPINDO
    ══════════════════════════════════════════ */
-const C = {
+const _C = {
   deep: '#065f46',
   bold: '#059669',
   light: '#34d399',
@@ -125,13 +125,13 @@ function InboundDestinationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('reportSessionId');
-  const initialGudang = searchParams.get('gudang');
+  const initialGudang = searchParams.get('gudangId') || searchParams.get('gudang');
   const initialStart = searchParams.get('start');
   const initialEnd = searchParams.get('end');
 
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [stockCards, setStockCards] = useState<StockCardItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // starts loading, cascade-safe
   const [selectedGudang, setSelectedGudang] = useState<number | null>(initialGudang ? Number(initialGudang) : null);
   const [startDate, setStartDate] = useState(initialStart || '');
   const [endDate, setEndDate] = useState(initialEnd || '');
@@ -144,23 +144,25 @@ function InboundDestinationContent() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      if (session.user.role !== 'admin' && session.user.gudangId) {
-        setSelectedGudang(session.user.gudangId);
+      if (session.user.role !== 'admin' && session.user.gudangId && selectedGudang === null) {
+        Promise.resolve().then(() => setSelectedGudang(session.user.gudangId!));
       }
     }
-  }, [status, session]);
+  }, [status, session, selectedGudang]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/login'); }, [status, router]);
+    if (status === 'unauthenticated') router.push('/login');
+  }, [status, router]);
 
   useEffect(() => {
-    // Jangan fetch sebelum session siap — hindari redirect 307
+    let active = true;
     if (status !== 'authenticated') return;
 
-    setLoading(true);
+    if (!loading) {
+        Promise.resolve().then(() => setLoading(true));
+    }
 
     let url = '';
-    // Kalau ada sessionId asli, ambil spesifik via /api/reports/{id}
     if (!sessionId || sessionId.startsWith('aggregate')) {
         const params = new URLSearchParams();
         if (selectedGudang) params.set('gudangId', String(selectedGudang));
@@ -172,11 +174,10 @@ function InboundDestinationContent() {
     }
 
     if (!url) {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
 
-    // Pakai cancelled flag
     let cancelled = false;
 
     fetch(url)
@@ -191,8 +192,7 @@ function InboundDestinationContent() {
         }
       })
       .then((data: any) => {
-        if (cancelled) return;
-
+        if (cancelled || !active) return;
         const movs = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => ({
           movementId: m.movementId || `m-${Math.random()}`,
           postingDate: m.dateStr, dateStr: m.dateStr,
@@ -208,27 +208,34 @@ function InboundDestinationContent() {
         setStockCards(data.stockCards || []);
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (cancelled || !active) return;
         console.error("Fetch data error:", err);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && active) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      active = false;
+    };
   }, [sessionId, selectedGudang, startDate, endDate, status]);
 
   const filteredMovements = useMemo(() => {
     let r = movements;
     if (selectedGudang) r = reclassify311(filterByGudang(removeInternalTfSloc(r), selectedGudang), selectedGudang);
-    if (startDate) r = r.filter(m => {
+    if (startDate) {
+      r = r.filter(m => {
         const mDate = m.dateStr?.split('T')[0];
         return mDate ? mDate >= startDate : true;
-    });
-    if (endDate) r = r.filter(m => {
+      });
+    }
+    if (endDate) {
+      r = r.filter(m => {
         const mDate = m.dateStr?.split('T')[0];
         return mDate ? mDate <= endDate : true;
-    });
+      });
+    }
     return r;
   }, [movements, selectedGudang, startDate, endDate]);
 
@@ -267,7 +274,7 @@ function InboundDestinationContent() {
   if (status === 'unauthenticated') return null;
 
   // ── EMPTY ──
-  if (!sessionId || (!loading && inboundMovements.length === 0)) {
+  if (!loading && inboundMovements.length === 0) {
     return (
       <div className={`min-h-screen bg-gradient-to-br ${tw.gradientBg} flex items-center justify-center p-6`}>
         <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={springBouncy} className="relative max-w-sm w-full">
@@ -496,9 +503,9 @@ function InboundDestinationContent() {
                                     const pct = group.totalQuantity > 0 ? ((item.quantity / group.totalQuantity) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0.0';
                                     const isTop3 = itemIdx < 3;
                                     const ranks = [
-                                      <Award size={11} className="text-amber-500" fill="#f59e0b" strokeWidth={1.5} />,
-                                      <Award size={11} className="text-slate-400" fill="#94a3b8" strokeWidth={1.5} />,
-                                      <Award size={11} className="text-amber-700" fill="#d97706" strokeWidth={1.5} />,
+                                      <Award key="r1" size={11} className="text-amber-500" fill="#f59e0b" strokeWidth={1.5} />,
+                                      <Award key="r2" size={11} className="text-slate-400" fill="#94a3b8" strokeWidth={1.5} />,
+                                      <Award key="r3" size={11} className="text-amber-700" fill="#d97706" strokeWidth={1.5} />,
                                     ];
                                     return (
                                       <motion.div key={destKey} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: itemIdx * 0.02 }}>

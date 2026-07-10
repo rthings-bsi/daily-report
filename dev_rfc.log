@@ -1,0 +1,10 @@
+
+**** Log file opened at 2026-07-03 00:40:59.723001 UTC+07:00 (SE Asia Standard Time), Encoding UTF-8
+NW RFC Library: Kernel variant, Release 750 Patch Level 8, Compiled on Oct 26 2021 06:25:08
+ CPIC library: 753.2021.05.10 version 3, NI library: 40, Kernel Release: 753 Patch Level 900
+ Current working directory: C:\spindo\NextJS\IN-OUT Gudang\daily-report, Program: cscript
+ Hardware: PC with Windows NT 12x Intel 802586 (Mod 116 Step 1), Operating_system: Windows NT 10.0
+ Hostname: CP1105, IP address: 192.168.2.110, IPv6 address: fe80::6910:a0d1:864f:ec13
+
+2026-07-03 00:40:59.723381 [12164] >> Info entry
+	Did not find config file C:\spindo\NextJS\IN-OUT Gudang\daily-report\sapnwrfc.ini.

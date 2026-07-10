@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { SidebarProvider } from "@/components/SidebarContext";
 import { SettingsProvider } from "@/components/SettingsProvider";
 import LayoutContent from "@/components/LayoutContent";
+import ChatBot from "@/components/ChatBot";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,6 +37,7 @@ export default function RootLayout({
           <SidebarProvider>
             <SettingsProvider>
               <LayoutContent>{children}</LayoutContent>
+              <ChatBot />
             </SettingsProvider>
           </SidebarProvider>
         </SessionProvider>

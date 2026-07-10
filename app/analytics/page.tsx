@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 
-import { getUserGudang, filterByGudang, removeInternalTfSloc, reclassify311 } from '@/lib/gudang';
+import { filterByGudang, removeInternalTfSloc, reclassify311 } from '@/lib/gudang';
 import { PageHeader } from '@/components/PageHeader';
 import {
   TrendingUp, Box, Warehouse, AlertTriangle, CheckCircle, Edit3, Save,
@@ -148,13 +148,16 @@ export default function AnalyticsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
+  const activeGudang = selectedGudang;
+
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      if (session.user.role !== 'admin' && session.user.gudangId) {
-        setSelectedGudang(session.user.gudangId);
+      if (session.user.role !== 'admin' && session.user.gudangId && selectedGudang === null) {
+        Promise.resolve().then(() => setSelectedGudang(session.user.gudangId!));
       }
     }
-  }, [status, session]);
+  }, [status, session?.user, selectedGudang]);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
@@ -171,11 +174,17 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     if (!selectedId) return;
-    setLoading(true);
-    fetch(`/api/reports/${selectedId}`)
-      .then(r => r.json())
-      .then(d => {
+    Promise.resolve().then(() => setLoading(true));
+
+    const fetchSessionData = async () => {
+      try {
+        const r = await fetch(`/api/reports/${selectedId}`);
+        const d = await r.json();
+
+        if (!active) return;
         const stocks = (d.stocks || []).map((s: any) => {
           let t = s.tonnage ?? 0;
           if (typeof t !== 'number') t = parseFloat(t) || 0;
@@ -194,17 +203,20 @@ export default function AnalyticsPage() {
           })),
           stockCards: d.stockCards || [],
         });
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch {
+        // error handling
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchSessionData();
 
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) setCapacityMap(JSON.parse(saved));
-  }, [selectedId]);
 
-  const sessionGudang = useMemo(() => getUserGudang(session?.user?.name), [session]);
-  const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
-  const activeGudang = selectedGudang;
+    return () => { active = false; };
+  }, [selectedId]);
 
   const enabledMovements = useMemo(() => {
     return data ? reclassify311(filterByGudang(removeInternalTfSloc(data.movements), activeGudang), activeGudang) : [];
@@ -251,10 +263,11 @@ export default function AnalyticsPage() {
 
   const movementSummary = useMemo(() => {
     // Use PASM from stock cards if available
-    if (data?.stockCards && data.stockCards.length > 0) {
-      const total = data.stockCards.length;
-      const fast = data.stockCards.filter(s => (s.pasm || '').toUpperCase() === 'FAST').length;
-      const slow = data.stockCards.filter(s => (s.pasm || '').toUpperCase() === 'SLOW').length;
+    const stockCards = data?.stockCards;
+    if (stockCards && stockCards.length > 0) {
+      const total = stockCards.length;
+      const fast = stockCards.filter(s => (s.pasm || '').toUpperCase() === 'FAST').length;
+      const slow = stockCards.filter(s => (s.pasm || '').toUpperCase() === 'SLOW').length;
       return { fast, slow, total };
     }
     const total = enabledMovements.length;
@@ -302,9 +315,10 @@ export default function AnalyticsPage() {
   }, [enabledMovements]);
 
   const customerStockTop5 = useMemo(() => {
-    if (!data?.stockCards?.length) return [];
+    const stockCards = data?.stockCards;
+    if (!stockCards?.length) return [];
     const grouped: Record<string, number> = {};
-    for (const sc of data.stockCards) {
+    for (const sc of stockCards) {
       const customer = sc.customer || 'Unknown';
       grouped[customer] = (grouped[customer] || 0) + (sc.ttlStokEom || 0);
     }

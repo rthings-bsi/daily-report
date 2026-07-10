@@ -6,7 +6,7 @@ import {
   PieChart, Pie, LabelList,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { TrendingUp, Box, Warehouse, AlertTriangle, CheckCircle, Edit3, Save } from 'lucide-react';
+import { TrendingUp, Box, Warehouse, AlertTriangle, CheckCircle, Edit3, Save, BarChart as BarChartIcon } from 'lucide-react';
 
 interface StockItem {
   sloc: string | null;
@@ -78,7 +78,13 @@ const SLOC_TO_GUDANG: Record<string, string> = {
 const gudangNameFromSloc = (sloc: string | null): string => {
   if (!sloc) return 'Unknown';
   const prefix = sloc.toUpperCase().slice(0, 2);
-  return SLOC_TO_GUDANG[prefix] || sloc;
+  return SLOC_TO_GUDANG[prefix] || `Gudang ${prefix}`;
+};
+
+const isPipaNC = (batch: string): boolean => {
+  if (!batch) return false;
+  const trimmed = batch.trim().toUpperCase();
+  return trimmed.endsWith('C') || trimmed.endsWith('E');
 };
 
 const DEFAULT_CAPACITIES: Record<string, number> = {
@@ -131,32 +137,49 @@ export default function AnalyticsDashboard() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     if (!selectedId) return;
-    setLoading(true);
-    fetch(`/api/reports/${selectedId}`)
-      .then(r => r.json())
-      .then(d => {
+
+    Promise.resolve().then(() => setLoading(true));
+
+    // Create a local function inside useEffect
+    const fetchSessionData = async () => {
+      try {
+        const r = await fetch(`/api/reports/${selectedId}`);
+        const d = await r.json();
+
+        if (!active) return;
         const stocks = (d.stocks || []).map((s: any) => {
           let t = s.tonnage ?? 0;
           if (typeof t !== 'number') t = parseFloat(t) || 0;
           t = t / 1000;
           return { ...s, tonnage: t };
         });
+
         setData({
           reportSessionId: d.reportSessionId,
           label: d.label,
           stocks: stocks,
           movements: (d.movements || []).map((m: any) => ({
-            ...m, quantity: m.quantity || 0,
+            ...m,
+            quantity: m.quantity || 0,
           })),
           stockCards: d.stockCards || [],
         });
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch {
+        // error handling
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchSessionData();
 
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) setCapacityMap(JSON.parse(saved));
+
+    return () => { active = false; };
   }, [selectedId]);
 
   const enabledStocks = useMemo(() => {
@@ -328,6 +351,56 @@ export default function AnalyticsDashboard() {
               });
             })()}
           </div>
+
+          {/* Data Pipa NC (Custom Cards from /pipa-nc) */}
+          {data.stockCards && data.stockCards.some(sc => isPipaNC(sc.batch)) && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-4 bg-[#2C5EAD] rounded-full" />
+                <h3 className="text-sm font-bold text-[#2C5EAD] uppercase tracking-wider">Data Pipa NC</h3>
+              </div>
+              <div className="flex flex-nowrap overflow-x-auto gap-4 pb-2 snap-x scrollbar-hide">
+                {(() => {
+                  const scData = data.stockCards || [];
+                  const pipaNCData = scData.filter(sc => isPipaNC(sc.batch) && sc.ttlStokBom > 0);
+                  const gradeCCount = pipaNCData.filter(d => d.batch.trim().toUpperCase().endsWith('C')).length;
+                  const gradeECount = pipaNCData.filter(d => d.batch.trim().toUpperCase().endsWith('E')).length;
+                  const totalItems = pipaNCData.length;
+                  const totalQty = pipaNCData.reduce((sum, d) => sum + d.ttlStokBom, 0);
+                  const totalTonase = pipaNCData.reduce((sum, d) => sum + d.ttlStokEom, 0);
+
+                  const cards = [
+                    { label: 'GRADE C', value: gradeCCount, suffix: 'ITEM', icon: TrendingUp, bg: 'bg-[#ecfdf5]', text: 'text-[#047857]', iconBg: 'bg-[#10b981]', dot: 'bg-[#10b981]', desc: `${gradeCCount} batch akhiran C` },
+                    { label: 'GRADE E', value: gradeECount, suffix: 'ITEM', icon: TrendingUp, bg: 'bg-[#fff1f2]', text: 'text-[#be123c]', iconBg: 'bg-[#e11d48]', dot: 'bg-[#e11d48]', desc: `${gradeECount} batch akhiran E` },
+                    { label: 'TOTAL ITEM', value: totalItems, suffix: 'ITEM', icon: BarChartIcon, bg: 'bg-[#eff6ff]', text: 'text-[#1d4ed8]', iconBg: 'bg-[#3b82f6]', dot: 'bg-[#3b82f6]', desc: 'Total pipa NC' },
+                    { label: 'TOTAL QTY', value: totalQty, suffix: 'PC', icon: TrendingUp, bg: 'bg-[#ecfdf5]', text: 'text-[#047857]', iconBg: 'bg-[#10b981]', dot: 'bg-[#10b981]', desc: 'Stok BOM', format: 'number' },
+                    { label: 'TOTAL TONASE', value: totalTonase, suffix: 'TON', icon: TrendingUp, bg: 'bg-[#fff1f2]', text: 'text-[#be123c]', iconBg: 'bg-[#e11d48]', dot: 'bg-[#e11d48]', desc: 'Stok EOM', format: 'decimal' },
+                  ];
+
+                  return cards.map((item, i) => (
+                    <div key={i} className={`flex-none w-[200px] snap-center rounded-2xl ${item.bg} border border-white/50 p-4 shadow-sm hover:shadow-md transition-shadow`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                        <div className={`w-7 h-7 rounded-lg ${item.iconBg} flex items-center justify-center shadow-sm`}>
+                          <item.icon size={14} className="text-white" />
+                        </div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className={`text-2xl font-black tabular-nums tracking-tight ${item.text}`}>
+                          {item.format === 'decimal' ? item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString('id-ID')}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500">{item.suffix}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`} />
+                        <span className="text-[10px] font-medium text-slate-500 truncate">{item.desc}</span>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </motion.div>
+          )}
 
           {/* Capacity Analysis Table */}
           <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}

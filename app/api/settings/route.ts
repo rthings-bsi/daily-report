@@ -5,7 +5,6 @@ import {
   saveGudangSettings,
   SETTING_KEYS,
   type GudangSettings,
-  type SettingKey,
 } from "@/lib/settings";
 
 // GET /api/settings — load all settings for the caller's gudang

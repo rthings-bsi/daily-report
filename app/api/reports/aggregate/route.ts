@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
-import { aggregateSessionData, RawMovementRow, deduplicateMovements, deduplicateStocks } from "@/lib/aggregation";
+import { RawMovementRow, deduplicateMovements, deduplicateStocks } from "@/lib/aggregation";
 import { classifyBatch } from "@/lib/gudang";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     // ── Aggregate raw data across ALL matched sessions ──
     let allRawMovements: RawMovementRow[] = [];
     let allStocks: any[] = [];
-    let allStockCards: any[] = [];
+    const allStockCards: any[] = [];
 
     for (const s of sessions) {
       if (s.rawMovements) {
@@ -101,6 +101,15 @@ export async function GET(req: NextRequest) {
     // Using composite key: dateStr|moveType|material|batch|quantity|userName|workCenter|storageLocation
     allRawMovements = deduplicateMovements(allRawMovements);
     allStocks = deduplicateStocks(allStocks);
+
+    // Deduplicate stock cards by batch|materialNumber|sloc
+    const seenStockCards = new Set<string>();
+    const uniqueStockCards = allStockCards.filter(sc => {
+      const key = `${sc.batch}|${sc.materialNumber}|${sc.sloc}`;
+      if (seenStockCards.has(key)) return false;
+      seenStockCards.add(key);
+      return true;
+    });
 
     // ── Build hydrated movements (matching loadSession format) ──
     const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
@@ -122,7 +131,6 @@ export async function GET(req: NextRequest) {
     }));
 
     // ── Re-aggregate summaries from combined data ──
-    // const aggregated = aggregateSessionData({
     const aggregated = {
         movementSummaries: sessions.flatMap(s => s.movementSummaries),
         stockSummaries: sessions.flatMap(s => s.stockSummaries)
@@ -140,7 +148,7 @@ export async function GET(req: NextRequest) {
             let st = null;
             try {
                 st = typeof s.stats === 'string' ? JSON.parse(s.stats) : s.stats;
-            } catch(e) {
+            } catch {
                 // Ignore parse error on individual stat
             }
             if (st) {
@@ -163,11 +171,11 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({
-      movements: [],
+      movements,
       movementSummaries: aggregated.movementSummaries,
       stockSummaries: aggregated.stockSummaries,
       stocks: [],
-      stockCards: [],
+      stockCards: uniqueStockCards,
       stats,
       sessionCount: sessions.length,
       sessions: sessions.map((s) => ({
