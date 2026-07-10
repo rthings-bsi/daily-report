@@ -181,20 +181,20 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                   
                 {/* Trend Indicator (Mockup untuk Penampungan - Dinamis dari sisi persentase) */}
                 <div className="flex flex-col items-end">
-                  {summary.penampungan.count % 2 !== 0 ? (
-                    // Simulasi Naik (Angka Ganjil)
+                  {summary.penampungan.count % 2 === 0 ? (
+                    // Simulasi Naik (Angka Genap)
                     <div className="flex items-center gap-0.5 text-[10px] font-bold text-sky-600 bg-sky-100/80 px-1.5 py-0.5 rounded-md">
                       <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
                       <span>8%</span>
                     </div>
                   ) : (
-                    // Simulasi Turun (Angka Genap)
+                    // Simulasi Turun (Angka Ganjil)
                     <div className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100/50">
                       <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                       <span>2%</span>
                     </div>
                   )}
-                  <span className="text-[8px] text-slate-500/60 font-medium mt-0.5">vs kemarin</span>
+                  <span className="text-[8px] text-slate-400 mt-0.5">vs kemarin</span>
                 </div>
               </div>
               <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-slate-200/50 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
