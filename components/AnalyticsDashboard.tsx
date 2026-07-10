@@ -461,7 +461,7 @@ export default function AnalyticsDashboard() {
           {/* Capacity Analysis Table */}
           <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.55, ease: easeOut }}
-            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
           >
             <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
             <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
@@ -476,7 +476,7 @@ export default function AnalyticsDashboard() {
                 <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 px-2.5 py-1 rounded-lg border border-[#C4E2F5]/50">Klik kapasitas untuk edit</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm border-separate border-spacing-0">
                   <thead>
                     <tr className="border-b border-[#C4E2F5]/40 bg-[#C4E2F5]/10">
                       <th className="text-left px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Gudang</th>
@@ -560,7 +560,7 @@ export default function AnalyticsDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.55, ease: easeOut }}
-              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
               <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
@@ -602,7 +602,7 @@ export default function AnalyticsDashboard() {
 
             <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: 0.35, duration: 0.55, ease: easeOut }}
-              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
               <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #f59e0b 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
@@ -650,7 +650,7 @@ export default function AnalyticsDashboard() {
           {/* Donut Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, ease: easeOut }}
-              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
               <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
                 <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stock Distribution</h3>
@@ -685,7 +685,7 @@ export default function AnalyticsDashboard() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45, ease: easeOut }}
-              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
             >
               <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
                 <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Movement Overview</h3>
@@ -723,7 +723,7 @@ export default function AnalyticsDashboard() {
           {/* Top 5 Customers */}
           <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.48, duration: 0.55, ease: easeOut }}
-            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
           >
             <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#2C5EAD]/10 via-[#1591DC]/5 to-transparent blur-3xl pointer-events-none" />
             <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #2C5EAD 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
@@ -766,7 +766,7 @@ export default function AnalyticsDashboard() {
 
           {/* Recommendations */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, ease: easeOut }}
-            className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/10 hover:border-[#4BB8FA]/40 transition-all duration-500"
+            className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
           >
             <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
               <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Recommendations</h3>

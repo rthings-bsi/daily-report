@@ -68,7 +68,7 @@ export const DetailedTable: React.FC<DetailedTableProps> = ({ data }) => {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-left border-separate border-spacing-0">
           <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-500 text-[11px] uppercase tracking-wider">
             <tr>
               <th className="px-8 py-5 font-bold">Posting Date</th>

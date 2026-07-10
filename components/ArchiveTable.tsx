@@ -224,7 +224,7 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
       </div>
 
       <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-[#C4E2F5]/50 z-10 shadow-sm shadow-[#1591DC]/5">
             <tr>
               {isAdmin && (
