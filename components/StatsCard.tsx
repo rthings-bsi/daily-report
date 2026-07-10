@@ -123,7 +123,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
         transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
         onClick={onClick}
         type="button"
-        className={`${containerClasses} cursor-pointer text-left`}
+        className={`${containerClasses} cursor-pointer text-left hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50`}
       >
         {renderContent()}
       </motion.button>
@@ -136,7 +136,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4, scale: 1.01 }}
       transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
-      className={containerClasses}
+      className={`${containerClasses} hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50`}
     >
       {renderContent()}
     </motion.div>
