@@ -34,6 +34,10 @@ export default function AdminUsersPage() {
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Bulk selection state
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
   // Auth gate
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -71,10 +75,100 @@ export default function AdminUsersPage() {
     );
   }, [users, search]);
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedUserIds(new Set(filtered.map(u => u.userId)));
+    } else {
+      setSelectedUserIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (userId: string, checked: boolean) => {
+    const newSet = new Set(selectedUserIds);
+    if (checked) {
+      newSet.add(userId);
+    } else {
+      newSet.delete(userId);
+    }
+    setSelectedUserIds(newSet);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.size === 0) return;
+    
+    // Safety check for self deletion
+    if (session?.user?.id && selectedUserIds.has(session.user.id)) {
+      setBanner({ kind: 'err', msg: 'Anda tidak dapat menghapus akun Anda sendiri dari daftar pilihan.' });
+      return;
+    }
+
+    if (!confirm(`Yakin ingin menghapus ${selectedUserIds.size} user secara massal? Tindakan ini tidak bisa dibatalkan.`)) return;
+
+    try {
+      setBulkProcessing(true);
+      const res = await fetch('/api/users/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: Array.from(selectedUserIds) })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal menghapus user massal');
+      
+      setBanner({ kind: 'ok', msg: `Berhasil menghapus ${data.count || selectedUserIds.size} user massal.` });
+      setSelectedUserIds(new Set());
+      await load();
+    } catch (err: any) {
+      setBanner({ kind: 'err', msg: err.message });
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDownloadCSV = () => {
+    if (selectedUserIds.size === 0) return;
+    
+    // Ambil user yang diselect
+    const selectedUsers = users.filter(u => selectedUserIds.has(u.userId));
+    
+    // Bikin header CSV
+    const headers = ['Username', 'Role', 'Gudang ID', 'Dibuat Pada'];
+    
+    // Mapping baris
+    const rows = selectedUsers.map(u => [
+      u.username,
+      u.role,
+      u.gudangId || 'N/A',
+      new Date(u.createdAt).toLocaleString('id-ID')
+    ]);
+    
+    // Gabung pake koma dan enter
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    // Bikin file object link dan paksa trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Spindo_UserExport_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setBanner({ kind: 'ok', msg: 'Data user berhasil didownload (CSV).' });
+    setSelectedUserIds(new Set());
+  };
+
   const showBanner = (kind: 'ok' | 'err', msg: string) => {
     setBanner({ kind, msg });
     setTimeout(() => setBanner(null), 3000);
   };
+
+  if (status === 'loading' || loading) {
 
   const submitForm = async (data: {
     username: string;
@@ -191,18 +285,57 @@ export default function AdminUsersPage() {
               />
             </div>
           </div>
+          {/* Bulk Actions Bar */}
+          {selectedUserIds.size > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 bg-sky-50 border border-sky-100 rounded-xl px-4 py-3 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-sky-700 bg-sky-200/50 px-2 py-0.5 rounded-md">
+                  {selectedUserIds.size} User Terpilih
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkDownloadCSV}
+                  disabled={bulkProcessing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-sky-200 text-sky-700 rounded-lg text-xs font-bold hover:bg-sky-100 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  Download CSV
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkProcessing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {bulkProcessing ? 'Memproses...' : 'Hapus Massal'}
+                </button>
+              </div>
+            </motion.div>
+          )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50/95 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Username</th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Role</th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Gudang</th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Dibuat</th>
-                  <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-right text-slate-500 w-24">Aksi</th>
-                </tr>
-              </thead>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                        checked={filtered.length > 0 && selectedUserIds.size === filtered.length}
+                        onChange={handleSelectAll}
+                      />
+                    </th>
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Username</th>
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Role</th>
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Gudang</th>
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-left text-slate-500">Dibuat</th>
+                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-right text-slate-500">Aksi</th>
+                  </tr>
+                </thead>
               <tbody>
                 {loading && users.length === 0 ? (
                   <tr>
@@ -225,6 +358,14 @@ export default function AdminUsersPage() {
                     const isSelf = u.userId === session?.user?.id;
                     return (
                       <tr key={u.userId} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40">
+                        <td className="px-4 py-2.5">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                            checked={selectedUserIds.has(u.userId)}
+                            onChange={(e) => handleSelectOne(u.userId, e.target.checked)}
+                          />
+                        </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             <span className="text-[12px] font-semibold text-slate-800 font-mono">{u.username}</span>
