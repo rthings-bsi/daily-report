@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,7 @@ interface Message {
 }
 
 export default function ChatBot() {
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [localInput, setLocalInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,6 +31,11 @@ export default function ChatBot() {
       scrollToBottom();
     }
   }, [messages, isOpen]);
+
+  // JANGAN TAMPILKAN CHATBOT SAMA SEKALI KALAU USER BELUM LOGIN
+  if (!session) {
+    return null;
+  }
 
   const kirimPesan = async () => {
     const trimmed = localInput.trim();
