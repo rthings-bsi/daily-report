@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     const currentDate = new Date().toLocaleDateString('id-ID', {
+      timeZone: 'Asia/Jakarta',
       weekday: 'long',
       year: 'numeric',
       month: 'long',
