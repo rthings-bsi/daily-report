@@ -115,14 +115,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/reports — bulk delete sessions (Admin only)
+// DELETE /api/reports — bulk delete sessions (Both Admin and User)
+// User can only delete their own gudang's sessions.
 export async function DELETE(req: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
-
-  if (!ctx.isAdmin) {
-    return NextResponse.json({ error: "Only admins can perform bulk delete" }, { status: 403 });
-  }
 
   try {
     const body = await req.json();
@@ -132,11 +129,18 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Invalid IDs array" }, { status: 400 });
     }
 
+    // Build safety constraints: non-admins can only delete sessions tied to their gudang
+    const whereClause: any = {
+      reportSessionId: { in: ids },
+    };
+    
+    if (!ctx.isAdmin) {
+      whereClause.gudangId = ctx.gudangId;
+    }
+
     // Execute bulk deletion directly in database
     const result = await prisma.reportSession.deleteMany({
-      where: {
-        reportSessionId: { in: ids },
-      },
+      where: whereClause,
     });
 
     return NextResponse.json({ ok: true, deletedCount: result.count });
