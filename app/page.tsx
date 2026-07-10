@@ -974,3 +974,48 @@ export default function Home() {
                   </div>
                 </div>
               </section>
+
+              <section>
+                <SectionTitle>Analisis Pergerakan Material</SectionTitle>
+                <MovementChart data={chartMovements} useAllData selectedGudang={selectedGudang} />
+              </section>
+
+              <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+              <section>
+                <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
+                <div className="flex flex-col gap-5">
+                  <StockReport data={filteredStocks} summary={adjustedStockSummary} />
+                  <FastSlowTransactionChart data={chartMovements} />
+                </div>
+              </section>
+
+              <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+              <section>
+                <SectionTitle>Work Center & Analitik Transaksi</SectionTitle>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <div className="lg:col-span-7">
+                    <WorkCenterBreakdown data={chartMovements} />
+                  </div>
+                  <div className="lg:col-span-5">
+                    <MovementTable data={chartMovements} />
+                  </div>
+                </div>
+              </section>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </main>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-4">
+      <div className="w-1 h-5 bg-gradient-to-b from-indigo-600 to-indigo-400 rounded-full" />
+      <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.25em]">{children}</h2>
+    </div>
+  );
+}
