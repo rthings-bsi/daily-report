@@ -31,6 +31,24 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     return Activity;
   };
 
+  // Helper untuk format angka besar jadi K / M (Misal: 124.313 jadi 124.3K)
+  const formatCompactNumber = (valStr: string) => {
+    // Hapus titik ribuan dan ganti koma desimal jadi titik (parsing Indo ke Float)
+    const rawNum = parseFloat(valStr.replace(/\./g, '').replace(',', '.'));
+    if (isNaN(rawNum)) return valStr;
+
+    if (Math.abs(rawNum) >= 1000000) {
+      return (rawNum / 1000000).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + 'M';
+    } else if (Math.abs(rawNum) >= 1000) {
+      return (rawNum / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + 'K';
+    }
+    
+    // Kalau dibawah seribu, buletin aja (nggak pake desimal kalo ga perlu)
+    return rawNum.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  };
+
+  const displayValue = formatCompactNumber(value);
+
   const getColorStyles = () => {
     switch (type) {
       case 'in':
@@ -90,8 +108,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           <div className="flex items-baseline gap-1.5">
             <h3
               className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black ${styles.text} tabular-nums tracking-tighter`}
+              title={value} // Biar nilai aslinya tetep bisa di-hover
             >
-              {value}
+              {displayValue}
             </h3>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{unit}</span>
           </div>
