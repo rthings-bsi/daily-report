@@ -31,23 +31,16 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     return Activity;
   };
 
-  // Helper untuk format angka besar jadi K / M (Misal: 124.313 jadi 124.3K)
-  const formatCompactNumber = (valStr: string) => {
-    // Hapus titik ribuan dan ganti koma desimal jadi titik (parsing Indo ke Float)
+  // Helper untuk ngebuletin angka (buang desimal/koma) tanpa singkatan K/M
+  const formatRoundedNumber = (valStr: string) => {
     const rawNum = parseFloat(valStr.replace(/\./g, '').replace(',', '.'));
     if (isNaN(rawNum)) return valStr;
 
-    if (Math.abs(rawNum) >= 1000000) {
-      return (rawNum / 1000000).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + 'M';
-    } else if (Math.abs(rawNum) >= 1000) {
-      return (rawNum / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + 'K';
-    }
-    
-    // Kalau dibawah seribu, buletin aja (nggak pake desimal kalo ga perlu)
-    return rawNum.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+    // Buletin murni tanpa angka di belakang koma
+    return Math.round(rawNum).toLocaleString('id-ID');
   };
 
-  const displayValue = formatCompactNumber(value);
+  const displayValue = formatRoundedNumber(value);
 
   const getColorStyles = () => {
     switch (type) {
