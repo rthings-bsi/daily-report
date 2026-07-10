@@ -202,7 +202,7 @@ export const ArchiveTable: React.FC<ArchiveTableProps> = ({ refreshKey }) => {
           )}
 
           <AnimatePresence>
-            {isAdmin && selectedIds.size > 0 && (
+            {selectedIds.size > 0 && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9, x: 10 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
