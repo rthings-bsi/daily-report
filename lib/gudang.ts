@@ -265,32 +265,42 @@ export const isPenampunganSloc = (sloc: string | null | undefined): boolean => {
 export const removeInternalTfSloc = <T extends { moveType: string; quantity: number; storageLocation?: string; userName?: string; dateStr?: string; material?: string | null; batch?: string | null }>(
   allItems: T[]
 ): T[] => {
-  const toRemove = new Set<T>();
   const cleanSloc = (sloc?: string): string => (sloc || '').trim().toUpperCase();
 
-  const unpaired = new Map<string, T>();
+  // Key identifies a *movement* regardless of sign:
+  // same gudang · date · material · batch · absQty. A TF Sloc internal transfer
+  // always appears as a matched +/- pair with this exact key, so we just need to
+  // remove BOTH legs of each pair. Using a count instead of a single Map slot
+  // makes this robust when the raw data contains duplicate rows.
+  const keyOf = (m: T): string => {
+    const slocGudang = gudangFromSloc(cleanSloc(m.storageLocation));
+    if (slocGudang === null) return '';
+    return `${slocGudang}|${m.dateStr || ''}|${m.material || ''}|${m.batch || ''}|${Math.abs(m.quantity).toFixed(3)}`;
+  };
 
+  const count = new Map<string, number>();
+  const legs = new Map<string, T[]>();
   for (const m of allItems) {
     if (m.moveType !== '311') continue;
-    const slocGudang = gudangFromSloc(cleanSloc(m.storageLocation));
-    if (slocGudang === null) continue;
+    const k = keyOf(m);
+    if (!k) continue;
+    count.set(k, (count.get(k) || 0) + 1);
+    const arr = legs.get(k) || [];
+    arr.push(m);
+    legs.set(k, arr);
+  }
 
-    const oppSign = Math.sign(m.quantity) === 1 ? '-' : '+';
-    const absQty = Math.abs(m.quantity).toFixed(3);
-    const date = m.dateStr || '';
-    const mat = m.material || '';
-    const batch = m.batch || '';
-
-    const partnerKey = `${slocGudang}|${date}|${mat}|${batch}|${absQty}|${oppSign}`;
-
-    if (unpaired.has(partnerKey)) {
-      toRemove.add(unpaired.get(partnerKey)!);
-      toRemove.add(m);
-      unpaired.delete(partnerKey);
-    } else {
-      const mySign = Math.sign(m.quantity) === 1 ? '+' : '-';
-      const myKey = `${slocGudang}|${date}|${mat}|${batch}|${absQty}|${mySign}`;
-      unpaired.set(myKey, m);
+  const toRemove = new Set<T>();
+  for (const [k, total] of count) {
+    if (total < 2) continue;
+    const arr = legs.get(k)!;
+    // Count + and - legs separately; an internal transfer pairs one + with one -.
+    const pos = arr.filter(m => m.quantity > 0);
+    const neg = arr.filter(m => m.quantity < 0);
+    const pairs = Math.min(pos.length, neg.length);
+    for (let i = 0; i < pairs; i++) {
+      toRemove.add(pos[i]);
+      toRemove.add(neg[i]);
     }
   }
 
