@@ -56,14 +56,6 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       let startDate = new Date(`${minDateStr}T12:00:00Z`);
       let endDate = new Date(`${maxDateStr}T12:00:00Z`);
 
-      const MAX_DAYS = 5;
-      const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
-      if (spanDays > MAX_DAYS) {
-        const newStart = new Date(endDate);
-        newStart.setDate(newStart.getDate() - (MAX_DAYS - 1));
-        startDate = newStart;
-      }
-
       if (minDateStr === maxDateStr) {
         const prev = new Date(startDate);
         prev.setDate(prev.getDate() - 1);
@@ -108,17 +100,6 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     // Konversi string ke objek Date untuk looping (set ke tengah hari untuk hindari masalah timezone)
     let startDate = new Date(`${minDateStr}T12:00:00Z`);
     let endDate = new Date(`${maxDateStr}T12:00:00Z`);
-
-    // BATASI: tampilkan maksimal 5 hari (window terdekat) agar grafik
-    // tidak terlalu padat saat filter tanggal dipilih. Ambil 5 hari terakhir
-    // dari rentang yang tersedia.
-    const MAX_DAYS = 5;
-    const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
-    if (spanDays > MAX_DAYS) {
-      const newStart = new Date(endDate);
-      newStart.setDate(newStart.getDate() - (MAX_DAYS - 1));
-      startDate = newStart;
-    }
 
     // UX: Bila hanya ada 1 tanggal (filter tunggal), pad dengan H-1 & H+1
     // agar Recharts bisa me-render Line/Area (butuh min. 2 titik) dan bar tidak
