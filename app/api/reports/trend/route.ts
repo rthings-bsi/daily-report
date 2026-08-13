@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getGudangPrefix, filterByGudang, removeInternalTfSloc } from "@/lib/gudang";
+import { getGudangPrefix, filterByGudang, removeInternalTfSloc, reclassify311 } from "@/lib/gudang";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
+import { deduplicateMovements, RawMovementRow } from "@/lib/aggregation";
 
-// GET /api/reports/trend?gudang=13 — return the last 7 days of Masuk/Keluar.
-// Since sessions are now strictly deduplicated at upload time and backfilled,
-// their movementSummaries accurately reflect deduplicated data.
-// We pull the newest session for each unique (dateStr, gudangId).
+// GET /api/reports/trend?gudang=13 — return the trend of Masuk/Keluar.
 export async function GET(request: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
@@ -34,41 +32,49 @@ export async function GET(request: NextRequest) {
         rawMovements: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: 200,
+      take: 200, // Process recent sessions just like aggregate API
     });
 
-    const map = new Map<string, { date: string; masuk: number; keluar: number }>();
-    const seen = new Set<string>();
+    let allRawMovements: any[] = [];
 
+    // Gabungkan semua movements dari semua session yang valid
     for (const s of sessions) {
-      const key = `${s.dateStr}|${s.gudangId ?? 'null'}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
       if (!s.rawMovements) continue;
+      const raw = JSON.parse(s.rawMovements);
+      allRawMovements.push(...raw);
+    }
 
-      let movements = JSON.parse(s.rawMovements);
-      if (s.gudangId !== null) {
-        movements = filterByGudang(movements, s.gudangId);
+    // Identik dengan langkah di aggregate/route.ts
+    if (effectiveGudang !== null) {
+      allRawMovements = filterByGudang(allRawMovements, effectiveGudang);
+    }
+
+    allRawMovements = deduplicateMovements(allRawMovements as any);
+    allRawMovements = removeInternalTfSloc(allRawMovements);
+
+    // Lakukan klasifikasi MVT 311 karena raw belum mengkategorikan group "Masuk/Keluar" untuk 311 sesuai tujuan
+    if (effectiveGudang !== null) {
+      allRawMovements = reclassify311(allRawMovements, effectiveGudang);
+    }
+
+    // Kelompokkan hasil akhir ke per tanggal untuk grafik Trend
+    const map = new Map<string, { date: string; masuk: number; keluar: number }>();
+
+    for (const m of allRawMovements) {
+      const date = m.dateStr;
+      if (!date) continue;
+      const e = map.get(date) || { date, masuk: 0, keluar: 0 };
+
+      if (m.group === 'Masuk') {
+        e.masuk += m.quantity;
+      } else if (m.group === 'Keluar') {
+        e.keluar += Math.abs(m.quantity);
       }
-      movements = removeInternalTfSloc(movements);
-
-      let totalMasuk = 0;
-      let totalKeluar = 0;
-      for (const m of movements) {
-        if (m.group === 'Masuk') totalMasuk += m.quantity;
-        else if (m.group === 'Keluar') totalKeluar += Math.abs(m.quantity);
-      }
-
-      const e = map.get(s.dateStr) || { date: s.dateStr, masuk: 0, keluar: 0 };
-      e.masuk += totalMasuk;
-      e.keluar += totalKeluar;
-      map.set(s.dateStr, e);
+      map.set(date, e);
     }
 
     const result = Array.from(map.values())
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-5);
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json(result);
   } catch (error) {
