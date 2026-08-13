@@ -4,13 +4,17 @@ import { assertOwnsSession, requireUserContext, respondError } from "@/lib/api-h
 
 export const dynamic = "force-dynamic";
 
-// GET /api/reports/:reportSessionId — load a specific session
+// GET /api/reports/:reportSessionId?detail=true — load a specific session
+// Default (no ?detail=true): returns summaries + stockCards only (lightweight).
+// With ?detail=true: also returns the full parsed rawMovements/rawStocks rows.
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ reportSessionId: string }> }
 ) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
+
+  const detail = new URL(req.url).searchParams.get("detail") === "true";
 
   const { reportSessionId: id } = await params;
 
@@ -32,35 +36,46 @@ export async function GET(
 
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Remove the giant raw JSON string columns from the spread — they'd otherwise
+  // be shipped to the client untouched (duplicating the parsed payload).
+  const {
+    rawMovements: _rawMovements,
+    rawStocks: _rawStocks,
+    stockCards: _stockCards,
+    movements: _movements,
+    stocks: _stocks,
+    ...rest
+  } = report;
+
+  const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
+
   // ── New session: has pre-calculated stats + rawMovements JSON ──
   if (report.stats && report.rawMovements) {
     const stats = JSON.parse(report.stats);
-    const rawMovements = JSON.parse(report.rawMovements);
-    const stocks = report.rawStocks ? JSON.parse(report.rawStocks) : [];
-    const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
-
-    // Parse the date directly instead of putting it into new Date() which can cause timezone shifts
-    const parsedMovements = rawMovements.map((m: any, idx: number) => ({
-      movementId: `move-${idx}`,
-      postingDate: m.dateStr,
-      dateStr: m.dateStr,
-      moveType: m.moveType,
-      description: m.description,
-      material: m.material || undefined,
-      workCenter: m.workCenter || "",
-      batch: m.batch || "",
-      quantity: m.quantity,
-      unitQuantity: m.unitQuantity || 0,
-      userName: m.userName || "",
-      storageLocation: m.storageLocation || "",
-      group: m.group,
-      color: m.color,
-      movementStatus: 'Unknown',
-    }));
+    const movements = detail
+      ? JSON.parse(report.rawMovements).map((m: any, idx: number) => ({
+          movementId: `move-${idx}`,
+          postingDate: m.dateStr,
+          dateStr: m.dateStr,
+          moveType: m.moveType,
+          description: m.description,
+          material: m.material || undefined,
+          workCenter: m.workCenter || "",
+          batch: m.batch || "",
+          quantity: m.quantity,
+          unitQuantity: m.unitQuantity || 0,
+          userName: m.userName || "",
+          storageLocation: m.storageLocation || "",
+          group: m.group,
+          color: m.color,
+          movementStatus: 'Unknown',
+        }))
+      : [];
+    const stocks = detail ? (report.rawStocks ? JSON.parse(report.rawStocks) : []) : [];
 
     return NextResponse.json({
-      ...report,
-      movements: parsedMovements,
+      ...rest,
+      movements,
       movementSummaries: report.movementSummaries,
       stockSummaries: report.stockSummaries,
       stocks,
@@ -70,33 +85,35 @@ export async function GET(
   }
 
   // ── Legacy session: hydrate from Movement rows ──
-  const movements = report.movements.map((m) => ({
-    movementId: m.movementId,
-    postingDate: m.postingDate.toISOString(),
-    dateStr: m.dateStr,
-    moveType: m.moveType,
-    description: m.description,
-    workCenter: m.workCenter,
-    batch: m.batch,
-    storageLocation: m.storageLocation,
-    quantity: m.quantity,
-    unitQuantity: m.unitQuantity,
-    group: m.group,
-    color: m.color,
-    userName: m.userName,
-  }));
+  const movements = detail
+    ? report.movements.map((m) => ({
+        movementId: m.movementId,
+        postingDate: m.postingDate.toISOString(),
+        dateStr: m.dateStr,
+        moveType: m.moveType,
+        description: m.description,
+        workCenter: m.workCenter,
+        batch: m.batch,
+        storageLocation: m.storageLocation,
+        quantity: m.quantity,
+        unitQuantity: m.unitQuantity,
+        group: m.group,
+        color: m.color,
+        userName: m.userName,
+      }))
+    : [];
 
-  const stocks = report.stocks.map((s) => ({
-    status: s.material,
-    sloc: s.sloc,
-    quantity: s.unitQty,
-    tonnage: s.weight,
-  }));
-
-  const stockCards = report.stockCards ? JSON.parse(report.stockCards) : [];
+  const stocks = detail
+    ? report.stocks.map((s) => ({
+        status: s.material,
+        sloc: s.sloc,
+        quantity: s.unitQty,
+        tonnage: s.weight,
+      }))
+    : [];
 
   return NextResponse.json({
-    ...report,
+    ...rest,
     movements,
     movementSummaries: report.movementSummaries,
     stockSummaries: report.stockSummaries,

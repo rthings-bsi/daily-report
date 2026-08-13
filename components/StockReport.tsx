@@ -102,22 +102,23 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
       <div className="p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Fast Moving */}
-          <div className="flex-1 bg-emerald-50/50 rounded-xl p-3.5 border border-emerald-100/50 relative overflow-hidden group hover:shadow-sm hover:border-emerald-200 transition-all duration-300">
+          <div className="flex-1 bg-emerald-50/50 rounded-xl p-3.5 border border-emerald-100 relative overflow-hidden group hover:border-emerald-200 hover:ring-1 hover:ring-emerald-100 hover:shadow-md transition-all duration-200">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-500" />
             <div className="flex items-center gap-2 mb-2.5">
-              <div className="p-1.5 rounded-lg bg-emerald-500 shadow-sm">
-                <Zap size={13} className="text-white" />
+              <div className="p-1.5 rounded-lg bg-emerald-500 text-white">
+                <Zap size={13} />
               </div>
-              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Fast Moving</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Fast Moving</span>
             </div>
             <div className="flex items-end justify-between">
               <div>
                 <div className="flex items-baseline gap-1 mb-0.5">
-                  <span className="text-xl font-bold text-emerald-900 tabular-nums">{summary.fast.count}</span>
+                  <span className="text-xl font-bold text-emerald-700 tabular-nums">{summary.fast.count}</span>
                   <span className="text-[10px] text-emerald-600 font-medium">item</span>
                 </div>
                 <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} ton</p>
               </div>
-              
+
               {/* Trend Indicator (Mockup) */}
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-100/80 px-1.5 py-0.5 rounded-md">
@@ -127,27 +128,26 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                 <span className="text-[8px] text-emerald-600/60 font-medium mt-0.5">vs kemarin</span>
               </div>
               </div>
-              {/* Decorative background shape */}
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-emerald-200/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
-              </div>
+          </div>
 
               {/* Slow Moving */}
-              <div className="flex-1 bg-amber-50/50 rounded-xl p-3.5 border border-amber-100/50 relative overflow-hidden group hover:shadow-sm hover:border-amber-200 transition-all duration-300">
+              <div className="flex-1 bg-amber-50/50 rounded-xl p-3.5 border border-amber-100 relative overflow-hidden group hover:border-amber-200 hover:ring-1 hover:ring-amber-100 hover:shadow-md transition-all duration-200">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
               <div className="flex items-center gap-2 mb-2.5">
-              <div className="p-1.5 rounded-lg bg-amber-500 shadow-sm">
-                <Clock size={13} className="text-white" />
+              <div className="p-1.5 rounded-lg bg-amber-500 text-white">
+                <Clock size={13} />
               </div>
-              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Slow Moving</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Slow Moving</span>
               </div>
               <div className="flex items-end justify-between">
               <div>
                 <div className="flex items-baseline gap-1 mb-0.5">
-                  <span className="text-xl font-bold text-amber-900 tabular-nums">{summary.slow.count}</span>
+                  <span className="text-xl font-bold text-amber-700 tabular-nums">{summary.slow.count}</span>
                   <span className="text-[10px] text-amber-600 font-medium">item</span>
                 </div>
                 <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} ton</p>
               </div>
-                
+
               {/* Trend Indicator (Mockup) */}
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-100/50">
@@ -157,28 +157,27 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                 <span className="text-[8px] text-amber-600/60 font-medium mt-0.5">vs kemarin</span>
               </div>
               </div>
-              {/* Decorative background shape */}
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-amber-200/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
-              </div>
+          </div>
 
               {/* SLOC Penampungan */}
               {summary.penampungan.count > 0 && (
-              <div className="flex-1 bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/60 relative overflow-hidden group hover:shadow-sm hover:border-slate-300 transition-all duration-300">
+              <div className="flex-1 bg-slate-50/50 rounded-xl p-3.5 border border-slate-100 relative overflow-hidden group hover:border-slate-300 hover:ring-1 hover:ring-slate-200 hover:shadow-md transition-all duration-200">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-slate-400" />
               <div className="flex items-center gap-2 mb-2.5">
-                <div className="p-1.5 rounded-lg bg-slate-400 shadow-sm">
-                  <MapPin size={13} className="text-white" />
+                <div className="p-1.5 rounded-lg bg-slate-500 text-white">
+                  <MapPin size={13} />
                 </div>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Penampungan</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Penampungan</span>
               </div>
               <div className="flex items-end justify-between">
                 <div>
                   <div className="flex items-baseline gap-1 mb-0.5">
-                    <span className="text-xl font-bold text-slate-900 tabular-nums">{summary.penampungan.count}</span>
+                    <span className="text-xl font-bold text-slate-700 tabular-nums">{summary.penampungan.count}</span>
                     <span className="text-[10px] text-slate-500 font-medium">item</span>
                   </div>
                   <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} ton</p>
                 </div>
-                  
+
                 {/* Trend Indicator (Mockup untuk Penampungan - Dinamis dari sisi persentase) */}
                 <div className="flex flex-col items-end">
                   {summary.penampungan.count % 2 === 0 ? (
@@ -197,7 +196,6 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                   <span className="text-[8px] text-slate-400 mt-0.5">vs kemarin</span>
                 </div>
               </div>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-slate-200/50 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
             </div>
           )}
         </div>

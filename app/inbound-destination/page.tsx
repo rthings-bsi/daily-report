@@ -168,9 +168,10 @@ function InboundDestinationContent() {
         if (selectedGudang) params.set('gudangId', String(selectedGudang));
         if (startDate) params.set('start', startDate);
         if (endDate) params.set('end', endDate);
+        params.set('detail', 'true');
         url = `/api/reports/aggregate?${params.toString()}`;
     } else if (sessionId) {
-        url = `/api/reports/${sessionId}`;
+        url = `/api/reports/${sessionId}?detail=true`;
     }
 
     if (!url) {

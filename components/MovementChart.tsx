@@ -42,7 +42,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
   const dailyData = React.useMemo(() => {
     if (useAllData && trendData) {
       if (!trendData.length) return [];
-      const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: d.keluar, net: d.masuk - d.keluar }]));
+      const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: Math.abs(d.keluar), net: d.masuk - Math.abs(d.keluar) }]));
       
       let minDateStr = '';
       let maxDateStr = '';
@@ -53,8 +53,26 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
 
       if (!minDateStr || !maxDateStr) return [];
 
-      const startDate = new Date(`${minDateStr}T12:00:00Z`);
-      const endDate = new Date(`${maxDateStr}T12:00:00Z`);
+      let startDate = new Date(`${minDateStr}T12:00:00Z`);
+      let endDate = new Date(`${maxDateStr}T12:00:00Z`);
+
+      const MAX_DAYS = 5;
+      const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+      if (spanDays > MAX_DAYS) {
+        const newStart = new Date(endDate);
+        newStart.setDate(newStart.getDate() - (MAX_DAYS - 1));
+        startDate = newStart;
+      }
+
+      if (minDateStr === maxDateStr) {
+        const prev = new Date(startDate);
+        prev.setDate(prev.getDate() - 1);
+        startDate = prev;
+        const next = new Date(endDate);
+        next.setDate(next.getDate() + 1);
+        endDate = next;
+      }
+
       const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
 
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -64,17 +82,17 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       }
       return result;
     }
-    const map = new Map<string, { date: string; masuk: number; keluar: number; net: number }>();
-    let latestDate = '';
-    data.forEach(item => {
-      const date = item.dateStr;
-      if (date > latestDate) latestDate = date;
-      if (!map.has(date)) map.set(date, { date, masuk: 0, keluar: 0, net: 0 });
-      const entry = map.get(date)!;
-      if (item.group === 'Masuk') entry.masuk += item.quantity;
-      if (item.group === 'Keluar') entry.keluar += item.quantity;
-      entry.net = entry.masuk - entry.keluar;
-    });
+      const map = new Map<string, { date: string; masuk: number; keluar: number; net: number }>();
+      let latestDate = '';
+      data.forEach(item => {
+        const date = item.dateStr;
+        if (date > latestDate) latestDate = date;
+        if (!map.has(date)) map.set(date, { date, masuk: 0, keluar: 0, net: 0 });
+        const entry = map.get(date)!;
+        if (item.group === 'Masuk') entry.masuk += item.quantity;
+        if (item.group === 'Keluar') entry.keluar += Math.abs(item.quantity);
+        entry.net = entry.masuk - entry.keluar;
+      });
     // Dapatkan rentang tanggal dari data yang tersedia
     let minDateStr = '';
     let maxDateStr = '';
@@ -88,9 +106,32 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     if (!minDateStr || !maxDateStr) return [];
 
     // Konversi string ke objek Date untuk looping (set ke tengah hari untuk hindari masalah timezone)
-    const startDate = new Date(`${minDateStr}T12:00:00Z`);
-    const endDate = new Date(`${maxDateStr}T12:00:00Z`);
-    
+    let startDate = new Date(`${minDateStr}T12:00:00Z`);
+    let endDate = new Date(`${maxDateStr}T12:00:00Z`);
+
+    // BATASI: tampilkan maksimal 5 hari (window terdekat) agar grafik
+    // tidak terlalu padat saat filter tanggal dipilih. Ambil 5 hari terakhir
+    // dari rentang yang tersedia.
+    const MAX_DAYS = 5;
+    const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+    if (spanDays > MAX_DAYS) {
+      const newStart = new Date(endDate);
+      newStart.setDate(newStart.getDate() - (MAX_DAYS - 1));
+      startDate = newStart;
+    }
+
+    // UX: Bila hanya ada 1 tanggal (filter tunggal), pad dengan H-1 & H+1
+    // agar Recharts bisa me-render Line/Area (butuh min. 2 titik) dan bar tidak
+    // kelihatan terisolasi. Titik H-1/H+1 diisi 0, titik tengah tetap bernilai.
+    if (minDateStr === maxDateStr) {
+      const prev = new Date(startDate);
+      prev.setDate(prev.getDate() - 1);
+      startDate = prev;
+      const next = new Date(endDate);
+      next.setDate(next.getDate() + 1);
+      endDate = next;
+    }
+
     const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
     
     // Looping setiap hari dari minDate sampai maxDate
@@ -114,7 +155,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       }
       map.get(key)!.value += Math.abs(item.quantity);
     });
-    return Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 8);
+    return Array.from(map.values()).sort((a, b) => b.value - a.value);
   }, [data]);
 
   const totals = React.useMemo(() => {
@@ -192,25 +233,25 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-2xl' : 'rounded-3xl'}`}
+        className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-xl' : 'rounded-2xl'}`}
       >
-        <div className={`flex items-center justify-between border-b border-slate-100 ${condensed ? 'px-3 sm:px-5 py-3 sm:py-3.5' : 'px-4 sm:px-6 py-4 sm:py-5'}`}>
+        <div className={`flex items-center justify-between border-b border-slate-100 ${condensed ? 'px-4 py-3' : 'px-5 py-4'}`}>
           <div>
-            <h3 className={`${condensed ? 'text-xs' : 'text-sm'} font-bold text-slate-900 uppercase tracking-wider`}>Daily Movement Trend</h3>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Inbound vs Outbound (Ton)</p>
+            <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Daily Movement Trend</h3>
+            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Inbound vs Outbound (Ton)</p>
           </div>
           <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-              <span className="text-[11px] font-semibold text-slate-500">Masuk</span>
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-semibold text-slate-600">Masuk</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-rose-500" />
-              <span className="text-[11px] font-semibold text-slate-500">Keluar</span>
+              <div className="w-2 h-2 rounded-full bg-rose-500" />
+              <span className="text-[10px] font-semibold text-slate-600">Keluar</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />
-              <span className="text-[11px] font-semibold text-slate-500">Net</span>
+              <div className="w-2 h-2 rounded-full bg-indigo-500" />
+              <span className="text-[10px] font-semibold text-slate-600">Net</span>
             </div>
           </div>
         </div>
@@ -259,15 +300,15 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-2xl' : 'rounded-3xl'}`}
+        className={`bg-white border border-slate-200 shadow-sm ${condensed ? 'rounded-xl' : 'rounded-2xl'}`}
       >
-        <div className={`border-b border-slate-100 ${condensed ? 'px-3 sm:px-5 py-3 sm:py-3.5' : 'px-4 sm:px-6 py-4 sm:py-5'}`}>
-          <h3 className={`${condensed ? 'text-xs' : 'text-sm'} font-bold text-slate-900 uppercase tracking-wider`}>Volume by Movement Type</h3>
+        <div className={`border-b border-slate-100 ${condensed ? 'px-4 py-3' : 'px-5 py-4'}`}>
+          <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Volume by Movement Type</h3>
           {(() => {
             const total = typeData.reduce((s, d) => s + d.value, 0);
             if (total === 0) return null;
             const masukPct = Math.round(typeData.filter(d => d.group === 'Masuk').reduce((s, d) => s + d.value, 0) / total * 100);
-            return <p className="text-[11px] text-slate-400 font-medium mt-0.5">{masukPct}% Masuk · {100 - masukPct}% Keluar</p>;
+            return <p className="text-[10px] text-slate-500 font-medium mt-0.5">{masukPct}% Masuk · {100 - masukPct}% Keluar</p>;
           })()}
         </div>
         <div className={`${condensed ? 'px-2 sm:px-4 pt-3 sm:pt-4 pb-2' : 'px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4'}`}>

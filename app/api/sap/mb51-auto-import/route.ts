@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
-import { aggregateSessionData } from "@/lib/aggregation";
+import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { parseSapBuffer, ProcessedMovement, ProcessedStock, StockCardItem } from "@/lib/excel-parser";
 import * as fs from "fs";
 import * as path from "path";
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       dateCounts[m.dateStr] = (dateCounts[m.dateStr] || 0) + 1;
     });
     const sortedDates = Object.entries(dateCounts).sort((a, b) => b[1] - a[1]);
-    let dateStr = sortedDates.length > 0 ? sortedDates[0][0] : new Date().toISOString().split("T")[0];
+    const dateStr = sortedDates.length > 0 ? sortedDates[0][0] : new Date().toISOString().split("T")[0];
 
     let label = customLabel || `MB51 Auto - ${dateStr}`;
     if (!customLabel) {

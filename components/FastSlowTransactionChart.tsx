@@ -45,14 +45,14 @@ export const FastSlowTransactionChart: React.FC<FastSlowTransactionChartProps> =
   const maxTotal = Math.max(...rows.map(r => r.mt + r.kt), 1);
 
   return (
-    <div className="bg-white border border-slate-200/70 rounded-xl shadow-sm overflow-hidden">
-      <div className={`border-b border-slate-100 ${condensed ? 'px-3 py-2' : 'px-5 py-3.5'}`}>
-        <h2 className={`${condensed ? 'text-[9px]' : 'text-[11px]'} font-bold text-slate-700 uppercase tracking-wider`}>
+    <div className={`bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col ${condensed ? 'h-full rounded-xl' : 'rounded-2xl'}`}>
+      <div className={`border-b border-slate-100 ${condensed ? 'px-4 py-3' : 'px-5 py-4'}`}>
+        <h2 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
           Transaksi Fast & Slow Moving
         </h2>
       </div>
 
-      <div className={`${condensed ? 'p-3 space-y-4' : 'p-5 space-y-5'}`}>
+      <div className={`${condensed ? 'p-4 space-y-4' : 'p-5 space-y-5'}`}>
         {rows.map(r => {
           const Icon = r.icon;
           const totalTon = Math.round(r.mt + r.kt);

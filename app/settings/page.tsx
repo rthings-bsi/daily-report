@@ -300,7 +300,7 @@ export default function SettingsPage() {
       const list = await listRes.json();
       if (list.length === 0) return;
       const latestId = list[0].reportSessionId;
-      const dataRes = await fetch(`/api/reports/${latestId}`);
+      const dataRes = await fetch(`/api/reports/${latestId}?detail=true`);
       if (!dataRes.ok) return;
       const data = await dataRes.json();
       const codes = new Set<string>();

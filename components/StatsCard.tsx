@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, TrendingUp } from 'lucide-react';
 
 interface StatsCardProps {
   title: string;
@@ -31,127 +31,115 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     return Activity;
   };
 
-  // Helper murni tanpa parse ribet, langsung format number ke ID
   const displayValue = useMemo(() => {
-    // Kalo value-nya angka mentah dalam string (misal "124.3133" atau "124313.3")
-    // Cukup casting ke float dan format pake toLocaleString.
-    // Jika gagal parse, kembalikan string aslinya.
     const rawFloat = parseFloat(value);
     if (isNaN(rawFloat)) return value;
-    
-    // Tampilkan dengan format Indo yang bener, koma cuma 1 digit di belakang.
     return rawFloat.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   }, [value]);
 
-  const getColorStyles = () => {
+  const Icon = getIcon();
+
+  const getStyleTokens = () => {
     switch (type) {
       case 'in':
         return {
-          bg: 'bg-emerald-50/50',
-          gradient: 'from-emerald-400/20 via-emerald-100/5 to-transparent',
-          iconBg: 'bg-emerald-500',
-          iconShadow: 'shadow-emerald-500/30',
-          text: 'text-emerald-900',
-          ring: 'border-emerald-200/60',
-          hoverRing: 'hover:border-emerald-400/50 hover:shadow-emerald-500/10',
-          glow: 'bg-emerald-400',
+          wrapper: 'border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 to-white hover:border-emerald-300 hover:shadow-emerald-500/10',
+          iconWrap: 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 ring-4 ring-emerald-50',
+          text: 'text-emerald-950',
+          label: 'text-emerald-600/80',
+          trendIcon: 'text-emerald-500',
+          wave: 'text-emerald-500',
         };
       case 'out':
         return {
-          bg: 'bg-rose-50/50',
-          gradient: 'from-rose-400/20 via-rose-100/5 to-transparent',
-          iconBg: 'bg-rose-500',
-          iconShadow: 'shadow-rose-500/30',
-          text: 'text-rose-900',
-          ring: 'border-rose-200/60',
-          hoverRing: 'hover:border-rose-400/50 hover:shadow-rose-500/10',
-          glow: 'bg-rose-400',
+          wrapper: 'border-rose-200/50 bg-gradient-to-br from-rose-50/50 to-white hover:border-rose-300 hover:shadow-rose-500/10',
+          iconWrap: 'bg-rose-500 text-white shadow-md shadow-rose-500/20 ring-4 ring-rose-50',
+          text: 'text-rose-950',
+          label: 'text-rose-600/80',
+          trendIcon: 'text-rose-500',
+          wave: 'text-rose-500',
         };
       default:
         return {
-          bg: 'bg-[#C4E2F5]/30',
-          gradient: 'from-[#1591DC]/20 via-[#4BB8FA]/5 to-transparent',
-          iconBg: 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]',
-          iconShadow: 'shadow-[#1591DC]/30',
-          text: 'text-[#2C5EAD]',
-          ring: 'border-[#C4E2F5]/80',
-          hoverRing: 'hover:border-[#4BB8FA]/60 hover:shadow-[#1591DC]/10',
-          glow: 'bg-[#1591DC]',
+          wrapper: 'border-indigo-200/50 bg-gradient-to-br from-indigo-50/50 to-white hover:border-indigo-300 hover:shadow-indigo-500/10',
+          iconWrap: 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20 ring-4 ring-indigo-50',
+          text: 'text-indigo-950',
+          label: 'text-indigo-600/80',
+          trendIcon: 'text-indigo-500',
+          wave: 'text-indigo-500',
         };
     }
   };
 
-  const styles = getColorStyles();
-  const Icon = getIcon();
+  const s = getStyleTokens();
 
-  const containerClasses = `relative flex overflow-hidden bg-white/80 backdrop-blur-xl border ${styles.ring} ${styles.hoverRing} shadow-sm transition-all duration-300 group ${condensed ? 'rounded-2xl p-4' : 'rounded-3xl p-5'}`;
-
-  const renderContent = () => (
-    <>
-      {/* Decorative Gradient Background */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${styles.gradient} opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-
-      {/* Subtle Glow Dot */}
-      <div className={`absolute -right-4 -top-4 w-20 h-20 ${styles.glow} rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-500`} />
-
-      <div className="flex items-start justify-between relative z-10 w-full">
-        <div className={condensed ? 'space-y-1' : 'space-y-2'}>
-          <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold text-slate-500 uppercase tracking-widest`}>
-            {title}
-          </p>
-          <div className="flex items-baseline gap-1.5">
-            <h3
-              className={`${condensed ? 'text-2xl' : 'text-3xl'} font-black ${styles.text} tabular-nums tracking-tighter`}
-              title={value} // Biar nilai aslinya tetep bisa di-hover
-            >
-              {displayValue}
-            </h3>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{unit}</span>
-          </div>
-          {!condensed && subtitle && (
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${styles.glow} animate-pulse`} />
-              <p className="text-[11px] font-bold text-slate-500">{subtitle}</p>
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`${condensed ? 'p-2' : 'p-2.5'} rounded-xl ${styles.iconBg} shadow-lg ${styles.iconShadow} group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex-shrink-0 relative overflow-hidden`}
-        >
-          <div className="absolute inset-0 bg-white/20 w-1/2 h-full skew-x-12 translate-x-[-150%] group-hover:translate-x-[250%] transition-transform duration-700 ease-in-out" />
-          <Icon size={condensed ? 16 : 20} className="text-white" strokeWidth={3} />
-        </div>
-      </div>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <motion.button
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -4, scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
-        onClick={onClick}
-        type="button"
-        className={`${containerClasses} cursor-pointer text-left hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50`}
-      >
-        {renderContent()}
-      </motion.button>
-    );
-  }
+  const containerClasses = `relative flex flex-col overflow-hidden rounded-[24px] border ${s.wrapper} shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all duration-300 group ${
+    condensed ? 'p-4 min-h-[130px]' : 'p-6 min-h-[160px]'
+  } ${onClick ? 'cursor-pointer hover:-translate-y-1 hover:shadow-xl' : ''}`;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4, scale: 1.01 }}
-      transition={{ delay, type: 'spring', stiffness: 300, damping: 22 }}
-      className={`${containerClasses} hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50`}
+      transition={{ delay, duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
     >
-      {renderContent()}
+      {onClick ? (
+        <button type="button" onClick={onClick} className={`${containerClasses} w-full text-left focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2`}>
+          <CardContent condensed={condensed} title={title} displayValue={displayValue} unit={unit} subtitle={subtitle} Icon={Icon} s={s} type={type} />
+        </button>
+      ) : (
+        <div className={containerClasses}>
+          <CardContent condensed={condensed} title={title} displayValue={displayValue} unit={unit} subtitle={subtitle} Icon={Icon} s={s} type={type} />
+        </div>
+      )}
     </motion.div>
+  );
+};
+
+const CardContent = ({ condensed, title, displayValue, unit, subtitle, Icon, s, type }: any) => {
+  return (
+    <>
+      {/* Decorative Abstract Waveform Background */}
+      <div className="absolute bottom-0 right-0 left-0 h-24 pointer-events-none overflow-hidden opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500">
+        <svg viewBox="0 0 400 100" preserveAspectRatio="none" className={`w-full h-full fill-current ${s.wave}`}>
+          {type === 'in' && <path d="M0,100 L0,50 C100,80 200,10 400,40 L400,100 Z" />}
+          {type === 'out' && <path d="M0,100 L0,20 C150,80 250,10 400,60 L400,100 Z" />}
+          {type === 'total' && <path d="M0,100 L0,40 C100,20 200,80 400,40 L400,100 Z" />}
+        </svg>
+      </div>
+
+      {/* Grid Pattern */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+
+      <div className="relative z-10 flex items-start justify-between w-full mb-2">
+        <div className="flex flex-col gap-1">
+          <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold uppercase tracking-widest ${s.label}`}>
+            {title}
+          </p>
+        </div>
+        <div className={`p-2 rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 ${s.iconWrap}`}>
+          <Icon size={condensed ? 16 : 20} strokeWidth={2.5} />
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-auto">
+        <div className="flex items-baseline gap-1.5">
+          <h3
+            className={`${condensed ? 'text-3xl' : 'text-4xl md:text-[42px]'} font-extrabold tabular-nums tracking-tight ${s.text} drop-shadow-sm`}
+            title={displayValue}
+          >
+            {displayValue}
+          </h3>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{unit}</span>
+        </div>
+
+        {!condensed && subtitle && (
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/60">
+            <TrendingUp size={14} strokeWidth={2.5} className={s.trendIcon} />
+            <p className="text-[11px] font-semibold text-slate-500">{subtitle}</p>
+          </div>
+        )}
+      </div>
+    </>
   );
 };

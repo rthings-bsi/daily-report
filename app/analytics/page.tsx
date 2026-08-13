@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
 
     const fetchSessionData = async () => {
       try {
-        const r = await fetch(`/api/reports/${selectedId}`);
+        const r = await fetch(`/api/reports/${selectedId}?detail=true`);
         const d = await r.json();
 
         if (!active) return;

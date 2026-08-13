@@ -99,20 +99,19 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`bg-white border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 ${condensed ? 'rounded-2xl' : 'rounded-3xl'}`}
+      className={`bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 ${condensed ? 'rounded-xl' : 'rounded-2xl'}`}
     >
       {/* Header */}
-      <div className={`${condensed ? 'px-5 py-3.5' : 'px-6 py-5'} border-b border-slate-100 flex items-center gap-3`}>
-        <div className="p-2 bg-indigo-50 rounded-xl flex-shrink-0">
-          <Factory className="text-indigo-600" size={18} />
-        </div>
-        <div>
-          <h3 className={`${condensed ? 'text-xs' : 'text-sm'} font-bold text-slate-900 uppercase tracking-wider`}>
-            Work Center Breakdown
-          </h3>
-          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-            Distribusi tonase per work center
-          </p>
+      <div className={`${condensed ? 'px-4 py-3' : 'px-5 py-4'} border-b border-slate-100 flex items-center justify-between`}>
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500">
+            <Factory size={14} />
+          </div>
+          <div>
+            <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              Work Center Breakdown
+            </h3>
+          </div>
         </div>
       </div>
 

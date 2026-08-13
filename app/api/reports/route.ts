@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { aggregateSessionData } from "@/lib/aggregation";
+import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { filterByGudang, getGudangPrefix } from "@/lib/gudang";
 import { buildGudangWhere, requireUserContext, respondError } from "@/lib/api-helpers";
 

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
-import { RawMovementRow, deduplicateMovements, deduplicateStocks } from "@/lib/aggregation";
-import { classifyBatch } from "@/lib/gudang";
+import { RawMovementRow, aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
+import { MovementGroup } from "@/lib/sap-mapping";
+import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc } from "@/lib/gudang";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/reports/aggregate?gudangId=5&start=2026-01-01&end=2026-06-30
+// GET /api/reports/aggregate?gudangId=5&start=2026-01-01&end=2026-06-30&detail=true
 // Aggregates ALL matching sessions into one combined dataset.
 // Admin: can filter by gudangId (optional) + date range (optional)
 // Non-admin: always scoped to their own gudangId
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
   const gudangIdParam = searchParams.get("gudangId");
   const start = searchParams.get("start");
   const end = searchParams.get("end");
+  const detail = searchParams.get("detail") === "true";
 
   // ── Build Prisma where clause ──
   const where: Record<string, unknown> = {};
@@ -37,20 +39,35 @@ export async function GET(req: NextRequest) {
     where.gudangId = ctx.gudangId;
   }
 
+  // ⚠ BUG FIX: Buffer dateStr filter.
+  // Session.dateStr hanya satu tanggal representatif. Jika user memfilter 07-10 s/d 07-15,
+  // bisa jadi data tsb ada di dalam session yang di-upload dengan dateStr 07-08 atau 07-17.
+  // Oleh karena itu, kita filter session di DB dengan buffer +/- 7 hari agar session tsb
+  // tetap terbawa. Nanti data aslinya (rawMovements) akan di-filter secara presisi di client-side.
   if (start || end) {
     const dateFilter: Record<string, string> = {};
-    if (start) dateFilter.gte = start;
-    if (end) dateFilter.lte = end;
+    if (start) {
+      const d = new Date(start);
+      d.setDate(d.getDate() - 7);
+      dateFilter.gte = d.toISOString().split("T")[0];
+    }
+    if (end) {
+      const d = new Date(end);
+      d.setDate(d.getDate() + 7);
+      dateFilter.lte = d.toISOString().split("T")[0];
+    }
     where.dateStr = dateFilter;
   }
 
+  const hasDateFilter = !!(start || end);
+
   try {
-    const sessions = await prisma.reportSession.findMany({
+    // OPTIMIZATION: Pull the full payload ONLY for the latest session.
+    // Stock and stock cards are point-in-time snapshots — aggregating them
+    // across multiple days wastes DB bandwidth and causes pool exhaustion.
+    const latestSession = await prisma.reportSession.findFirst({
       where,
       orderBy: { createdAt: "desc" },
-      // OPTIMIZATION: Jika tidak ada filter tanggal, cukup ambil 1 sesi TERBARU
-      // Ini mencegah API menarik puluhan megabyte JSON dari seluruh history ke memori
-      ...(start || end ? {} : { take: 1 }),
       select: {
         reportSessionId: true,
         gudangId: true,
@@ -66,7 +83,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    if (sessions.length === 0) {
+    if (!latestSession) {
       return NextResponse.json({
         movements: [],
         stocks: [],
@@ -79,42 +96,186 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    let otherSessions: any[] = [];
+    if (hasDateFilter) {
+      // Pull only movements and summaries for historical sessions
+      otherSessions = await prisma.reportSession.findMany({
+        where: {
+          ...where,
+          reportSessionId: { not: latestSession.reportSessionId }
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          reportSessionId: true,
+          gudangId: true,
+          dateStr: true,
+          label: true,
+          createdAt: true,
+          rawMovements: true,
+          stats: true,
+          movementSummaries: true,
+          stockSummaries: true
+        },
+      });
+    } else {
+      // FIX: Default dashboard (no date filter).
+      // If we only take 'latestSession', admin only sees ONE gudang's Excel file,
+      // and all other uploaded gudangs on the same day disappear.
+      // We must fetch ALL sessions sharing the same date as the latest one.
+      otherSessions = await prisma.reportSession.findMany({
+        where: {
+          ...where,
+          dateStr: latestSession.dateStr,
+          reportSessionId: { not: latestSession.reportSessionId }
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          reportSessionId: true,
+          gudangId: true,
+          dateStr: true,
+          label: true,
+          createdAt: true,
+          rawMovements: true,
+          stats: true,
+          movementSummaries: true,
+          stockSummaries: true
+        },
+      });
+    }
+
+    const sessions = [latestSession, ...otherSessions];
+
+    // ── Buat peta tanggal -> gudang mana saja yang mengunggah sesi lokal ──
+    const localUploadsByDate = new Map<string, Set<number>>();
+    for (const s of sessions) {
+      if (s.gudangId !== null && s.gudangId !== undefined) {
+        const d = s.dateStr;
+        if (!localUploadsByDate.has(d)) {
+          localUploadsByDate.set(d, new Set<number>());
+        }
+        localUploadsByDate.get(d)!.add(s.gudangId);
+      }
+    }
+
     // ── Aggregate raw data across ALL matched sessions ──
     let allRawMovements: RawMovementRow[] = [];
     let allStocks: any[] = [];
     const allStockCards: any[] = [];
 
     for (const s of sessions) {
+      const isGlobal = s.gudangId === null || s.gudangId === undefined;
+
       if (s.rawMovements) {
-        allRawMovements.push(...JSON.parse(s.rawMovements));
+        const raw: RawMovementRow[] = JSON.parse(s.rawMovements);
+
+        if (isGlobal) {
+          // Dari sesi global, buang pergerakan milik gudang yang sudah upload sesi lokal sendiri
+          // pada tanggal transaksi tersebut.
+          const filteredRaw = raw.filter((m) => {
+            const uploadSet = localUploadsByDate.get(m.dateStr);
+            if (uploadSet) {
+              const slocGudang = gudangFromSloc(m.storageLocation);
+              if (slocGudang !== null && uploadSet.has(slocGudang)) {
+                return false; // Skip, karena gudang ini sudah upload data lokal sendiri pada tanggal tersebut
+              }
+            }
+            return true;
+          });
+          allRawMovements.push(...filteredRaw);
+        } else {
+          allRawMovements.push(...raw);
+        }
       }
+
       if (s.rawStocks) {
-        allStocks.push(...JSON.parse(s.rawStocks));
+        const rawStocks: any[] = JSON.parse(s.rawStocks);
+        if (isGlobal) {
+          const filteredStocks = rawStocks.filter((st) => {
+            const uploadSet = localUploadsByDate.get(s.dateStr); // Cek tanggal sesi
+            if (uploadSet) {
+              const slocGudang = gudangFromSloc(st.sloc);
+              if (slocGudang !== null && uploadSet.has(slocGudang)) {
+                return false;
+              }
+            }
+            return true;
+          });
+          allStocks.push(...filteredStocks);
+        } else {
+          allStocks.push(...rawStocks);
+        }
       }
+
       if (s.stockCards) {
-        allStockCards.push(...JSON.parse(s.stockCards));
+        const rawCards: any[] = JSON.parse(s.stockCards);
+        if (isGlobal) {
+          const filteredCards = rawCards.filter((sc) => {
+            const uploadSet = localUploadsByDate.get(s.dateStr);
+            if (uploadSet) {
+              const slocGudang = gudangFromSloc(sc.sloc);
+              if (slocGudang !== null && uploadSet.has(slocGudang)) {
+                return false;
+              }
+            }
+            return true;
+          });
+          allStockCards.push(...filteredCards);
+        } else {
+          allStockCards.push(...rawCards);
+        }
       }
     }
 
-    // ── Deduplicate across sessions ──
-    // Shift 1 & Shift 2 upload same-day data, causing duplicates.
-    // Using composite key: dateStr|moveType|material|batch|quantity|userName|workCenter|storageLocation
-    allRawMovements = deduplicateMovements(allRawMovements);
-    allStocks = deduplicateStocks(allStocks);
+    // ── Filter by Gudang if requested ──
+    const effectiveGudangId = ctx.isAdmin ? (gudangIdParam ? parseInt(gudangIdParam, 10) : null) : ctx.gudangId;
 
-    // Deduplicate stock cards by batch|materialNumber|sloc
+    // ── Deduplicate stock cards by batch|materialNumber|sloc ──
     const seenStockCards = new Set<string>();
-    const uniqueStockCards = allStockCards.filter(sc => {
+    let uniqueStockCards = allStockCards.filter(sc => {
       const key = `${sc.batch}|${sc.materialNumber}|${sc.sloc}`;
       if (seenStockCards.has(key)) return false;
       seenStockCards.add(key);
       return true;
     });
 
+    if (effectiveGudangId !== null) {
+      const prefix = getGudangPrefix(effectiveGudangId);
+      if (prefix) {
+        allRawMovements = filterByGudang(allRawMovements, effectiveGudangId);
+        allStocks = allStocks.filter(s => {
+          const sloc = (s.sloc || '').toUpperCase();
+          return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+        });
+        uniqueStockCards = uniqueStockCards.filter(sc => {
+          const sloc = (sc.sloc || '').toUpperCase();
+          return sloc.startsWith(prefix) || sc.status === 'Sloc Penampungan';
+        });
+      }
+    }
+
+    // ── Presisi filter tanggal DI SERVER ──
+    // Session di-pilih dengan buffer +/- 7 hari (lihat where di atas) karena
+    // dateStr session cuma satu tanggal representatif. Tapi raw movement di
+    // dalamnya bisa mencakup banyak tanggal. Tanpa filter presisi di sini,
+    // stats/movementSummaries/movements akan menyertakan data di luar rentang
+    // yang diminta → angka card Inbound/Outbound tidak sesuai data yang di-upload.
+    if (start || end) {
+      allRawMovements = allRawMovements.filter((m) => {
+        const d = m.dateStr || "";
+        if (!d) return true;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+    }
+
+    // ── Deduplicate raw movements across overlapping sessions ──
+    allRawMovements = deduplicateMovements(allRawMovements);
+
     // ── Build hydrated movements (matching loadSession format) ──
     const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
       movementId: `agg-${idx}`,
-      postingDate: m.dateStr,
+      postingDate: new Date(m.dateStr + 'T12:00:00Z'),
       dateStr: m.dateStr,
       moveType: m.moveType,
       description: m.description,
@@ -125,58 +286,32 @@ export async function GET(req: NextRequest) {
       unitQuantity: m.unitQuantity || 0,
       userName: m.userName || "",
       storageLocation: m.storageLocation || "",
-      group: m.group,
+      group: m.group as MovementGroup,
       color: m.color,
       movementStatus: classifyBatch(m.batch || ""),
     }));
 
-    // ── Re-aggregate summaries from combined data ──
-    const aggregated = {
-        movementSummaries: sessions.flatMap(s => s.movementSummaries),
-        stockSummaries: sessions.flatMap(s => s.stockSummaries)
-    };
+    // Server-side (where localStorage is unavailable) fallback: we do not reclassify 311 
+    // inside the aggregate API here. The client side \`filterAndReclassify()\` logic
+    // in \`app/page.tsx\` uses \`localStorage\` to pull the sloc_exit map and correctly
+    // reclassifies \`TF Sloc In\` & \`TF Sloc Out\` before charting. 
+    // So \`movements\` sent to the client is pure raw combined.
 
-    // ── Calculate combined stats ──
-    let totalIncoming = 0;
-    let totalOutgoing = 0;
-    let incomingCount = 0;
-    let outgoingCount = 0;
-    let totalCount = 0;
-    
-    for (const s of sessions) {
-        if (s.stats) {
-            let st = null;
-            try {
-                st = typeof s.stats === 'string' ? JSON.parse(s.stats) : s.stats;
-            } catch {
-                // Ignore parse error on individual stat
-            }
-            if (st) {
-                totalIncoming += st.totalIncoming || 0;
-                totalOutgoing += st.totalOutgoing || 0;
-                incomingCount += st.incomingCount || 0;
-                outgoingCount += st.outgoingCount || 0;
-                totalCount += st.totalCount || 0;
-            }
-        }
-    }
-    
-    const stats = {
-      totalIncoming,
-      totalOutgoing,
-      netMovement: totalIncoming - totalOutgoing,
-      incomingCount,
-      outgoingCount,
-      totalCount,
-    };
+    // ── Re-aggregate summaries and stats from deduplicated, filtered data ──
+    // Do not use the pre-calculated ones because they might overlap or include other gudangs
+    const aggregated = aggregateSessionData({
+      movements,
+      stocks: allStocks,
+      stockCards: uniqueStockCards,
+    });
 
     return NextResponse.json({
       movements,
       movementSummaries: aggregated.movementSummaries,
       stockSummaries: aggregated.stockSummaries,
-      stocks: [],
+      stocks: allStocks,
       stockCards: uniqueStockCards,
-      stats,
+      stats: aggregated.stats,
       sessionCount: sessions.length,
       sessions: sessions.map((s) => ({
         reportSessionId: s.reportSessionId,

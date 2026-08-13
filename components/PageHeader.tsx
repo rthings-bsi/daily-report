@@ -34,9 +34,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     transition={spring}
     className={cn(
       'sticky top-0 z-40',
-      'bg-white/70 backdrop-blur-2xl',
-      'border-b border-[#C4E2F5]/40',
-      'shadow-sm shadow-[#1591DC]/5',
+      'bg-white/95 backdrop-blur-2xl',
+      'border-b border-slate-200',
+      'shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
       className
     )}
   >
@@ -45,7 +45,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={toggle}
-          className="md:hidden p-1.5 -ml-1 text-[#2C5EAD] hover:bg-[#C4E2F5]/40 rounded-lg transition-colors"
+          className="md:hidden p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
         >
           <Menu size={20} />
         </button>
@@ -54,17 +54,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           animate={{ rotate: 0, scale: 1 }}
           transition={{ type: 'spring' as const, stiffness: 280, damping: 14, mass: 0.7 }}
           className={cn(
-            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm',
-            iconBg || 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]'
+            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-slate-200/50',
+            iconBg || 'bg-slate-100 text-slate-700'
           )}
         >
-          <div className="absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_60%)] pointer-events-none" />
-          <Icon size={15} className="text-white relative" strokeWidth={2.2} />
+          <Icon size={15} strokeWidth={2.5} />
         </motion.div>
-        <div className="min-w-0">
-          <h1 className="text-[15px] font-bold text-[#2C5EAD] truncate tracking-tight leading-none">{title}</h1>
+        <div className="min-w-0 flex flex-col justify-center h-8">
+          <h1 className="text-[14px] font-bold text-slate-800 tracking-tight leading-none mb-0.5">{title}</h1>
           {subtitle && (
-            <p className="text-[11px] text-[#1591DC]/60 font-medium mt-0.5 truncate leading-none">{subtitle}</p>
+            <p className="text-[10px] text-slate-500 font-medium truncate leading-none">{subtitle}</p>
           )}
         </div>
       </div>
