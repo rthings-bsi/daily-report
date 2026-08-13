@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getGudangPrefix } from "@/lib/gudang";
+import { getGudangPrefix, filterByGudang, removeInternalTfSloc } from "@/lib/gudang";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
 
 // GET /api/reports/trend?gudang=13 — return the last 7 days of Masuk/Keluar.
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         dateStr: true,
         gudangId: true,
         createdAt: true,
-        movementSummaries: { select: { dateStr: true, group: true, totalQuantity: true } },
+        rawMovements: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -44,12 +44,26 @@ export async function GET(request: NextRequest) {
       const key = `${s.dateStr}|${s.gudangId ?? 'null'}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      for (const sum of s.movementSummaries) {
-        const e = map.get(sum.dateStr) || { date: sum.dateStr, masuk: 0, keluar: 0 };
-        if (sum.group === 'Masuk') e.masuk += sum.totalQuantity;
-        else if (sum.group === 'Keluar') e.keluar += Math.abs(sum.totalQuantity);
-        map.set(sum.dateStr, e);
+
+      if (!s.rawMovements) continue;
+
+      let movements = JSON.parse(s.rawMovements);
+      if (s.gudangId !== null) {
+        movements = filterByGudang(movements, s.gudangId);
       }
+      movements = removeInternalTfSloc(movements);
+
+      let totalMasuk = 0;
+      let totalKeluar = 0;
+      for (const m of movements) {
+        if (m.group === 'Masuk') totalMasuk += m.quantity;
+        else if (m.group === 'Keluar') totalKeluar += Math.abs(m.quantity);
+      }
+
+      const e = map.get(s.dateStr) || { date: s.dateStr, masuk: 0, keluar: 0 };
+      e.masuk += totalMasuk;
+      e.keluar += totalKeluar;
+      map.set(s.dateStr, e);
     }
 
     const result = Array.from(map.values())
