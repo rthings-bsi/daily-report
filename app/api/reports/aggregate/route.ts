@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { RawMovementRow, aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { MovementGroup } from "@/lib/sap-mapping";
-import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc } from "@/lib/gudang";
+import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc, removeInternalTfSloc } from "@/lib/gudang";
 
 export const dynamic = "force-dynamic";
 
@@ -271,6 +271,12 @@ export async function GET(req: NextRequest) {
 
     // ── Deduplicate raw movements across overlapping sessions ──
     allRawMovements = deduplicateMovements(allRawMovements);
+
+    // ── Bersihkan internal TF SLOC sebelum dihitung summaries ──
+    // Agar pasangan (+/-) SLOC internal di gudang yang sama bisa dihapus bersama-sama,
+    // sehingga tidak muncul sebagai TF Sloc Out/lainnya karena leg positifnya filterByGudang
+    // sebelumnya menghapus leg positif internal-transfer.
+    allRawMovements = removeInternalTfSloc(allRawMovements as any) as RawMovementRow[];
 
     // ── Build hydrated movements (matching loadSession format) ──
     const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
