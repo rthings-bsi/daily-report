@@ -39,11 +39,11 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     return () => { cancelled = true; };
   }, [useAllData, selectedGudang]);
 
-  const dailyData = React.useMemo(() => {
+  const fullDailyData = React.useMemo(() => {
     if (useAllData && trendData) {
       if (!trendData.length) return [];
       const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: Math.abs(d.keluar), net: d.masuk - Math.abs(d.keluar) }]));
-      
+
       let minDateStr = '';
       let maxDateStr = '';
       trendData.forEach(d => {
@@ -88,7 +88,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     // Dapatkan rentang tanggal dari data yang tersedia
     let minDateStr = '';
     let maxDateStr = '';
-    
+
     data.forEach(item => {
       const date = item.dateStr;
       if (!minDateStr || date < minDateStr) minDateStr = date;
@@ -114,17 +114,25 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     }
 
     const result: { date: string; masuk: number; keluar: number; net: number }[] = [];
-    
+
     // Looping setiap hari dari minDate sampai maxDate
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0];
       const existing = map.get(key);
       result.push(existing || { date: key, masuk: 0, keluar: 0, net: 0 });
     }
-    
+
     // Pastikan selalu tampil dari kiri ke kanan (tanggal lama ke tanggal baru)
     return result;
   }, [data, useAllData, trendData]);
+
+  // Ini hanya untuk dirender di grafik agar tidak terlalu padat
+  const chartDailyData = React.useMemo(() => {
+    if (fullDailyData.length <= 5) return fullDailyData;
+    return fullDailyData.slice(-5);
+  }, [fullDailyData]);
+
+  const dailyData = chartDailyData;
 
   const typeData = React.useMemo(() => {
     const map = new Map<string, { name: string; value: number; color: string; group: string }>();
@@ -140,11 +148,11 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
   }, [data]);
 
   const totals = React.useMemo(() => {
-    const totalMasuk = dailyData.reduce((s, d) => s + d.masuk, 0);
-    const totalKeluar = dailyData.reduce((s, d) => s + d.keluar, 0);
+    const totalMasuk = fullDailyData.reduce((s, d) => s + d.masuk, 0);
+    const totalKeluar = fullDailyData.reduce((s, d) => s + d.keluar, 0);
     const net = totalMasuk - totalKeluar;
     return { totalMasuk, totalKeluar, net };
-  }, [dailyData]);
+  }, [fullDailyData]);
 
   const customTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -240,7 +248,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
         <div className={condensed ? 'px-2 sm:px-4 pt-3 sm:pt-4 pb-2' : 'px-3 sm:px-6 pt-3 sm:pt-4 pb-3 sm:pb-4'}>
           <div className={condensed ? 'h-[180px] sm:h-[220px]' : 'h-[220px] sm:h-[280px]'}>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={dailyData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }} barGap={4}>
+              <ComposedChart data={chartDailyData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }} barGap={4}>
                 <defs>
                   <linearGradient id="gradMasuk" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
