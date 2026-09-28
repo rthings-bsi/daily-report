@@ -1,19 +1,62 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Activity, TrendingUp } from 'lucide-react';
+import React, { useEffect, useMemo } from 'react';
+import { motion, animate, useMotionValue, useTransform, useReducedMotion } from 'framer-motion';
+import { ArrowUpRight, ArrowDownRight, Activity, ArrowLeftRight, ChevronRight, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface StatsCardProps {
+export interface StatsCardProps {
   title: string;
   value: string;
   unit: string;
   subtitle?: string;
-  type: 'in' | 'out' | 'total';
+  type: 'in' | 'out' | 'total' | 'net';
   delay?: number;
   condensed?: boolean;
   onClick?: () => void;
+  className?: string;
 }
+
+const ICONS: Record<StatsCardProps['type'], LucideIcon> = {
+  in: ArrowUpRight,
+  out: ArrowDownRight,
+  net: ArrowLeftRight,
+  total: Activity,
+};
+
+interface ThemeConfig {
+  gradient: string;
+  code: string;
+  mainLabel: string;
+  subLabel: string;
+}
+
+const THEME_CONFIG: Record<StatsCardProps['type'], ThemeConfig> = {
+  in: {
+    gradient: 'from-emerald-500 to-emerald-700',
+    code: 'IN',
+    mainLabel: 'Masuk',
+    subLabel: 'Inbound',
+  },
+  out: {
+    gradient: 'from-rose-500 to-rose-700',
+    code: 'OUT',
+    mainLabel: 'Keluar',
+    subLabel: 'Outbound',
+  },
+  net: {
+    gradient: 'from-sky-500 to-blue-700',
+    code: 'NET',
+    mainLabel: 'Net Flow',
+    subLabel: 'Balance',
+  },
+  total: {
+    gradient: 'from-slate-700 to-slate-900',
+    code: 'TRX',
+    mainLabel: 'Transaksi',
+    subLabel: 'Total SAP',
+  },
+};
 
 export const StatsCard: React.FC<StatsCardProps> = ({
   title,
@@ -24,122 +67,172 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   delay = 0,
   condensed = false,
   onClick,
+  className,
 }) => {
-  const getIcon = () => {
-    if (type === 'in') return ArrowUpRight;
-    if (type === 'out') return ArrowDownRight;
-    return Activity;
-  };
+  const Icon = ICONS[type];
+  const theme = THEME_CONFIG[type];
+
+  // Parse numeric value supporting standard floats, id-ID formatted floats, and integers
+  const isInteger = useMemo(() => {
+    return unit === 'TRX' || unit === 'ITEM' || unit === 'PC';
+  }, [unit]);
+
+  const numericValue = useMemo(() => {
+    if (typeof value !== 'string') return null;
+    let cleanStr = value.trim();
+
+    if (isInteger) {
+      // Remove all dots and commas for integer counts
+      cleanStr = cleanStr.replace(/[.,]/g, '');
+      const parsedInt = parseInt(cleanStr, 10);
+      return isNaN(parsedInt) ? null : parsedInt;
+    }
+
+    if (cleanStr.includes(',') && cleanStr.includes('.')) {
+      if (cleanStr.lastIndexOf(',') > cleanStr.lastIndexOf('.')) {
+        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+      } else {
+        cleanStr = cleanStr.replace(/,/g, '');
+      }
+    } else if (cleanStr.includes(',')) {
+      cleanStr = cleanStr.replace(',', '.');
+    }
+
+    const rawFloat = parseFloat(cleanStr);
+    return isNaN(rawFloat) ? null : rawFloat;
+  }, [value, isInteger]);
+
+  const hasDecimal = useMemo(() => {
+    if (isInteger) return false;
+    return value.includes(',') || value.includes('.');
+  }, [value, isInteger]);
+
+  const reduceMotion = useReducedMotion();
+  const fmt = (v: number) =>
+    hasDecimal
+      ? v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+      : Math.round(v).toLocaleString('id-ID');
+
+  const count = useMotionValue(0);
+  const formatted = useTransform(count, v => fmt(v));
 
   const displayValue = useMemo(() => {
-    const rawFloat = parseFloat(value);
-    if (isNaN(rawFloat)) return value;
-    return rawFloat.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  }, [value]);
+    if (numericValue === null) return value;
+    return fmt(numericValue);
+  }, [numericValue, value, hasDecimal]);
 
-  const Icon = getIcon();
-
-  const getStyleTokens = () => {
-    switch (type) {
-      case 'in':
-        return {
-          wrapper: 'border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 to-white hover:border-emerald-300 hover:shadow-emerald-500/10',
-          iconWrap: 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 ring-4 ring-emerald-50',
-          text: 'text-emerald-950',
-          label: 'text-emerald-600/80',
-          trendIcon: 'text-emerald-500',
-          wave: 'text-emerald-500',
-        };
-      case 'out':
-        return {
-          wrapper: 'border-rose-200/50 bg-gradient-to-br from-rose-50/50 to-white hover:border-rose-300 hover:shadow-rose-500/10',
-          iconWrap: 'bg-rose-500 text-white shadow-md shadow-rose-500/20 ring-4 ring-rose-50',
-          text: 'text-rose-950',
-          label: 'text-rose-600/80',
-          trendIcon: 'text-rose-500',
-          wave: 'text-rose-500',
-        };
-      default:
-        return {
-          wrapper: 'border-indigo-200/50 bg-gradient-to-br from-indigo-50/50 to-white hover:border-indigo-300 hover:shadow-indigo-500/10',
-          iconWrap: 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20 ring-4 ring-indigo-50',
-          text: 'text-indigo-950',
-          label: 'text-indigo-600/80',
-          trendIcon: 'text-indigo-500',
-          wave: 'text-indigo-500',
-        };
+  useEffect(() => {
+    if (numericValue === null) return;
+    if (reduceMotion) {
+      count.set(numericValue);
+      return;
     }
-  };
+    count.set(0);
+    const controls = animate(count, numericValue, {
+      duration: 1.0,
+      delay: delay + 0.1,
+      ease: [0.16, 1, 0.3, 1],
+    });
+    return () => controls.stop();
+  }, [numericValue, delay, reduceMotion, count]);
 
-  const s = getStyleTokens();
+  const cardClasses = cn(
+    'group relative flex w-full rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-[0_1px_3px_0_rgba(0,0,0,0.03),0_4px_14px_-2px_rgba(0,0,0,0.04)] hover:shadow-lg transition-all duration-300 text-left',
+    condensed ? 'min-h-[114px]' : 'min-h-[142px]',
+    onClick
+      ? 'cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40'
+      : '',
+    className
+  );
 
-  const containerClasses = `relative flex flex-col overflow-hidden rounded-[24px] border ${s.wrapper} shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all duration-300 group ${
-    condensed ? 'p-4 min-h-[130px]' : 'p-6 min-h-[160px]'
-  } ${onClick ? 'cursor-pointer hover:-translate-y-1 hover:shadow-xl' : ''}`;
+  const cardContent = (
+    <>
+      {/* Left Panel - Gradient with Icon and Labels */}
+      <div
+        className={cn(
+          'w-[35%] flex flex-col justify-between text-white bg-gradient-to-br transition-all duration-300 relative shrink-0',
+          theme.gradient,
+          condensed ? 'p-3' : 'p-4',
+          onClick && 'group-hover:brightness-105'
+        )}
+      >
+        <div className="flex items-center justify-between w-full">
+          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner shrink-0">
+            <Icon size={17} strokeWidth={2.5} className="text-white" />
+          </div>
+          <span className="text-[9px] font-black tracking-widest uppercase bg-black/20 px-2 py-0.5 rounded-full text-white/90 shrink-0">
+            {theme.code}
+          </span>
+        </div>
+
+        <div className={condensed ? 'mt-2' : 'mt-3'}>
+          <p className="text-sm font-bold text-white leading-tight">
+            {theme.mainLabel}
+          </p>
+          <p className="text-[10px] font-medium text-white/80 leading-tight">
+            {theme.subLabel}
+          </p>
+        </div>
+      </div>
+
+      {/* Right Panel - Data Metric and Caption */}
+      <div
+        className={cn(
+          'w-[65%] flex flex-col justify-between bg-white text-slate-800',
+          condensed ? 'p-3' : 'p-4'
+        )}
+      >
+        <div>
+          <div className="flex justify-between items-center gap-1.5 mb-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {title}
+            </span>
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 shrink-0">
+              {unit}
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-1 mt-1">
+            <span
+              className={cn(
+                'font-extrabold tracking-tight text-slate-900 tabular-nums leading-none',
+                condensed ? 'text-2xl' : 'text-2xl sm:text-[26px] lg:text-[28px]'
+              )}
+              title={displayValue}
+            >
+              {numericValue !== null ? <motion.span>{formatted}</motion.span> : value}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100/90">
+          <p className="text-[11px] font-medium text-slate-400 group-hover:text-slate-600 transition-colors truncate pr-1">
+            {subtitle || (onClick ? 'Klik untuk detail' : 'Data terverifikasi')}
+          </p>
+          {onClick && (
+            <span className="text-slate-300 group-hover:text-slate-700 transition-colors flex items-center shrink-0">
+              <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+      transition={{ delay, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full"
     >
       {onClick ? (
-        <button type="button" onClick={onClick} className={`${containerClasses} w-full text-left focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2`}>
-          <CardContent condensed={condensed} title={title} displayValue={displayValue} unit={unit} subtitle={subtitle} Icon={Icon} s={s} type={type} />
+        <button type="button" onClick={onClick} className={cardClasses}>
+          {cardContent}
         </button>
       ) : (
-        <div className={containerClasses}>
-          <CardContent condensed={condensed} title={title} displayValue={displayValue} unit={unit} subtitle={subtitle} Icon={Icon} s={s} type={type} />
-        </div>
+        <div className={cardClasses}>{cardContent}</div>
       )}
     </motion.div>
-  );
-};
-
-const CardContent = ({ condensed, title, displayValue, unit, subtitle, Icon, s, type }: any) => {
-  return (
-    <>
-      {/* Decorative Abstract Waveform Background */}
-      <div className="absolute bottom-0 right-0 left-0 h-24 pointer-events-none overflow-hidden opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500">
-        <svg viewBox="0 0 400 100" preserveAspectRatio="none" className={`w-full h-full fill-current ${s.wave}`}>
-          {type === 'in' && <path d="M0,100 L0,50 C100,80 200,10 400,40 L400,100 Z" />}
-          {type === 'out' && <path d="M0,100 L0,20 C150,80 250,10 400,60 L400,100 Z" />}
-          {type === 'total' && <path d="M0,100 L0,40 C100,20 200,80 400,40 L400,100 Z" />}
-        </svg>
-      </div>
-
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-
-      <div className="relative z-10 flex items-start justify-between w-full mb-2">
-        <div className="flex flex-col gap-1">
-          <p className={`${condensed ? 'text-[10px]' : 'text-xs'} font-bold uppercase tracking-widest ${s.label}`}>
-            {title}
-          </p>
-        </div>
-        <div className={`p-2 rounded-xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 ${s.iconWrap}`}>
-          <Icon size={condensed ? 16 : 20} strokeWidth={2.5} />
-        </div>
-      </div>
-
-      <div className="relative z-10 mt-auto">
-        <div className="flex items-baseline gap-1.5">
-          <h3
-            className={`${condensed ? 'text-3xl' : 'text-4xl md:text-[42px]'} font-extrabold tabular-nums tracking-tight ${s.text} drop-shadow-sm`}
-            title={displayValue}
-          >
-            {displayValue}
-          </h3>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{unit}</span>
-        </div>
-
-        {!condensed && subtitle && (
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/60">
-            <TrendingUp size={14} strokeWidth={2.5} className={s.trendIcon} />
-            <p className="text-[11px] font-semibold text-slate-500">{subtitle}</p>
-          </div>
-        )}
-      </div>
-    </>
   );
 };

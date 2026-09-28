@@ -138,9 +138,9 @@ export default function ChatBot() {
                 </div>
               )}
 
-              {messages.map((m) => (
+              {messages.map((m, idx) => (
                 <div
-                  key={m.id}
+                  key={m.id || `msg-${idx}`}
                   className={cn(
                     "flex w-full",
                     m.role === 'user' ? "justify-end" : "justify-start"

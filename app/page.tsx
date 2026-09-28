@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { FileUp, LayoutDashboard, Layout, TrendingUp, Upload, Check, X, Filter, Package, ArrowLeftRight, Box } from 'lucide-react';
+import { FileUp, LayoutDashboard, Layout, TrendingUp, Upload, Check, X, Filter, Package, ArrowLeftRight, Box, Copy, Loader2, AlertCircle, Download } from 'lucide-react';
+import { copyDashboardToClipboard } from '@/lib/clipboard-capture';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
 import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
@@ -68,6 +69,11 @@ export default function Home() {
   const sessionGudang = useMemo(() => getUserGudang(session?.user?.name), [session]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [copyErrorMessage, setCopyErrorMessage] = useState('');
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
+  const [modalCopied, setModalCopied] = useState(false);
 
   // ─── Drag & drop layout order (report mode) ───
   const [leftOrder, setLeftOrder] = useState<string[]>(['workcenter', 'stock', 'pipa-nc']);
@@ -124,17 +130,17 @@ export default function Home() {
   }, []);
 
   const filteredMovements = useMemo(() => {
-    // Pada arsitektur baru, backend sudah memfilter berdasar tanggal/gudang dan
-    // HANYA mengirim raw movements jika kita panggil dengan ?detail=true.
-    // Dashboard ini tidak meng-query dengan ?detail=true, jadi ini biasanya [].
-    // Jika upload dari Excel berjalan, movements akan terisi secara lokal,
-    // barulah filter ini berlaku.
     if (!movements || movements.length === 0) return [];
 
     let result = filterEnabledMovements(filterEnabledWorkCenters(movements));
+    console.log('[FM-step1] after enabled filters:', result.length, 'of', movements.length);
     if (selectedGudang) {
-       // Filter gudang (jika client local movements ada isinya, cth. upload fresh)
-       result = reclassify311(filterByGudang(removeInternalTfSloc(result), selectedGudang), selectedGudang);
+       const afterRemove = removeInternalTfSloc(result);
+       console.log('[FM-step2] after removeInternalTfSloc:', afterRemove.length);
+       const afterGudang = filterByGudang(afterRemove, selectedGudang);
+       console.log('[FM-step3] after filterByGudang(', selectedGudang, '):', afterGudang.length);
+       result = reclassify311(afterGudang, selectedGudang);
+       console.log('[FM-step4] after reclassify311:', result.length);
     }
     if (startDate) result = result.filter(m => {
         const mDate = m.dateStr?.split('T')[0];
@@ -144,6 +150,7 @@ export default function Home() {
         const mDate = m.dateStr?.split('T')[0];
         return mDate ? mDate <= endDate : true;
     });
+    console.log('[FM-final] filteredMovements:', result.length);
     return result;
   }, [movements, selectedGudang, startDate, endDate]);
 
@@ -206,7 +213,7 @@ export default function Home() {
       gradeE: filtered.filter((sc: any) => (sc.batch || '').trim().toUpperCase().endsWith('E')).length,
       totalItem: filtered.length,
       totalQty: filtered.reduce((s: number, sc: any) => s + (sc.ttlStokBom || 0), 0),
-      totalTonase: filtered.reduce((s: number, sc: any) => s + (sc.ttlStokEom || 0), 0),
+      totalTonase: filtered.reduce((s: number, sc: any) => s + (sc.ttlStokEom || 0), 0) / 1000,
     };
   }, [stockCards]);
 
@@ -233,9 +240,10 @@ export default function Home() {
   }, [activeSessionId, selectedGudang, startDate, endDate, router]);
 
   const chartMovements = useMemo((): ProcessedMovement[] => {
-    // Kalo movements (detail) nya kosong, tapi ada movementSummaries, PAKE SUMMARY
-    // Ini terjadi waktu aggregate (no date filter) jalan, karena kita ga select rawMovements lagi dari DB untuk hemat memory.
-    if ((filteredMovements.length === 0 || (!selectedGudang && !startDate && !endDate)) && movementSummaries && movementSummaries.length > 0) {
+    // Hanya pakai movementSummaries sebagai fallback kalau filteredMovements benar-benar kosong.
+    // Summary tidak punya batch → movementStatus selalu 'Unknown', jadi jangan dipaksa
+    // menggantikan filteredMovements (yang punya klasifikasi Fast/Slow dari classifyBatch).
+    if (filteredMovements.length === 0 && movementSummaries && movementSummaries.length > 0) {
       return movementSummaries.map((s, idx) => ({
         movementId: s.movementSummaryId || `ms-${idx}`,
         postingDate: s.dateStr as any,
@@ -255,6 +263,17 @@ export default function Home() {
     }
     return filteredMovements;
   }, [filteredMovements, movementSummaries, selectedGudang, startDate, endDate]);
+
+  // ─── Data untuk chart Fast & Slow Moving ───
+  // Status Fast/Slow hanya bisa dihitung dari batch pada raw movements
+  // (movementSummaries tidak menyimpan batch → semuanya 'Unknown').
+  // Kalau movements tersedia (mis. aggregate default view), pakai movements
+  // agar Fast & Slow Moving muncul. Kalau kosong (session legacy), fallback
+  // ke chartMovements (summaries → ditampilkan sebagai Total Transaksi).
+  const statusMovements = useMemo(
+    () => (filteredMovements.length > 0 ? filteredMovements : chartMovements),
+    [filteredMovements, chartMovements]
+  );
 
   useEffect(() => {
     loadHistory();
@@ -483,9 +502,14 @@ export default function Home() {
         }));
       }
 
-      // ── Selalu update state dengan hasil server. Kalau server balikin kosong
-      // (filter gudang/tanggal gak nemu data), dashboard harus tampil kosong —
-      // bukan tetap nampilin data lama dari filter sebelumnya.
+      // DEBUG batch
+      const _dbg = { total: movs.length, fast: 0, slow: 0, unknown: 0, sampleBatches: [] as string[] };
+      for (const m of movs) { if (m.movementStatus === 'Fast') _dbg.fast++; else if (m.movementStatus === 'Slow') _dbg.slow++; else _dbg.unknown++; }
+      const _wb = movs.filter(m => m.batch && m.batch.trim()).slice(0, 5);
+      _dbg.sampleBatches = _wb.map(m => m.batch);
+      console.log('[FastSlow] movements:', JSON.stringify(_dbg));
+
+      // ── Selalu update state dengan hasil server.
       setMovements(movs);
       setStockCards(data.stockCards || []);
       setStocks(stks);
@@ -536,9 +560,15 @@ export default function Home() {
 
     const qs = params.toString();
     if (qs === lastAggregateQs.current) return;
-    lastAggregateQs.current = qs;
 
-    loadAggregate(params);
+    // Debounce: tunggu user selesai mengubah rentang tanggal sebelum fetch.
+    // Set start lalu end (2x perubahan input) hanya memicu SATU request aggregate
+    // → mengurangi burst request berat yang bisa menghabiskan pool koneksi DB.
+    const t = setTimeout(() => {
+      lastAggregateQs.current = qs;
+      loadAggregate(params);
+    }, 400);
+    return () => clearTimeout(t);
   }, [startDate, endDate, selectedGudang, history, loadAggregate]);
 
   
@@ -661,6 +691,73 @@ export default function Home() {
     setStats(null);
     setActiveSessionId(null);
     setSaved(false);
+  };
+
+  const handleCopyDashboard = async () => {
+    if (!contentRef.current || copyStatus === 'loading') return;
+    setCopyStatus('loading');
+    setCopyErrorMessage('');
+
+    const gudangLabel = selectedGudang
+      ? `Gudang ${selectedGudang}`
+      : (sessionGudang ? `Gudang ${sessionGudang}` : 'Semua Gudang');
+
+    const dateRangeLabel = startDate || endDate
+      ? `Periode: ${startDate || 'Awal'} s/d ${endDate || 'Akhir'}`
+      : 'Data Pergerakan Terkini';
+
+    const res = await copyDashboardToClipboard(contentRef.current, {
+      headerTitle: `Warehouse Dashboard - ${gudangLabel}`,
+      headerSubtitle: dateRangeLabel,
+    });
+
+    if (res.success) {
+      setCopyStatus('success');
+      setTimeout(() => {
+        setCopyStatus('idle');
+      }, 2500);
+    } else {
+      if (res.dataUrl) {
+        setCapturedImageUrl(res.dataUrl);
+        setPreviewModalOpen(true);
+        setCopyStatus('idle');
+      } else {
+        setCopyStatus('error');
+        setCopyErrorMessage(res.error || 'Gagal menyalin');
+        setTimeout(() => {
+          setCopyStatus('idle');
+        }, 3500);
+      }
+    }
+  };
+
+  const handleCopyFromModal = async () => {
+    if (!capturedImageUrl) return;
+    try {
+      const res = await fetch(capturedImageUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setModalCopied(true);
+      setTimeout(() => {
+        setModalCopied(false);
+        setPreviewModalOpen(false);
+        setCopyStatus('success');
+        setTimeout(() => setCopyStatus('idle'), 2500);
+      }, 1000);
+    } catch {
+      alert('Izin clipboard browser ditolak. Silakan klik kanan pada gambar lalu pilih "Salin Gambar" (Copy Image).');
+    }
+  };
+
+  const handleDownloadFromModal = () => {
+    if (!capturedImageUrl) return;
+    const a = document.createElement('a');
+    a.href = capturedImageUrl;
+    const dateStr = new Date().toISOString().split('T')[0];
+    a.download = `dashboard-spindo-${dateStr}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // ─── Loading state (auto-load in progress) ───
@@ -819,6 +916,44 @@ export default function Home() {
               <span className="hidden sm:inline">Analytics</span>
             </button>
           </div>
+
+          <div className="w-px h-5 bg-slate-200 hidden sm:block" />
+
+          {/* ─── Copy Dashboard Button ─── */}
+          <button
+            onClick={handleCopyDashboard}
+            disabled={copyStatus === 'loading'}
+            className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1.5 shadow-sm border ${
+              copyStatus === 'success'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : copyStatus === 'error'
+                ? 'bg-rose-50 text-rose-700 border-rose-300'
+                : 'bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+            }`}
+            title="Salin grafik dashboard ke clipboard (bisa langsung di-paste dengan Ctrl+V)"
+          >
+            {copyStatus === 'loading' ? (
+              <>
+                <Loader2 size={13} className="animate-spin text-slate-500" />
+                <span className="hidden md:inline">Mengambil gambar...</span>
+              </>
+            ) : copyStatus === 'success' ? (
+              <>
+                <Check size={13} strokeWidth={2.5} className="text-emerald-600" />
+                <span className="text-emerald-700">Tersalin ke Clipboard!</span>
+              </>
+            ) : copyStatus === 'error' ? (
+              <>
+                <AlertCircle size={13} className="text-rose-600" />
+                <span title={copyErrorMessage}>Gagal Menyalin</span>
+              </>
+            ) : (
+              <>
+                <Copy size={13} strokeWidth={2} className="text-slate-500" />
+                <span className="hidden sm:inline">Salin Grafik</span>
+              </>
+            )}
+          </button>
         </div>
       </PageHeader>
 
@@ -847,10 +982,10 @@ export default function Home() {
               className="flex flex-col gap-4"
             >
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
-                <StatsCard title="Incoming" value={filteredStats ? filteredStats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="in" condensed delay={0.05} onClick={handleInboundClick} />
-                <StatsCard title="Outgoing" value={filteredStats ? filteredStats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="out" condensed delay={0.1} onClick={handleOutboundClick} />
-                <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} condensed delay={0.15} />
-                <StatsCard title="Transactions" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString()} unit="TRX" type="total" condensed delay={0.2} />
+                <StatsCard title="Incoming" value={filteredStats ? (filteredStats.totalIncoming / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="in" condensed delay={0.05} onClick={handleInboundClick} />
+                <StatsCard title="Outgoing" value={filteredStats ? (filteredStats.totalOutgoing / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" type="out" condensed delay={0.1} onClick={handleOutboundClick} />
+                <StatsCard title="Net Flow" value={((filteredStats?.netMovement || 0) / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" type="net" condensed delay={0.15} />
+                <StatsCard title="Transactions" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString('id-ID')} unit="TRX" type="total" condensed delay={0.2} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 xl:gap-4">
@@ -867,15 +1002,15 @@ export default function Home() {
                         <SortableItem key="pipa-nc" id="pipa-nc">
                           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                             <div className="flex items-center gap-2.5 mb-4">
-                              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                              <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg border border-slate-200/60">
                                 <Package size={14} strokeWidth={2.5} />
                               </div>
                               <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Data Pipa NC</h3>
                               <div className="ml-auto flex items-center gap-2">
-                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 p-1.5 rounded-md transition-colors" title="Pindah Kolom">
+                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-1.5 rounded-md transition-colors" title="Pindah Kolom">
                                   <ArrowLeftRight size={14} strokeWidth={2} />
                                 </button>
-                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
+                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-slate-600 hover:text-slate-900 underline">Lihat Detail</button>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
@@ -883,16 +1018,16 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-amber-50/50 border border-amber-100 p-3 shadow-sm hover:border-amber-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
                                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">GRADE C</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-amber-700">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -904,20 +1039,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-red-50/50 border border-red-100 p-3 shadow-sm hover:border-red-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-rose-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">GRADE E</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-red-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-red-700">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE || 0} batch akhiran E</span>
                                 </div>
                               </motion.div>
@@ -925,20 +1060,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-indigo-50/50 border border-indigo-100 p-3 shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-slate-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-indigo-500 text-white"><Box size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 text-slate-700 border border-slate-200"><Box size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-indigo-700">{((pipaNCStats.gradeC || 0) + (pipaNCStats.gradeE || 0)).toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{((pipaNCStats.gradeC || 0) + (pipaNCStats.gradeE || 0)).toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Total pipa NC</span>
                                 </div>
                               </motion.div>
@@ -946,20 +1081,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-sky-50/50 border border-sky-100 p-3 shadow-sm hover:border-sky-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-600" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-500 text-white"><Package size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-50 text-sky-700 border border-sky-200/60"><Package size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-sky-700">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">PC</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-600" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Stok BOM</span>
                                 </div>
                               </motion.div>
@@ -967,20 +1102,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-violet-50/50 border border-violet-100 p-3 shadow-sm hover:border-violet-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-violet-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-600" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-violet-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-violet-700">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">TON</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Stok EOM</span>
                                 </div>
                               </motion.div>
@@ -999,22 +1134,22 @@ export default function Home() {
                     className="flex flex-col gap-4"
                   >
                     {rightOrder.map(id => {
-                      if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData={true} selectedGudang={selectedGudang} /></SortableItem>;
+                      if (id === 'movement-chart') return <SortableItem key="movement-chart" id="movement-chart"><MovementChart data={chartMovements} condensed useAllData={true} selectedGudang={selectedGudang} startDate={startDate} endDate={endDate} /></SortableItem>;
                       if (id === 'movement-table') return <SortableItem key="movement-table" id="movement-table"><MovementTable data={chartMovements} condensed /></SortableItem>;
-                      if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={chartMovements} condensed /></SortableItem>;
+                      if (id === 'fastslow') return <SortableItem key="fastslow" id="fastslow"><FastSlowTransactionChart data={statusMovements} condensed /></SortableItem>;
                       if (id === 'pipa-nc') return (
                         <SortableItem key="pipa-nc" id="pipa-nc">
                           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                             <div className="flex items-center gap-2.5 mb-4">
-                              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                              <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg border border-slate-200/60">
                                 <Package size={14} strokeWidth={2.5} />
                               </div>
                               <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Data Pipa NC</h3>
                               <div className="ml-auto flex items-center gap-2">
-                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 p-1.5 rounded-md transition-colors" title="Pindah Kolom">
+                                <button onClick={() => leftOrder.includes('pipa-nc') ? moveToRight('pipa-nc') : moveToLeft('pipa-nc')} className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-1.5 rounded-md transition-colors" title="Pindah Kolom">
                                   <ArrowLeftRight size={14} strokeWidth={2} />
                                 </button>
-                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-indigo-500 hover:text-indigo-700 underline">Lihat Detail</button>
+                                <button onClick={() => router.push('/pipa-nc')} className="text-[9px] font-semibold text-slate-600 hover:text-slate-900 underline">Lihat Detail</button>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
@@ -1022,16 +1157,16 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-amber-50/50 border border-amber-100 p-3 shadow-sm hover:border-amber-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
                                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">GRADE C</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-amber-700">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -1043,20 +1178,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-red-50/50 border border-red-100 p-3 shadow-sm hover:border-red-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-rose-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">GRADE E</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-red-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-red-700">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE || 0} batch akhiran E</span>
                                 </div>
                               </motion.div>
@@ -1064,20 +1199,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-indigo-50/50 border border-indigo-100 p-3 shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-slate-500" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-indigo-500 text-white"><Box size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 text-slate-700 border border-slate-200"><Box size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-indigo-700">{((pipaNCStats.gradeC || 0) + (pipaNCStats.gradeE || 0)).toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{((pipaNCStats.gradeC || 0) + (pipaNCStats.gradeE || 0)).toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">ITEM</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Total pipa NC</span>
                                 </div>
                               </motion.div>
@@ -1085,20 +1220,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-sky-50/50 border border-sky-100 p-3 shadow-sm hover:border-sky-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-600" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-500 text-white"><Package size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-50 text-sky-700 border border-sky-200/60"><Package size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-sky-700">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">PC</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-600" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Stok BOM</span>
                                 </div>
                               </motion.div>
@@ -1106,20 +1241,20 @@ export default function Home() {
                               <motion.div
                                 whileHover={{ y: -2 }}
                                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="group relative overflow-hidden rounded-xl bg-violet-50/50 border border-violet-100 p-3 shadow-sm hover:border-violet-200 hover:shadow-md cursor-pointer"
+                                className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-3 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                                 onClick={() => router.push('/pipa-nc')}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-violet-500" />
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-600" />
                                 <div className="flex justify-between items-start mb-1">
                                   <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
-                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-violet-500 text-white"><TrendingUp size={10} strokeWidth={2.5} /></div>
+                                  <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-200/60"><TrendingUp size={10} strokeWidth={2.5} /></div>
                                 </div>
                                 <div className="flex items-baseline gap-1 mb-1">
-                                  <span className="text-xl font-bold tabular-nums tracking-tight text-violet-700">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                                  <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
                                   <span className="text-[9px] font-semibold text-slate-400">TON</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                                   <span className="text-[9px] font-medium text-slate-500 truncate">Stok EOM</span>
                                 </div>
                               </motion.div>
@@ -1146,11 +1281,11 @@ export default function Home() {
             >
               <section>
                 <SectionTitle>Key Performance Indicators</SectionTitle>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-                  <StatsCard title="Total Inbound" value={filteredStats ? filteredStats.totalIncoming.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`} type="in" delay={0.05} onClick={handleInboundClick} />
-                  <StatsCard title="Total Outbound" value={filteredStats ? filteredStats.totalOutgoing.toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`} type="out" delay={0.1} onClick={handleOutboundClick} />
-                  <StatsCard title="Net Flow" value={(filteredStats?.netMovement || 0).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" subtitle="Selisih material masuk & keluar" type={(filteredStats?.netMovement || 0) >= 0 ? 'in' : 'out'} delay={0.15} />
-                  <StatsCard title="Total Transaksi" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString()} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatsCard title="Total Inbound" value={filteredStats ? (filteredStats.totalIncoming / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`} type="in" delay={0.05} onClick={handleInboundClick} />
+                  <StatsCard title="Total Outbound" value={filteredStats ? (filteredStats.totalOutgoing / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : '0'} unit="TON" subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`} type="out" delay={0.1} onClick={handleOutboundClick} />
+                  <StatsCard title="Net Flow" value={((filteredStats?.netMovement || 0) / 1000).toLocaleString('id-ID', {minimumFractionDigits: 1, maximumFractionDigits: 1})} unit="TON" subtitle="Selisih material masuk & keluar" type="net" delay={0.15} />
+                  <StatsCard title="Total Transaksi" value={(filteredStats?.totalCount ?? filteredMovements.length).toLocaleString('id-ID')} unit="TRX" subtitle="Total row data dari SAP" type="total" delay={0.2} />
                 </div>
               </section>
 
@@ -1162,16 +1297,16 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -3 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="group relative overflow-hidden rounded-xl bg-amber-50/50 border border-amber-100 p-4 shadow-sm hover:border-amber-200 hover:shadow-md cursor-pointer"
+                      className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                       onClick={() => router.push('/pipa-nc')}
                     >
                       <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">GRADE C</span>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-amber-500 text-white"><TrendingUp size={14} strokeWidth={2.5} /></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60"><TrendingUp size={14} strokeWidth={2.5} /></div>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="text-2xl font-bold tabular-nums tracking-tight text-amber-700">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
+                        <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeC.toLocaleString('id-ID')}</span>
                         <span className="text-[10px] font-semibold text-slate-400">ITEM</span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1183,20 +1318,20 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -3 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="group relative overflow-hidden rounded-xl bg-red-50/50 border border-red-100 p-4 shadow-sm hover:border-red-200 hover:shadow-md cursor-pointer"
+                      className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-rose-500" />
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">GRADE E</span>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500 text-white"><TrendingUp size={14} strokeWidth={2.5} /></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200/60"><TrendingUp size={14} strokeWidth={2.5} /></div>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="text-2xl font-bold tabular-nums tracking-tight text-red-700">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
+                        <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.gradeE.toLocaleString('id-ID')}</span>
                         <span className="text-[10px] font-semibold text-slate-400">ITEM</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
                         <span className="text-[10px] font-medium text-slate-500 truncate">{pipaNCStats.gradeE || 0} batch akhiran E</span>
                       </div>
                     </motion.div>
@@ -1204,20 +1339,20 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -3 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="group relative overflow-hidden rounded-xl bg-indigo-50/50 border border-indigo-100 p-4 shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer"
+                      className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-indigo-500" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-slate-500" />
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL ITEM</span>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-500 text-white"><Box size={14} strokeWidth={2.5} /></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 text-slate-700 border border-slate-200"><Box size={14} strokeWidth={2.5} /></div>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="text-2xl font-bold tabular-nums tracking-tight text-indigo-700">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
+                        <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalItem.toLocaleString('id-ID')}</span>
                         <span className="text-[10px] font-semibold text-slate-400">ITEM</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                        <span className="w-2 h-2 rounded-full bg-slate-500" />
                         <span className="text-[10px] font-medium text-slate-500 truncate">Total pipa NC</span>
                       </div>
                     </motion.div>
@@ -1225,20 +1360,20 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -3 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="group relative overflow-hidden rounded-xl bg-sky-50/50 border border-sky-100 p-4 shadow-sm hover:border-sky-200 hover:shadow-md cursor-pointer"
+                      className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-500" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-sky-600" />
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL QTY</span>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-sky-500 text-white"><Package size={14} strokeWidth={2.5} /></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-sky-50 text-sky-700 border border-sky-200/60"><Package size={14} strokeWidth={2.5} /></div>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="text-2xl font-bold tabular-nums tracking-tight text-sky-700">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
+                        <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalQty.toLocaleString('id-ID')}</span>
                         <span className="text-[10px] font-semibold text-slate-400">PC</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-sky-500" />
+                        <span className="w-2 h-2 rounded-full bg-sky-600" />
                         <span className="text-[10px] font-medium text-slate-500 truncate">Stok BOM</span>
                       </div>
                     </motion.div>
@@ -1246,20 +1381,20 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -3 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="group relative overflow-hidden rounded-xl bg-violet-50/50 border border-violet-100 p-4 shadow-sm hover:border-violet-200 hover:shadow-md cursor-pointer"
+                      className="group relative overflow-hidden rounded-xl bg-white border border-slate-200/80 p-4 shadow-sm hover:border-slate-300 hover:shadow-md cursor-pointer"
                       onClick={() => router.push('/pipa-nc')}
                     >
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-violet-500" />
+                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-600" />
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL TONASE</span>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-violet-500 text-white"><TrendingUp size={14} strokeWidth={2.5} /></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-200/60"><TrendingUp size={14} strokeWidth={2.5} /></div>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="text-2xl font-bold tabular-nums tracking-tight text-violet-700">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+                        <span className="text-2xl font-bold tabular-nums tracking-tight text-slate-900">{pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
                         <span className="text-[10px] font-semibold text-slate-400">TON</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-violet-500" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-600" />
                         <span className="text-[10px] font-medium text-slate-500 truncate">Stok EOM</span>
                       </div>
                     </motion.div>
@@ -1268,7 +1403,7 @@ export default function Home() {
 
               <section>
                 <SectionTitle>Analisis Pergerakan Material</SectionTitle>
-                <MovementChart data={chartMovements} useAllData={true} selectedGudang={selectedGudang} />
+                <MovementChart data={chartMovements} useAllData={true} selectedGudang={selectedGudang} startDate={startDate} endDate={endDate} />
               </section>
 
               <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
@@ -1277,7 +1412,7 @@ export default function Home() {
                 <SectionTitle>Distribusi Stok &amp; Transaksi per Klasifikasi</SectionTitle>
                 <div className="flex flex-col gap-5">
                   <StockReport data={filteredStocks} summary={adjustedStockSummary} />
-                  <FastSlowTransactionChart data={chartMovements} />
+                  <FastSlowTransactionChart data={statusMovements} />
                 </div>
               </section>
 
@@ -1298,15 +1433,94 @@ export default function Home() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ─── Fallback Preview / Manual Copy Modal ─── */}
+      <AnimatePresence>
+        {previewModalOpen && capturedImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Pratinjau Gambar Dashboard</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Klik tombol di bawah atau klik kanan gambar lalu pilih &ldquo;Copy Image&rdquo;
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPreviewModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Modal Image Body */}
+              <div className="p-4 overflow-y-auto max-h-[62vh] bg-slate-50/50 flex justify-center">
+                <img
+                  src={capturedImageUrl}
+                  alt="Dashboard Preview"
+                  className="rounded-xl border border-slate-200/80 shadow-sm max-w-full h-auto object-contain cursor-pointer"
+                  title="Klik kanan lalu pilih 'Salin Gambar' (Copy Image)"
+                />
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="px-5 py-3 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
+                <button
+                  onClick={handleDownloadFromModal}
+                  className="h-8 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5"
+                >
+                  <Download size={13} />
+                  <span>Unduh PNG</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPreviewModalOpen(false)}
+                    className="h-8 px-3 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    onClick={handleCopyFromModal}
+                    className={`h-8 px-3.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm ${
+                      modalCopied
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    }`}
+                  >
+                    {modalCopied ? (
+                      <>
+                        <Check size={13} strokeWidth={2.5} />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} strokeWidth={2} />
+                        <span>Salin ke Clipboard</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2.5 mb-4">
-      <div className="w-1 h-5 bg-gradient-to-b from-indigo-600 to-indigo-400 rounded-full" />
-      <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.25em]">{children}</h2>
+    <div className="flex items-center justify-between mb-3.5 px-0.5">
+      <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">{children}</h2>
     </div>
   );
 }

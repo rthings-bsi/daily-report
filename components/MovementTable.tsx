@@ -88,7 +88,8 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
       }
       const entry = map.get(key)!;
       entry.count += 1;
-      entry.totalWeight += item.quantity;
+      // Konversi KG dari data SAP ke satuan TON (/ 1000)
+      entry.totalWeight += item.quantity / 1000;
       entry.totalPcs += item.unitQuantity;
       if (item.movementStatus === 'Fast') entry.fastCount += 1;
       if (item.movementStatus === 'Slow') entry.slowCount += 1;
@@ -140,11 +141,11 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
       role="region"
       aria-label="Transaction Analytics Dashboard"
     >
-      {!condensed && <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />}
+      {!condensed && <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-600 to-sky-500" />}
 
       <div className={`${condensed ? 'px-4 py-3' : 'px-5 py-4'} border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 relative bg-white z-10`}>
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 bg-indigo-500 rounded-lg text-white shadow-sm shadow-indigo-500/20" aria-hidden="true">
+          <div className="p-1.5 bg-blue-600 rounded-lg text-white shadow-sm shadow-blue-600/20" aria-hidden="true">
             <History size={14} />
           </div>
           <div>
@@ -163,7 +164,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                 aria-label="Cari transaksi"
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all placeholder:text-slate-400 font-medium"
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 font-medium"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -177,8 +178,8 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                   role="tab"
                   aria-selected={filterType === t}
                   onClick={() => setFilterType(t)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                    filterType === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    filterType === t ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   {t === 'all' ? 'Semua' : t}
@@ -187,14 +188,14 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
             </div>
           )}
           {!condensed && (
-             <button
-                onClick={exportCSV}
-                aria-label="Export CSV"
-                title="Export CSV"
-                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-             >
-                <Download size={14} />
-             </button>
+            <button
+              onClick={exportCSV}
+              aria-label="Export CSV"
+              title="Export CSV"
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <Download size={14} />
+            </button>
           )}
         </div>
       </div>
@@ -222,7 +223,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
                 Rec <SortIcon field="count" />
               </th>
               <th aria-sort={sortField === 'totalWeight' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'} className={`${condensed ? 'px-3 sm:px-4 py-2' : 'px-4 sm:px-6 py-3'} font-bold uppercase tracking-widest border-b border-slate-200 text-right group cursor-pointer hover:bg-slate-50 transition-colors`} onClick={() => handleSort('totalWeight')} tabIndex={0}>
-                Weight (T) <SortIcon field="totalWeight" />
+                Weight (TON) <SortIcon field="totalWeight" />
               </th>
             </tr>
           </thead>
@@ -320,9 +321,9 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
             </div>
             <div className="text-right">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-0.5">Cumulative Net Output</span>
-              <p className="text-2xl font-black text-slate-900 tracking-tighter" aria-label={`Total weight ${summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 2 })} tons`}>
-                {summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 2 })}
-                <span className="text-[10px] font-bold text-slate-400 ml-1 uppercase" aria-hidden="true">ton</span>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter" aria-label={`Total weight ${summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} TON`}>
+                {summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                <span className="text-[10px] font-bold text-slate-400 ml-1 uppercase" aria-hidden="true">TON</span>
               </p>
             </div>
           </div>
@@ -337,7 +338,7 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
           </div>
           <div className="text-xs font-mono font-bold text-slate-700 tabular-nums">
             {summaryData.reduce((acc, curr) => acc + curr.totalWeight, 0).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-            <span className="text-[9px] font-semibold text-slate-400 ml-0.5">ton</span>
+            <span className="text-[9px] font-semibold text-slate-400 ml-0.5 uppercase">TON</span>
           </div>
         </div>
       )}

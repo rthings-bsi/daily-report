@@ -20,11 +20,13 @@ interface MovementChartProps {
   condensed?: boolean;
   useAllData?: boolean;
   selectedGudang?: number | null;
+  startDate?: string;
+  endDate?: string;
 }
 
 const easeOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = false, useAllData = false, selectedGudang = null }) => {
+export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = false, useAllData = false, selectedGudang = null, startDate = '', endDate = '' }) => {
   const [trendData, setTrendData] = React.useState<TrendItem[] | null>(null);
 
   React.useEffect(() => {
@@ -32,17 +34,24 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
     let cancelled = false;
     const params = new URLSearchParams();
     if (selectedGudang) params.set('gudang', String(selectedGudang));
+    if (startDate) params.set('start', startDate);
+    if (endDate) params.set('end', endDate);
     fetch(`/api/reports/trend?${params}`)
       .then(r => r.json())
-      .then(res => { if (!cancelled) setTrendData(res); })
-      .catch(() => {});
+      .then(res => {
+        if (cancelled) return;
+        // Hanya pakai data trend API kalau valid. Kalau gagal/kosong (mis. 500
+        // saat route baru di-compile), fallback ke prop `data` biar chart tetap muncul.
+        setTrendData(Array.isArray(res) && res.length > 0 ? res : null);
+      })
+      .catch(() => { if (!cancelled) setTrendData(null); });
     return () => { cancelled = true; };
-  }, [useAllData, selectedGudang]);
+  }, [useAllData, selectedGudang, startDate, endDate]);
 
   const fullDailyData = React.useMemo(() => {
     if (useAllData && trendData) {
       if (!trendData.length) return [];
-      const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk, keluar: Math.abs(d.keluar), net: d.masuk - Math.abs(d.keluar) }]));
+      const map = new Map(trendData.map(d => [d.date, { date: d.date, masuk: d.masuk / 1000, keluar: Math.abs(d.keluar) / 1000, net: (d.masuk - Math.abs(d.keluar)) / 1000 }]));
 
       let minDateStr = '';
       let maxDateStr = '';
@@ -81,8 +90,8 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
         if (date > latestDate) latestDate = date;
         if (!map.has(date)) map.set(date, { date, masuk: 0, keluar: 0, net: 0 });
         const entry = map.get(date)!;
-        if (item.group === 'Masuk') entry.masuk += item.quantity;
-        if (item.group === 'Keluar') entry.keluar += Math.abs(item.quantity);
+        if (item.group === 'Masuk') entry.masuk += item.quantity / 1000;
+        if (item.group === 'Keluar') entry.keluar += Math.abs(item.quantity) / 1000;
         entry.net = entry.masuk - entry.keluar;
       });
     // Dapatkan rentang tanggal dari data yang tersedia
@@ -142,7 +151,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
         const displayName = item.moveType;
         map.set(key, { name: displayName, value: 0, color: item.color, group: item.group });
       }
-      map.get(key)!.value += Math.abs(item.quantity);
+      map.get(key)!.value += Math.abs(item.quantity) / 1000;
     });
     return Array.from(map.values()).sort((a, b) => b.value - a.value);
   }, [data]);
@@ -170,7 +179,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
                     <span className="font-medium text-slate-500">{entry.name}</span>
                   </div>
                   <span className={`font-bold tabular-nums ${isNet ? (entry.value >= 0 ? 'text-indigo-600' : 'text-rose-600') : 'text-slate-900'}`}>
-                    {entry.value >= 0 ? '+' : ''}{Math.round(val).toLocaleString()} T
+                    {entry.value >= 0 ? '+' : ''}{val.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON
                   </span>
                 </div>
               );
@@ -187,14 +196,14 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
       <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100/50 px-2.5 py-1 rounded-lg">
         <TrendingUp size={12} className="text-emerald-600" />
         <span className="text-xs font-semibold text-emerald-700 tabular-nums">
-          {Math.round(totals.totalMasuk).toLocaleString()} T
+          {totals.totalMasuk.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON
         </span>
         <span className="text-[9px] text-emerald-500 font-medium">Masuk</span>
       </div>
       <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-100/50 px-2.5 py-1 rounded-lg">
         <TrendingDown size={12} className="text-rose-600" />
         <span className="text-xs font-semibold text-rose-700 tabular-nums">
-          {Math.round(totals.totalKeluar).toLocaleString()} T
+          {totals.totalKeluar.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON
         </span>
         <span className="text-[9px] text-rose-500 font-medium">Keluar</span>
       </div>
@@ -209,7 +218,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
           <ArrowDownRight size={12} className="text-rose-600" />
         )}
         <span className={`text-xs font-semibold tabular-nums ${totals.net >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
-          {totals.net >= 0 ? '+' : ''}{Math.round(totals.net).toLocaleString()} T
+          {totals.net >= 0 ? '+' : ''}{totals.net.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON
         </span>
         <span className="text-[9px] text-slate-400 font-medium">Net</span>
       </div>
@@ -227,7 +236,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
         <div className={`flex items-center justify-between border-b border-slate-100 ${condensed ? 'px-4 py-3' : 'px-5 py-4'}`}>
           <div>
             <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Daily Movement Trend</h3>
-            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Inbound vs Outbound (Ton)</p>
+            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Inbound vs Outbound (TON)</p>
           </div>
           <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-1.5">
@@ -271,7 +280,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({ data, condensed = 
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
-                  tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                  tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Number(v.toFixed(1)))}
                 />
                 <Tooltip content={customTooltip} cursor={{ fill: '#f8fafc', radius: 4 }} />
                 <Bar dataKey="masuk" fill="url(#gradMasuk)" radius={[5, 5, 0, 0]} name="Masuk" barSize={condensed ? 14 : 28} />

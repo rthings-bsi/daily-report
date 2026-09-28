@@ -154,7 +154,7 @@ function PipaNCContent() {
   const gradeCCount = useMemo(() => pipaNCData.filter(d => d.batch.trim().toUpperCase().endsWith('C')).length, [pipaNCData]);
   const gradeECount = useMemo(() => pipaNCData.filter(d => d.batch.trim().toUpperCase().endsWith('E')).length, [pipaNCData]);
   const totalQty = useMemo(() => pipaNCData.reduce((sum, d) => sum + d.ttlStokBom, 0), [pipaNCData]);
-  const totalTonase = useMemo(() => pipaNCData.reduce((sum, d) => sum + d.ttlStokEom, 0), [pipaNCData]);
+  const totalTonase = useMemo(() => pipaNCData.reduce((sum, d) => sum + d.ttlStokEom, 0) / 1000, [pipaNCData]);
 
   // Group by SLOC (must be before conditional returns — React hooks rule)
   const groups = useMemo(() => {

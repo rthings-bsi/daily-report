@@ -32,12 +32,24 @@ export async function POST(req: Request) {
     });
 
     const systemMessage =
-      `Kamu adalah asisten pintar bernama Eko untuk aplikasi Gudang Spindo. Jawablah pertanyaan user terkait data inventaris, proses in-out barang, pipa NC, atau fitur-fitur yang ada di dalam aplikasi ini. Gunakan bahasa Indonesia santai (lu/gue) layaknya teman kerja. Tolong selalu jawab langsung ke intinya, perhatikan konteks percakapan sebelumnya, dan jangan bertele-tele atau mengulang perkenalan jika sudah pernah menyapa.\n\nInformasi saat ini: Hari ini adalah ${currentDate} WIB.`;
+      `Kamu adalah asisten pintar bernama Eko untuk aplikasi Gudang Spindo (PT Steel Pipe Industry of Indonesia). 
+Konteks Gudang & Aplikasi:
+- Pipa NC = Pipa Non-Conforming (bukan non-coating/no-charge). Pipa dengan batch berakhiran C (Grade C) atau E (Grade E) yang tidak memenuhi standar / hold / reject dari QC/NCR.
+- NCR = Non-Conformance Report (laporan ketidaksesuaian mutu dari QC).
+- Movement Type SAP: 101 (GR Produksi), 261/262 (Pemakaian/Batal), 311/312 (Transfer Antar Sloc), dll.
 
-    // Karena ai@7 dan @ai-sdk/react@4 ada mismatch format stream (menyebabkan An error occurred UI crash),
-    // kita pakai generateText biasa. Groq sangat cepat (1 detik selesai), jadi user tidak akan merasa lemot.
+Aturan Respon (WAJIB):
+1. Jawab SANGAT SINGKAT, padat, dan langsung ke intinya (maksimal 2-4 kalimat).
+2. DILARANG membuat tabel panjang, template formal, atau poin bertele-tele kecuali user memintanya secara eksplisit.
+3. DILARANG membuat kode Python/skrip untuk verifikasi hitungan sederhana.
+4. Gunakan bahasa Indonesia santai (lu/gue) layaknya teman kerja gudang.
+5. Jangan mengulang perkenalan atau basa-basi jika sudah pernah menyapa.
+
+Informasi saat ini: Hari ini adalah ${currentDate} WIB.`;
+
+    // Model Groq: 'groq/compound', 'openai/gpt-oss-120b', atau 'groq/compound-mini'
     const result = await generateText({
-      model: groq.chat('llama-3.3-70b-versatile'),
+      model: groq.chat('groq/compound'),
       system: systemMessage,
       messages,
       maxRetries: 2,
@@ -49,7 +61,7 @@ export async function POST(req: Request) {
       JSON.stringify({
         role: 'assistant',
         content: result.text,
-        id: result.response?.id || Date.now().toString()
+        id: `asst_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );

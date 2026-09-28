@@ -7,6 +7,17 @@ import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc, removeI
 
 export const dynamic = "force-dynamic";
 
+// Cache hasil aggregate per (user, gudang, start, end). Data laporan hanya
+// berubah saat upload baru (yang memanggil invalidateAggregateCache), jadi TTL
+// 60 detik aman dan membuat filter tanggal terasa instan — request pertama
+// tetap lambat karena transfer rawMovements, tapi yang berikutnya dari memory.
+const aggregateCache = new Map<string, { data: unknown; expiresAt: number }>();
+const AGGREGATE_CACHE_TTL_MS = 60_000;
+
+export function invalidateAggregateCache() {
+  aggregateCache.clear();
+}
+
 // GET /api/reports/aggregate?gudangId=5&start=2026-01-01&end=2026-06-30&detail=true
 // Aggregates ALL matching sessions into one combined dataset.
 // Admin: can filter by gudangId (optional) + date range (optional)
@@ -20,6 +31,13 @@ export async function GET(req: NextRequest) {
   const start = searchParams.get("start");
   const end = searchParams.get("end");
   const detail = searchParams.get("detail") === "true";
+
+  // ── Cache check (setelah auth, cache per user supaya tidak lintas akun) ──
+  const cacheKey = `${ctx.userId ?? 'anon'}|${gudangIdParam ?? 'all'}|${start ?? ''}|${end ?? ''}|${detail}`;
+  const cached = aggregateCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.data);
+  }
 
   // ── Build Prisma where clause ──
   const where: Record<string, unknown> = {};
@@ -98,11 +116,53 @@ export async function GET(req: NextRequest) {
 
     let otherSessions: any[] = [];
     if (hasDateFilter) {
+      // OPTIMIZATION: pilih session lewat movementSummaries (indexed by dateStr,
+      // query < 1s) alih-alih menarik rawMovements SEMUA session dalam buffer
+      // +/- 7 hari. movementSummaries.dateStr = tanggal transaksi asli, jadi presisi.
+      // Pipeline raw (dedup/removeInternalTfSloc/reclassify311) tetap dijalankan penuh
+      // di bawah supaya angkanya identik dengan KPI cards.
+      const inRange = await prisma.movementSummary.findMany({
+        where: {
+          dateStr: {
+            ...(start ? { gte: start } : {}),
+            ...(end ? { lte: end } : {}),
+          },
+        },
+        distinct: ["reportSessionId"],
+        select: { reportSessionId: true },
+      });
+      const idSet = new Set(inRange.map((r) => r.reportSessionId));
+      idSet.add(latestSession.reportSessionId);
+
+      // Fallback: session legacy yang punya rawMovements tapi TIDAK punya
+      // movementSummaries sama sekali (mis. upload lama / gagal summary).
+      const legacyDateFilter: Record<string, string> = {};
+      if (start) {
+        const d = new Date(start);
+        d.setDate(d.getDate() - 7);
+        legacyDateFilter.gte = d.toISOString().split("T")[0];
+      }
+      if (end) {
+        const d = new Date(end);
+        d.setDate(d.getDate() + 7);
+        legacyDateFilter.lte = d.toISOString().split("T")[0];
+      }
+      const noSummarySessions = await prisma.reportSession.findMany({
+        where: {
+          ...where,
+          rawMovements: { not: null },
+          movementSummaries: { none: {} },
+          dateStr: legacyDateFilter,
+        },
+        select: { reportSessionId: true },
+      });
+      for (const s of noSummarySessions) idSet.add(s.reportSessionId);
+
       // Pull only movements and summaries for historical sessions
       otherSessions = await prisma.reportSession.findMany({
         where: {
           ...where,
-          reportSessionId: { not: latestSession.reportSessionId }
+          reportSessionId: { in: Array.from(idSet), not: latestSession.reportSessionId }
         },
         orderBy: { createdAt: "desc" },
         select: {
@@ -269,6 +329,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // DEBUG: remove after fixing
+    const rawBatchStats = { total: allRawMovements.length, withBatch: 0, emptyBatch: 0 };
+    for (const m of allRawMovements) { if (m.batch && m.batch.trim()) rawBatchStats.withBatch++; else rawBatchStats.emptyBatch++; }
+    console.log('[aggregate DEBUG] raw movements before dedup:', rawBatchStats);
+    const rawWithB = allRawMovements.filter(m => m.batch && m.batch.trim()).slice(0, 5);
+    if (rawWithB.length > 0) console.log('[aggregate DEBUG] raw sample batches:', rawWithB.map(m => ({ batch: m.batch })));
+    else console.log('[aggregate DEBUG] NO raw movements with batch data!');
+
     // ── Deduplicate raw movements across overlapping sessions ──
     allRawMovements = deduplicateMovements(allRawMovements);
 
@@ -311,7 +379,7 @@ export async function GET(req: NextRequest) {
       stockCards: uniqueStockCards,
     });
 
-    return NextResponse.json({
+    const payload = {
       movements,
       movementSummaries: aggregated.movementSummaries,
       stockSummaries: aggregated.stockSummaries,
@@ -326,7 +394,25 @@ export async function GET(req: NextRequest) {
         label: s.label,
         createdAt: s.createdAt,
       })),
-    });
+    };
+
+    aggregateCache.set(cacheKey, { data: payload, expiresAt: Date.now() + AGGREGATE_CACHE_TTL_MS });
+
+    // DEBUG: remove after fixing
+    const batchStats = { total: movements.length, fast: 0, slow: 0, unknown: 0, withBatch: 0, emptyBatch: 0 };
+    for (const m of movements) {
+      if (m.movementStatus === 'Fast') batchStats.fast++;
+      else if (m.movementStatus === 'Slow') batchStats.slow++;
+      else batchStats.unknown++;
+      if (m.batch && m.batch.trim()) batchStats.withBatch++;
+      else batchStats.emptyBatch++;
+    }
+    console.log('[aggregate DEBUG] movements:', batchStats, 'summaries:', aggregated.movementSummaries.length);
+    const withB = movements.filter(m => m.batch && m.batch.trim()).slice(0, 5);
+    if (withB.length > 0) console.log('[aggregate DEBUG] sample batches:', withB.map(m => ({ batch: m.batch, status: m.movementStatus })));
+    else console.log('[aggregate DEBUG] NO movements with batch data!');
+
+    return NextResponse.json(payload);
   } catch (err) {
     return respondError(err);
   }

@@ -31,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={`${inter.variable} ${outfit.variable} antialiased`}>
-      <body className="min-h-screen bg-slate-50 font-sans">
+    <html lang="id" className={`${inter.variable} ${outfit.variable} antialiased`} suppressHydrationWarning>
+      <body className="min-h-screen bg-slate-50 font-sans" suppressHydrationWarning>
         <SessionProvider>
           <SidebarProvider>
             <SettingsProvider>

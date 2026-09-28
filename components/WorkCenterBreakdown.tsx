@@ -3,36 +3,59 @@
 import React from 'react';
 import { ProcessedMovement } from '@/lib/excel-parser';
 import { Factory } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
+import { motion, useReducedMotion } from 'framer-motion';
 
 interface WorkCenterBreakdownProps {
   data: ProcessedMovement[];
   condensed?: boolean;
 }
 
-const COLORS = [
-  '#4f46e5', // indigo-600
-  '#0891b2', // cyan-600
-  '#059669', // emerald-600
-  '#d97706', // amber-600
-  '#e11d48', // rose-600
-  '#7c3aed', // violet-600
-  '#2563eb', // blue-600
-  '#94a3b8', // slate-400
+interface WorkCenterItem {
+  name: string;
+  value: number;
+  count: number;
+  isOthers?: boolean;
+}
+
+const RANK_THEMES = [
+  {
+    rankBg: 'bg-blue-50 text-blue-800 border-blue-100',
+    barGradient: 'from-blue-600 to-blue-500',
+    badgeBg: 'bg-blue-50 text-blue-800 border border-blue-100',
+  },
+  {
+    rankBg: 'bg-teal-50 text-teal-800 border-teal-100',
+    barGradient: 'from-teal-600 to-teal-500',
+    badgeBg: 'bg-teal-50 text-teal-800 border border-teal-100',
+  },
+  {
+    rankBg: 'bg-emerald-50 text-emerald-800 border-emerald-100',
+    barGradient: 'from-emerald-600 to-emerald-500',
+    badgeBg: 'bg-emerald-50 text-emerald-800 border border-emerald-100',
+  },
+  {
+    rankBg: 'bg-amber-50 text-amber-800 border-amber-100',
+    barGradient: 'from-amber-600 to-amber-500',
+    badgeBg: 'bg-amber-50 text-amber-800 border border-amber-100',
+  },
+  {
+    rankBg: 'bg-rose-50 text-rose-800 border-rose-100',
+    barGradient: 'from-rose-600 to-rose-500',
+    badgeBg: 'bg-rose-50 text-rose-800 border border-rose-100',
+  },
 ];
 
-export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, condensed = false }) => {
-  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
+const DEFAULT_THEME = {
+  rankBg: 'bg-slate-100 text-slate-600 border-slate-200',
+  barGradient: 'from-slate-500 to-slate-400',
+  badgeBg: 'bg-slate-100 text-slate-600 border border-slate-200/80',
+};
 
-  const pieData = React.useMemo(() => {
-    const map = new Map<string, { name: string, value: number, count: number }>();
+export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, condensed = false }) => {
+  const reduceMotion = useReducedMotion();
+
+  const { items, totalValue, maxItemValue, topTwoShare } = React.useMemo(() => {
+    const map = new Map<string, { name: string; value: number; count: number }>();
 
     data.forEach(item => {
       const key = item.workCenter || item.description || 'UNASSIGNED';
@@ -40,7 +63,8 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
         map.set(key, { name: key, value: 0, count: 0 });
       }
       const entry = map.get(key)!;
-      entry.value += item.quantity;
+      // Konversi KG dari data SAP ke satuan TON (/ 1000)
+      entry.value += Math.abs(item.quantity) / 1000;
       entry.count += 1;
     });
 
@@ -48,179 +72,184 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
       .map(item => ({ ...item, value: Math.abs(item.value) }))
       .sort((a, b) => b.value - a.value);
 
-    const topCount = condensed ? 8 : 16;
-    if (sorted.length <= topCount) return sorted;
+    const total = sorted.reduce((acc, curr) => acc + curr.value, 0);
 
-    const topN = sorted.slice(0, topCount);
-    const othersValue = sorted.slice(topCount).reduce((acc, curr) => acc + curr.value, 0);
-    const othersCount = sorted.slice(topCount).reduce((acc, curr) => acc + curr.count, 0);
+    const topLimit = condensed ? 5 : 6;
 
-    return [
-      ...topN,
-      { name: 'LAINNYA', value: othersValue, count: othersCount }
-    ];
+    let finalItems: WorkCenterItem[] = [];
+    if (sorted.length <= topLimit) {
+      finalItems = sorted;
+    } else {
+      const topN = sorted.slice(0, topLimit);
+      const othersVal = sorted.slice(topLimit).reduce((acc, curr) => acc + curr.value, 0);
+      const othersCnt = sorted.slice(topLimit).reduce((acc, curr) => acc + curr.count, 0);
+      finalItems = [
+        ...topN,
+        {
+          name: 'LAINNYA (SISA MESIN)',
+          value: othersVal,
+          count: othersCnt,
+          isOthers: true,
+        },
+      ];
+    }
+
+    const maxVal = finalItems.length > 0 ? Math.max(...finalItems.map(i => i.value)) : 1;
+
+    const topTwoVal = sorted.slice(0, 2).reduce((acc, c) => acc + c.value, 0);
+    const topTwoPct = total > 0 ? (topTwoVal / total) * 100 : 0;
+
+    return {
+      items: finalItems,
+      totalValue: total,
+      maxItemValue: maxVal,
+      topTwoShare: topTwoPct,
+    };
   }, [data, condensed]);
 
-  const totalValue = React.useMemo(() =>
-    pieData.reduce((acc, curr) => acc + curr.value, 0)
-  , [pieData]);
-
-  const customTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      return (
-        <div className="bg-white/95 p-3 rounded-2xl shadow-2xl border border-slate-200 backdrop-blur-md min-w-[160px]">
-          <p className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-widest">{d.name}</p>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-6">
-              <span className="text-xs font-medium text-slate-500">Bobot:</span>
-              <span className="text-sm font-black text-slate-900 tabular-nums">
-                {d.value.toLocaleString('id-ID', { minimumFractionDigits: 1 })} T
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-6">
-              <span className="text-xs font-medium text-slate-500">Share:</span>
-              <span className="text-sm font-black text-indigo-600 tabular-nums">
-                {((d.value / totalValue) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  if (pieData.length === 0) return null;
-
-  const chartSize = condensed ? 180 : 220;
+  if (items.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 ${condensed ? 'rounded-xl' : 'rounded-2xl'}`}
+    <div
+      className={`bg-white border border-slate-200/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.03),0_4px_14px_-2px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300 ${
+        condensed ? 'rounded-xl' : 'rounded-2xl'
+      }`}
     >
       {/* Header */}
-      <div className={`${condensed ? 'px-4 py-3' : 'px-5 py-4'} border-b border-slate-100 flex items-center justify-between`}>
+      <div
+        className={`${
+          condensed ? 'px-4 py-3' : 'px-5 py-3.5'
+        } border-b border-slate-100 flex items-center justify-between gap-3`}
+      >
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500">
-            <Factory size={14} />
+          <div className="w-8 h-8 rounded-xl bg-slate-100/90 flex items-center justify-center text-slate-600 shrink-0">
+            <Factory size={15} strokeWidth={2.2} />
           </div>
           <div>
-            <h3 className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider leading-tight">
               Work Center Breakdown
             </h3>
+            {!condensed && (
+              <p className="text-[11px] font-medium text-slate-400 mt-0.5 leading-tight">
+                Peringkat pergerakan material berdasarkan tonase tertinggi
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Total Throughput Badge */}
+        <div className="text-right shrink-0">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Total Throughput
+          </div>
+          <div className="text-base sm:text-lg font-black text-slate-900 tabular-nums leading-none mt-0.5">
+            {totalValue.toLocaleString('id-ID', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
+            <span className="text-[10px] font-bold text-slate-500">TON</span>
           </div>
         </div>
       </div>
 
-      {/* Body: grid [donut | list] — always side by side */}
-      <div className={`grid ${condensed ? 'grid-cols-1 sm:grid-cols-[140px_1fr] sm:divide-x' : 'grid-cols-1 sm:grid-cols-[220px_1fr] sm:divide-x'} divide-slate-100`}>
+      {/* Body: Horizontal Ranked Bar Rows */}
+      <div className={`${condensed ? 'p-3.5 space-y-2.5' : 'p-4 sm:p-5 space-y-3'}`}>
+        {items.map((item, idx) => {
+          const theme = idx < RANK_THEMES.length && !item.isOthers ? RANK_THEMES[idx] : DEFAULT_THEME;
+          const sharePct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+          // Scale bar relative to maximum value in list, so top item fills ~90% and others scale accordingly
+          const barWidth = maxItemValue > 0 ? (item.value / maxItemValue) * 92 : 0;
 
-        {/* Donut Chart */}
-        <div className="relative flex items-center justify-center bg-slate-50/20 py-4 sm:py-6">
-          <div style={{ width: condensed ? 180 : 200, height: condensed ? 180 : 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="62%"
-                  outerRadius="88%"
-                  paddingAngle={3}
-                  dataKey="value"
-                  stroke="none"
-                  onMouseEnter={(_, index) => setHoveredIdx(index)}
-                  onMouseLeave={() => setHoveredIdx(null)}
+          return (
+            <div
+              key={item.name}
+              className="group flex items-center gap-2 sm:gap-3 py-1 px-1.5 rounded-xl hover:bg-slate-50/70 transition-colors"
+            >
+              {/* Rank Badge */}
+              <div
+                className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 border ${theme.rankBg}`}
+              >
+                {item.isOthers ? '•' : idx + 1}
+              </div>
+
+              {/* Machine / Work Center Label */}
+              <div className="w-28 sm:w-36 shrink-0 truncate">
+                <span
+                  className={`text-xs ${
+                    item.isOthers ? 'font-semibold text-slate-500' : 'font-bold text-slate-800'
+                  } uppercase tracking-tight truncate block`}
+                  title={item.name}
                 >
-                  {pieData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                      fillOpacity={hoveredIdx === null || hoveredIdx === index ? 1 : 0.5}
-                      style={{
-                        filter: hoveredIdx === index ? `drop-shadow(0 0 10px ${COLORS[index % COLORS.length]}50)` : 'none',
-                        transition: 'all 0.3s ease',
-                      }}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip content={customTooltip} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                  {item.name}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium block -mt-0.5 sm:hidden">
+                  {item.count.toLocaleString('id-ID')} tx
+                </span>
+              </div>
 
-          {/* Center label */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total</p>
-            <p className="text-lg font-black text-slate-900 tabular-nums leading-none">
-              {Math.round(totalValue).toLocaleString('id-ID')}
-            </p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">ton</p>
-          </div>
-        </div>
+              {/* Progress Bar Track */}
+              <div className="flex-1 h-3 sm:h-3.5 bg-slate-100 rounded-full overflow-hidden relative mx-1">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${barWidth}%` }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : {
+                          delay: 0.05 + idx * 0.04,
+                          duration: 0.6,
+                          ease: [0.16, 1, 0.3, 1],
+                        }
+                  }
+                  className={`h-full rounded-full bg-gradient-to-r ${theme.barGradient}`}
+                />
+              </div>
 
-        {/* List — all items in one scrollable column */}
-        <div
-          className={`overflow-y-auto overflow-x-hidden ${condensed ? 'max-h-[200px]' : 'max-h-[400px]'}`}
-        >
-          <div className={`${condensed ? 'p-3 space-y-1' : 'p-4 space-y-1'}`}>
-            <AnimatePresence>
-              {pieData.map((item, index) => {
-                const pct = ((item.value / totalValue) * 100).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-                const color = COLORS[index % COLORS.length];
-                const isHovered = hoveredIdx === index;
-                return (
-                  <motion.div
-                    key={item.name}
-                    initial={{ x: -8, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: index * 0.03 }}
-                    onMouseEnter={() => setHoveredIdx(index)}
-                    onMouseLeave={() => setHoveredIdx(null)}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-default transition-all duration-150 border ${
-                      isHovered ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'border-transparent hover:bg-slate-50'
-                    }`}
-                  >
-                    {/* Rank */}
-                    <span className="text-[10px] font-black text-slate-300 w-4 text-right flex-shrink-0 tabular-nums">
-                      {index + 1}
-                    </span>
-                    {/* Color dot */}
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                    {/* Name */}
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-tight flex-1 min-w-0">
-                      {item.name}
-                    </span>
-                    {/* Progress bar */}
-                    <div className="hidden sm:block w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${pct}%`, backgroundColor: color }}
-                      />
-                    </div>
-                    {/* Value */}
-                    <span className="text-xs font-mono font-black text-slate-800 tabular-nums flex-shrink-0 w-14 sm:w-20 text-right">
-                      {item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                    </span>
-                    {/* % Badge */}
-                    <div
-                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-black tabular-nums flex-shrink-0 min-w-[36px] text-center transition-colors ${
-                        isHovered ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'
-                      }`}
-                    >
-                      {pct}%
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </div>
+              {/* Tonase Value */}
+              <div className="text-right shrink-0 min-w-[70px] sm:min-w-[90px]">
+                <span className="text-xs sm:text-sm font-black text-slate-900 tabular-nums">
+                  {item.value.toLocaleString('id-ID', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+                <span className="text-[10px] font-semibold text-slate-500 ml-1">TON</span>
+              </div>
+
+              {/* Share Percentage Badge */}
+              <div
+                className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-extrabold tabular-nums text-center shrink-0 min-w-[46px] sm:min-w-[50px] ${theme.badgeBg}`}
+              >
+                {sharePct.toLocaleString('id-ID', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}
+                %
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-    </motion.div>
+      {/* Footer / Summary Insight */}
+      {!condensed && items.length > 2 && (
+        <div className="px-4 sm:px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-[11px] gap-2">
+          <div className="text-slate-500 font-medium truncate">
+            Top 2 Work Center menyumbang{' '}
+            <span className="font-black text-slate-900">
+              {topTwoShare.toLocaleString('id-ID', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
+              %
+            </span>{' '}
+            dari total arus pergerakan pabrik.
+          </div>
+          <div className="text-slate-400 font-semibold shrink-0">
+            {items.reduce((acc, curr) => acc + curr.count, 0).toLocaleString('id-ID')} transaksi
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

@@ -93,7 +93,7 @@ function computeOutboundBreakdown(
   const dm = new Map<string, DestinationEntry>();
   let tq = 0, tc = 0;
   for (const m of movements) {
-    const dest = resolve(m); const q = Math.abs(m.quantity); const info = getMovementInfo(m.moveType);
+    const dest = resolve(m); const q = Math.abs(m.quantity) / 1000; const info = getMovementInfo(m.moveType);
     const key = `${m.moveType}|${dest}|${info.description}`; tq += q; tc += 1;
     const mat: MaterialItem = { materialNumber: m.material, batch: m.batch, quantity: q, unitQuantity: m.unitQuantity, workCenter: m.workCenter, movementStatus: m.movementStatus, storageLocation: m.storageLocation };
     if (dm.has(key)) { const e = dm.get(key)!; e.quantity += q; e.count += 1; e.materials.push(mat); }
@@ -557,7 +557,7 @@ function OutboundDestinationContent() {
                                               <div className="mx-2 sm:mx-6 bg-gradient-to-br from-[#C4E2F5]/30 via-white to-[#4BB8FA]/10 rounded-xl border border-[#C4E2F5]/40 mb-2 overflow-x-auto custom-scrollbar">
                                                 <div className="px-3 sm:px-4 py-3 min-w-[360px]">
                                                   <div className="grid grid-cols-5 gap-2 text-[8px] font-bold text-[#1591DC] uppercase tracking-widest mb-2 px-1">
-                                                    <span>Kode</span><span>Batch</span><span className="text-right">Qty</span><span className="text-right">Ton</span><span className="text-right">Status</span>
+                                                    <span>Kode</span><span>Batch</span><span className="text-right">Qty</span><span className="text-right">TON</span><span className="text-right">Status</span>
                                                   </div>
                                                   <div className="space-y-1">
                                                     {item.materials.map((mat, mi) => (

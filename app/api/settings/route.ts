@@ -3,9 +3,8 @@ import { requireUserContext, respondError } from "@/lib/api-helpers";
 import {
   loadGudangSettings,
   saveGudangSettings,
-  SETTING_KEYS,
-  type GudangSettings,
-} from "@/lib/settings";
+} from "@/lib/settings-server";
+import { SETTING_KEYS, type GudangSettings } from "@/lib/settings";
 
 // GET /api/settings — load all settings for the caller's gudang
 // Admin can pass `?gudangId=N` to read any gudang's settings.

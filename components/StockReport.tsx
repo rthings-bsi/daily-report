@@ -116,7 +116,7 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                   <span className="text-xl font-bold text-emerald-700 tabular-nums">{summary.fast.count}</span>
                   <span className="text-[10px] text-emerald-600 font-medium">item</span>
                 </div>
-                <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} ton</p>
+                <p className="text-[11px] text-emerald-600/70 font-medium">{summary.fast.totalTon.toFixed(1)} TON</p>
               </div>
 
               {/* Trend Indicator (Mockup) */}
@@ -145,7 +145,7 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                   <span className="text-xl font-bold text-amber-700 tabular-nums">{summary.slow.count}</span>
                   <span className="text-[10px] text-amber-600 font-medium">item</span>
                 </div>
-                <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} ton</p>
+                <p className="text-[11px] text-amber-600/70 font-medium">{summary.slow.totalTon.toFixed(1)} TON</p>
               </div>
 
               {/* Trend Indicator (Mockup) */}
@@ -175,7 +175,7 @@ export const StockReport: React.FC<StockReportProps> = ({ data, summary: summary
                     <span className="text-xl font-bold text-slate-700 tabular-nums">{summary.penampungan.count}</span>
                     <span className="text-[10px] text-slate-500 font-medium">item</span>
                   </div>
-                  <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} ton</p>
+                  <p className="text-[11px] text-slate-500/70 font-medium">{summary.penampungan.totalTon.toFixed(1)} TON</p>
                 </div>
 
                 {/* Trend Indicator (Mockup untuk Penampungan - Dinamis dari sisi persentase) */}
