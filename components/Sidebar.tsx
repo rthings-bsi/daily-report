@@ -14,6 +14,7 @@ import {
   Users,
   ShieldCheck,
   ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import { useSidebar } from "./SidebarContext";
 const baseMenuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList },
+  { name: "Audit SLoc", href: "/audit-sloc", icon: ClipboardCheck },
   { name: "Upload", href: "/upload", icon: FileUp },
 ];
 
@@ -242,7 +244,7 @@ export default function Sidebar() {
             {isOpen && (
               <button
                 onClick={() => signOut()}
-                className="flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors duration-200"
+                className="flex items-center justify-center rounded-lg p-1.5 text-slate-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
                 title="Sign out"
               >
                 <LogOut size={15} />
@@ -252,7 +254,7 @@ export default function Sidebar() {
           {!isOpen && (
             <button
               onClick={() => signOut()}
-              className="flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors duration-200 w-full"
+              className="flex items-center justify-center rounded-lg p-1.5 text-slate-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200 w-full"
               title="Sign out"
             >
               <LogOut size={15} />

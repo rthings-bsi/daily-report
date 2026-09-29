@@ -19,6 +19,7 @@ model Gudang {
   settings  GudangSetting[]
   sessions  ReportSession[]
   users     User[]
+  auditSessions AuditSlocSession[]
 }
 
 model GudangSetting {
@@ -146,4 +147,56 @@ model Stock {
 
   @@index([reportSessionId])
   @@index([reportSessionId, sloc])
+}
+
+model AuditSlocSession {
+  id            String          @id @default(cuid())
+  title         String
+  dateStr       String
+  plant         String?
+  gudangId      Int?
+  fileName      String?
+  totalItems    Int             @default(0)
+  totalQtySap   Float           @default(0)
+  totalKgSap    Float           @default(0)
+  totalQtyAudit Float           @default(0)
+  totalKgAudit  Float           @default(0)
+  totalDiffQty  Float           @default(0)
+  totalDiffKg   Float           @default(0)
+  matchCount    Int             @default(0)
+  diffCount     Int             @default(0)
+  rawJson       String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  gudang        Gudang?         @relation(fields: [gudangId], references: [gudangId])
+  items         AuditSlocItem[]
+
+  @@index([gudangId])
+  @@index([dateStr])
+}
+
+model AuditSlocItem {
+  id          String           @id @default(cuid())
+  sessionId   String
+  plant       String
+  sloc        String
+  material    String
+  batch       String?
+  sapQty      Float            @default(0)
+  eomKg       Float            @default(0)
+  qtyAudit    Float            @default(0)
+  kgAudit     Float            @default(0)
+  diffKgAudit Float            @default(0)
+  diffQty     Float            @default(0)
+  sapRef      Float?
+  actual      Float?
+  diffAudit   Float?
+  status      String           @default("MATCH")
+  createdAt   DateTime         @default(now())
+  session     AuditSlocSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sloc])
+  @@index([material])
+  @@index([status])
 }
