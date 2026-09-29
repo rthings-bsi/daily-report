@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { ProcessedMovement } from '@/lib/excel-parser';
-import { Factory } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 interface WorkCenterBreakdownProps {
@@ -19,42 +18,47 @@ interface WorkCenterItem {
 
 const RANK_THEMES = [
   {
-    rankBg: 'bg-blue-50 text-blue-800 border-blue-100',
-    barGradient: 'from-blue-600 to-blue-500',
-    badgeBg: 'bg-blue-50 text-blue-800 border border-blue-100',
+    rankBg: 'bg-blue-100 text-apple-blue',
+    barColor: 'bg-apple-blue',
+    badgeStyle: 'bg-blue-50 text-apple-blue border-blue-200',
   },
   {
-    rankBg: 'bg-teal-50 text-teal-800 border-teal-100',
-    barGradient: 'from-teal-600 to-teal-500',
-    badgeBg: 'bg-teal-50 text-teal-800 border border-teal-100',
+    rankBg: 'bg-emerald-100 text-emerald-700',
+    barColor: 'bg-emerald-500',
+    badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
   {
-    rankBg: 'bg-emerald-50 text-emerald-800 border-emerald-100',
-    barGradient: 'from-emerald-600 to-emerald-500',
-    badgeBg: 'bg-emerald-50 text-emerald-800 border border-emerald-100',
+    rankBg: 'bg-teal-100 text-teal-700',
+    barColor: 'bg-teal-500',
+    badgeStyle: 'bg-teal-50 text-teal-700 border-teal-200',
   },
   {
-    rankBg: 'bg-amber-50 text-amber-800 border-amber-100',
-    barGradient: 'from-amber-600 to-amber-500',
-    badgeBg: 'bg-amber-50 text-amber-800 border border-amber-100',
+    rankBg: 'bg-amber-100 text-amber-700',
+    barColor: 'bg-amber-500',
+    badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
   },
   {
-    rankBg: 'bg-rose-50 text-rose-800 border-rose-100',
-    barGradient: 'from-rose-600 to-rose-500',
-    badgeBg: 'bg-rose-50 text-rose-800 border border-rose-100',
+    rankBg: 'bg-rose-100 text-rose-700',
+    barColor: 'bg-rose-500',
+    badgeStyle: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+  {
+    rankBg: 'bg-slate-200 text-slate-800 font-bold',
+    barColor: 'bg-slate-600',
+    badgeStyle: 'bg-slate-100 text-slate-700 border-slate-300',
   },
 ];
 
 const DEFAULT_THEME = {
-  rankBg: 'bg-slate-100 text-slate-600 border-slate-200',
-  barGradient: 'from-slate-500 to-slate-400',
-  badgeBg: 'bg-slate-100 text-slate-600 border border-slate-200/80',
+  rankBg: 'bg-slate-100 text-slate-700 font-bold',
+  barColor: 'bg-slate-400',
+  badgeStyle: 'bg-slate-100 text-slate-700 font-semibold border-slate-200',
 };
 
 export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, condensed = false }) => {
   const reduceMotion = useReducedMotion();
 
-  const { items, totalValue, maxItemValue, topTwoShare } = React.useMemo(() => {
+  const { items, totalValue, totalCount, topTwoPct } = React.useMemo(() => {
     const map = new Map<string, { name: string; value: number; count: number }>();
 
     data.forEach(item => {
@@ -63,7 +67,6 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
         map.set(key, { name: key, value: 0, count: 0 });
       }
       const entry = map.get(key)!;
-      // Konversi KG dari data SAP ke satuan TON (/ 1000)
       entry.value += Math.abs(item.quantity) / 1000;
       entry.count += 1;
     });
@@ -73,6 +76,7 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
       .sort((a, b) => b.value - a.value);
 
     const total = sorted.reduce((acc, curr) => acc + curr.value, 0);
+    const countTotal = sorted.reduce((acc, curr) => acc + curr.count, 0);
 
     const topLimit = condensed ? 5 : 6;
 
@@ -94,162 +98,135 @@ export const WorkCenterBreakdown: React.FC<WorkCenterBreakdownProps> = ({ data, 
       ];
     }
 
-    const maxVal = finalItems.length > 0 ? Math.max(...finalItems.map(i => i.value)) : 1;
-
     const topTwoVal = sorted.slice(0, 2).reduce((acc, c) => acc + c.value, 0);
-    const topTwoPct = total > 0 ? (topTwoVal / total) * 100 : 0;
+    const topTwoShare = total > 0 ? (topTwoVal / total) * 100 : 0;
 
     return {
       items: finalItems,
       totalValue: total,
-      maxItemValue: maxVal,
-      topTwoShare: topTwoPct,
+      totalCount: countTotal,
+      topTwoPct: topTwoShare,
     };
   }, [data, condensed]);
 
   if (items.length === 0) return null;
 
   return (
-    <div
-      className={`bg-white border border-slate-200/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.03),0_4px_14px_-2px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300 ${
-        condensed ? 'rounded-xl' : 'rounded-2xl'
-      }`}
+    <article
+      className="glass-card rounded-3xl p-5 md:p-6 shadow-apple-card border border-white/80 flex flex-col justify-between h-full"
+      data-purpose="work-center-card"
     >
-      {/* Header */}
-      <div
-        className={`${
-          condensed ? 'px-4 py-3' : 'px-5 py-3.5'
-        } border-b border-slate-100 flex items-center justify-between gap-3`}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-slate-100/90 flex items-center justify-center text-slate-600 shrink-0">
-            <Factory size={15} strokeWidth={2.2} />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider leading-tight">
-              Work Center Breakdown
-            </h3>
-            {!condensed && (
-              <p className="text-[11px] font-medium text-slate-400 mt-0.5 leading-tight">
-                Peringkat pergerakan material berdasarkan tonase tertinggi
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Total Throughput Badge */}
-        <div className="text-right shrink-0">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Total Throughput
-          </div>
-          <div className="text-base sm:text-lg font-black text-slate-900 tabular-nums leading-none mt-0.5">
-            {totalValue.toLocaleString('id-ID', {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            })}{' '}
-            <span className="text-[10px] font-bold text-slate-500">TON</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Body: Horizontal Ranked Bar Rows */}
-      <div className={`${condensed ? 'p-3.5 space-y-2.5' : 'p-4 sm:p-5 space-y-3'}`}>
-        {items.map((item, idx) => {
-          const theme = idx < RANK_THEMES.length && !item.isOthers ? RANK_THEMES[idx] : DEFAULT_THEME;
-          const sharePct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
-          // Scale bar relative to maximum value in list, so top item fills ~90% and others scale accordingly
-          const barWidth = maxItemValue > 0 ? (item.value / maxItemValue) * 92 : 0;
-
-          return (
-            <div
-              key={item.name}
-              className="group flex items-center gap-2 sm:gap-3 py-1 px-1.5 rounded-xl hover:bg-slate-50/70 transition-colors"
-            >
-              {/* Rank Badge */}
-              <div
-                className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 border ${theme.rankBg}`}
+      <div>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-apple-gray-200/50 pb-4 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-apple-blue flex items-center justify-center font-bold">
+              <svg
+                className="w-4.5 h-4.5 text-apple-blue"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
               >
-                {item.isOthers ? '•' : idx + 1}
-              </div>
-
-              {/* Machine / Work Center Label */}
-              <div className="w-28 sm:w-36 shrink-0 truncate">
-                <span
-                  className={`text-xs ${
-                    item.isOthers ? 'font-semibold text-slate-500' : 'font-bold text-slate-800'
-                  } uppercase tracking-tight truncate block`}
-                  title={item.name}
-                >
-                  {item.name}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium block -mt-0.5 sm:hidden">
-                  {item.count.toLocaleString('id-ID')} tx
-                </span>
-              </div>
-
-              {/* Progress Bar Track */}
-              <div className="flex-1 h-3 sm:h-3.5 bg-slate-100 rounded-full overflow-hidden relative mx-1">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${barWidth}%` }}
-                  transition={
-                    reduceMotion
-                      ? { duration: 0 }
-                      : {
-                          delay: 0.05 + idx * 0.04,
-                          duration: 0.6,
-                          ease: [0.16, 1, 0.3, 1],
-                        }
-                  }
-                  className={`h-full rounded-full bg-gradient-to-r ${theme.barGradient}`}
-                />
-              </div>
-
-              {/* Tonase Value */}
-              <div className="text-right shrink-0 min-w-[70px] sm:min-w-[90px]">
-                <span className="text-xs sm:text-sm font-black text-slate-900 tabular-nums">
-                  {item.value.toLocaleString('id-ID', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-                <span className="text-[10px] font-semibold text-slate-500 ml-1">TON</span>
-              </div>
-
-              {/* Share Percentage Badge */}
-              <div
-                className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-extrabold tabular-nums text-center shrink-0 min-w-[46px] sm:min-w-[50px] ${theme.badgeBg}`}
-              >
-                {sharePct.toLocaleString('id-ID', {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}
-                %
-              </div>
+                <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                <path d="M17 18h1" />
+                <path d="M12 18h1" />
+                <path d="M7 18h1" />
+              </svg>
             </div>
-          );
-        })}
-      </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Work Center Breakdown</h2>
+              <p className="text-xs text-slate-500 font-medium">Peringkat pergerakan material tonase tertinggi</p>
+            </div>
+          </div>
 
-      {/* Footer / Summary Insight */}
-      {!condensed && items.length > 2 && (
-        <div className="px-4 sm:px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-[11px] gap-2">
-          <div className="text-slate-500 font-medium truncate">
-            Top 2 Work Center menyumbang{' '}
-            <span className="font-black text-slate-900">
-              {topTwoShare.toLocaleString('id-ID', {
+          <div className="text-right">
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Throughput</span>
+            <div className="text-lg font-black text-slate-900 tabular-nums">
+              {totalValue.toLocaleString('id-ID', {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1,
-              })}
-              %
-            </span>{' '}
-            dari total arus pergerakan pabrik.
-          </div>
-          <div className="text-slate-400 font-semibold shrink-0">
-            {items.reduce((acc, curr) => acc + curr.count, 0).toLocaleString('id-ID')} transaksi
+              })}{' '}
+              <span className="text-xs font-semibold text-slate-600">TON</span>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Ranking List with Meter Bars */}
+        <div className="space-y-3">
+          {items.map((item, idx) => {
+            const theme = idx < RANK_THEMES.length && !item.isOthers ? RANK_THEMES[idx] : DEFAULT_THEME;
+            const sharePct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+
+            return (
+              <div
+                key={item.name}
+                className={`p-2.5 rounded-2xl border transition-apple shadow-apple-sm ${
+                  item.isOthers
+                    ? 'bg-white/40 border-white/60 hover:bg-white'
+                    : 'bg-white/70 border-white/90 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <div className="flex items-center gap-2.5 truncate mr-2">
+                    <span
+                      className={`w-6 h-6 rounded-lg font-bold flex items-center justify-center text-xs shrink-0 ${theme.rankBg}`}
+                    >
+                      {item.isOthers ? '•' : idx + 1}
+                    </span>
+                    <span
+                      className={`truncate ${
+                        item.isOthers ? 'font-semibold text-slate-600' : 'font-bold text-slate-900'
+                      }`}
+                    >
+                      {item.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-extrabold text-slate-900 tabular-nums">
+                      {item.value.toLocaleString('id-ID', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      <span className="text-[10px] font-semibold text-slate-600">TON</span>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] border ${theme.badgeStyle}`}>
+                      {sharePct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-2 rounded-full bg-slate-200/80 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, sharePct)}%` }}
+                    transition={{
+                      duration: reduceMotion ? 0 : 0.6,
+                      delay: reduceMotion ? 0 : idx * 0.05,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    className={`h-full rounded-full ${theme.barColor}`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer Summary */}
+      <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
+        <span className="font-medium">
+          Top 2 Work Center menyumbang{' '}
+          <strong className="text-slate-900 font-bold">{topTwoPct.toFixed(1)}%</strong> total arus
+        </span>
+        <span className="px-2.5 py-1 rounded-full bg-slate-100 font-bold text-slate-800 border border-slate-200/70">
+          {totalCount.toLocaleString('id-ID')} Transaksi
+        </span>
+      </div>
+    </article>
   );
 };

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { motion, animate, useMotionValue, useTransform, useReducedMotion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Activity, ArrowLeftRight, ChevronRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, ArrowLeftRight, ClipboardList, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface StatsCardProps {
@@ -17,44 +17,77 @@ export interface StatsCardProps {
   className?: string;
 }
 
-const ICONS: Record<StatsCardProps['type'], LucideIcon> = {
-  in: ArrowUpRight,
-  out: ArrowDownRight,
-  net: ArrowLeftRight,
-  total: Activity,
-};
-
 interface ThemeConfig {
-  gradient: string;
   code: string;
-  mainLabel: string;
-  subLabel: string;
+  gradient: string;
+  glowClass: string;
+  glowHover: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  valueColor: string;
+  subtitleColor: string;
+  actionText: string;
+  actionColor: string;
+  glowBg: string;
 }
 
 const THEME_CONFIG: Record<StatsCardProps['type'], ThemeConfig> = {
   in: {
-    gradient: 'from-emerald-500 to-emerald-700',
     code: 'IN',
-    mainLabel: 'Masuk',
-    subLabel: 'Inbound',
+    gradient: 'from-emerald-400 to-emerald-600',
+    glowClass: 'shadow-apple-glow-green',
+    glowHover: 'hover:shadow-apple-glow-green',
+    badgeBg: 'bg-emerald-50',
+    badgeText: 'text-emerald-600',
+    badgeBorder: 'border-emerald-200',
+    valueColor: 'text-slate-900',
+    subtitleColor: 'text-emerald-700',
+    actionText: 'Masuk →',
+    actionColor: 'text-emerald-500',
+    glowBg: 'bg-emerald-500/10',
   },
   out: {
-    gradient: 'from-rose-500 to-rose-700',
     code: 'OUT',
-    mainLabel: 'Keluar',
-    subLabel: 'Outbound',
+    gradient: 'from-rose-500 to-red-600',
+    glowClass: 'shadow-apple-glow-red',
+    glowHover: 'hover:shadow-apple-glow-red',
+    badgeBg: 'bg-rose-50',
+    badgeText: 'text-rose-600',
+    badgeBorder: 'border-rose-200',
+    valueColor: 'text-slate-900',
+    subtitleColor: 'text-rose-600',
+    actionText: 'Keluar →',
+    actionColor: 'text-rose-500',
+    glowBg: 'bg-rose-500/10',
   },
   net: {
-    gradient: 'from-sky-500 to-blue-700',
     code: 'NET',
-    mainLabel: 'Net Flow',
-    subLabel: 'Balance',
+    gradient: 'from-blue-500 to-blue-600',
+    glowClass: 'shadow-apple-glow-blue',
+    glowHover: 'hover:shadow-apple-glow-blue',
+    badgeBg: 'bg-blue-50',
+    badgeText: 'text-blue-600',
+    badgeBorder: 'border-blue-200',
+    valueColor: 'text-blue-600',
+    subtitleColor: 'text-slate-600',
+    actionText: 'Balance',
+    actionColor: 'text-blue-500',
+    glowBg: 'bg-blue-500/10',
   },
   total: {
-    gradient: 'from-slate-700 to-slate-900',
     code: 'TRX',
-    mainLabel: 'Transaksi',
-    subLabel: 'Total SAP',
+    gradient: 'from-slate-700 to-slate-900',
+    glowClass: 'shadow-apple-glow-dark',
+    glowHover: 'hover:shadow-apple-glow-dark',
+    badgeBg: 'bg-slate-100',
+    badgeText: 'text-slate-700',
+    badgeBorder: 'border-slate-300',
+    valueColor: 'text-slate-900',
+    subtitleColor: 'text-slate-600',
+    actionText: 'Verified',
+    actionColor: 'text-slate-800',
+    glowBg: 'bg-slate-800/10',
   },
 };
 
@@ -69,10 +102,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   onClick,
   className,
 }) => {
-  const Icon = ICONS[type];
   const theme = THEME_CONFIG[type];
 
-  // Parse numeric value supporting standard floats, id-ID formatted floats, and integers
   const isInteger = useMemo(() => {
     return unit === 'TRX' || unit === 'ITEM' || unit === 'PC';
   }, [unit]);
@@ -82,7 +113,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     let cleanStr = value.trim();
 
     if (isInteger) {
-      // Remove all dots and commas for integer counts
       cleanStr = cleanStr.replace(/[.,]/g, '');
       const parsedInt = parseInt(cleanStr, 10);
       return isNaN(parsedInt) ? null : parsedInt;
@@ -129,91 +159,119 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     }
     count.set(0);
     const controls = animate(count, numericValue, {
-      duration: 1.0,
-      delay: delay + 0.1,
+      duration: 0.9,
+      delay: delay + 0.05,
       ease: [0.16, 1, 0.3, 1],
     });
     return () => controls.stop();
   }, [numericValue, delay, reduceMotion, count]);
 
-  const cardClasses = cn(
-    'group relative flex w-full rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-[0_1px_3px_0_rgba(0,0,0,0.03),0_4px_14px_-2px_rgba(0,0,0,0.04)] hover:shadow-lg transition-all duration-300 text-left',
-    condensed ? 'min-h-[114px]' : 'min-h-[142px]',
-    onClick
-      ? 'cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40'
-      : '',
+  const renderIcon = () => {
+    if (type === 'in') {
+      return (
+        <svg className="w-6 h-6 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
+        </svg>
+      );
+    }
+    if (type === 'out') {
+      return (
+        <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
+        </svg>
+      );
+    }
+    if (type === 'net') {
+      return (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+      </svg>
+    );
+  };
+
+  const cardWrapperClasses = cn(
+    'glass-card rounded-3xl p-5 shadow-apple-card transition-apple flex flex-col justify-between group relative overflow-hidden border border-white/80 text-left w-full',
+    theme.glowHover,
+    onClick ? 'cursor-pointer hover:-translate-y-1 active:scale-[0.99]' : '',
+    condensed ? 'p-4' : 'p-5',
     className
   );
 
-  const cardContent = (
+  const cardInner = (
     <>
-      {/* Left Panel - Gradient with Icon and Labels */}
+      {/* Background radial glow */}
       <div
         className={cn(
-          'w-[35%] flex flex-col justify-between text-white bg-gradient-to-br transition-all duration-300 relative shrink-0',
-          theme.gradient,
-          condensed ? 'p-3' : 'p-4',
-          onClick && 'group-hover:brightness-105'
+          'absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-2xl group-hover:scale-150 transition-all pointer-events-none',
+          theme.glowBg
         )}
-      >
-        <div className="flex items-center justify-between w-full">
-          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner shrink-0">
-            <Icon size={17} strokeWidth={2.5} className="text-white" />
+      />
+
+      {/* Top row: Icon + Code + Title + Unit Pill */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'w-12 h-12 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center font-bold text-sm shrink-0',
+              theme.gradient,
+              theme.glowClass
+            )}
+          >
+            {renderIcon()}
           </div>
-          <span className="text-[9px] font-black tracking-widest uppercase bg-black/20 px-2 py-0.5 rounded-full text-white/90 shrink-0">
-            {theme.code}
-          </span>
-        </div>
-
-        <div className={condensed ? 'mt-2' : 'mt-3'}>
-          <p className="text-sm font-bold text-white leading-tight">
-            {theme.mainLabel}
-          </p>
-          <p className="text-[10px] font-medium text-white/80 leading-tight">
-            {theme.subLabel}
-          </p>
-        </div>
-      </div>
-
-      {/* Right Panel - Data Metric and Caption */}
-      <div
-        className={cn(
-          'w-[65%] flex flex-col justify-between bg-white text-slate-800',
-          condensed ? 'p-3' : 'p-4'
-        )}
-      >
-        <div>
-          <div className="flex justify-between items-center gap-1.5 mb-1.5">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">
-              {title}
-            </span>
-            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 shrink-0">
-              {unit}
-            </span>
-          </div>
-
-          <div className="flex items-baseline gap-1 mt-1">
+          <div>
             <span
               className={cn(
-                'font-extrabold tracking-tight text-slate-900 tabular-nums leading-none',
-                condensed ? 'text-2xl' : 'text-2xl sm:text-[26px] lg:text-[28px]'
+                'text-[11px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border',
+                theme.badgeBg,
+                theme.badgeText,
+                theme.badgeBorder
               )}
-              title={displayValue}
             >
-              {numericValue !== null ? <motion.span>{formatted}</motion.span> : value}
+              {theme.code}
             </span>
+            <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">
+              {title}
+            </p>
           </div>
         </div>
+        <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80 shrink-0">
+          {unit}
+        </span>
+      </div>
 
-        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100/90">
-          <p className="text-[11px] font-medium text-slate-400 group-hover:text-slate-600 transition-colors truncate pr-1">
-            {subtitle || (onClick ? 'Klik untuk detail' : 'Data terverifikasi')}
-          </p>
-          {onClick && (
-            <span className="text-slate-300 group-hover:text-slate-700 transition-colors flex items-center shrink-0">
-              <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </span>
+      {/* Metric value and caption */}
+      <div className="mt-4 pt-2">
+        <div
+          className={cn(
+            'font-black tracking-tight flex items-baseline gap-1.5 tabular-nums',
+            condensed ? 'text-3xl' : 'text-3xl sm:text-4xl',
+            theme.valueColor
           )}
+          title={displayValue}
+        >
+          {numericValue !== null ? <motion.span>{formatted}</motion.span> : value}
+          <span className="text-sm font-semibold text-slate-500">{unit}</span>
+        </div>
+
+        <div className="flex items-center justify-between mt-3 text-xs text-slate-600 border-t border-slate-200/80 pt-2.5">
+          <span className={cn('font-medium truncate', theme.subtitleColor)}>
+            {subtitle || (onClick ? 'Klik untuk detail' : 'Data terverifikasi')}
+          </span>
+          <span
+            className={cn(
+              'font-semibold group-hover:translate-x-1 transition-transform shrink-0 ml-2',
+              theme.actionColor
+            )}
+          >
+            {theme.actionText}
+          </span>
         </div>
       </div>
     </>
@@ -221,17 +279,19 @@ export const StatsCard: React.FC<StatsCardProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="w-full"
+      className="w-full flex"
     >
       {onClick ? (
-        <button type="button" onClick={onClick} className={cardClasses}>
-          {cardContent}
+        <button type="button" onClick={onClick} className={cardWrapperClasses}>
+          {cardInner}
         </button>
       ) : (
-        <div className={cardClasses}>{cardContent}</div>
+        <article className={cardWrapperClasses}>
+          {cardInner}
+        </article>
       )}
     </motion.div>
   );

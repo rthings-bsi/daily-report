@@ -27,7 +27,8 @@ export async function copyDashboardToClipboard(
     const html2canvas = (await import('html2canvas-pro')).default;
 
     const scale = options.scale ?? (window.devicePixelRatio > 1 ? 2 : 1.5);
-    const backgroundColor = options.backgroundColor ?? '#f8fafc';
+    const backgroundColor = options.backgroundColor ?? '#f1f5f9';
+    const targetWidth = 1600;
 
     const canvas = await html2canvas(element, {
       scale,
@@ -36,47 +37,104 @@ export async function copyDashboardToClipboard(
       logging: false,
       scrollX: 0,
       scrollY: -window.scrollY,
-      windowWidth: document.documentElement.offsetWidth,
+      windowWidth: Math.max(targetWidth, document.documentElement.offsetWidth),
       imageSmoothing: true,
       imageSmoothingQuality: 'high',
       onclone: (clonedDoc, clonedElement) => {
+        // Enforce wide landscape desktop layout during capture
+        clonedElement.style.width = `${targetWidth}px`;
+        clonedElement.style.maxWidth = `${targetWidth}px`;
+        clonedElement.style.minWidth = `${targetWidth}px`;
+        clonedElement.style.boxSizing = 'border-box';
+
+        // Inject high-contrast capture styles so card boundaries, borders, and grid lines don't wash out in html2canvas
+        const styleTag = clonedDoc.createElement('style');
+        styleTag.textContent = `
+          /* html2canvas doesn't support backdrop-filter: blur, so render cards with crisp solid backgrounds and visible borders */
+          .glass-card {
+            background-color: #ffffff !important;
+            border: 1.5px solid #cbd5e1 !important;
+            box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
+            backdrop-filter: none !important;
+          }
+          .glass-pill {
+            background-color: #ffffff !important;
+            border: 1.5px solid #cbd5e1 !important;
+            box-shadow: 0 2px 8px -1px rgba(15, 23, 42, 0.06) !important;
+            backdrop-filter: none !important;
+          }
+          /* Replace invisible white borders with clear slate boundaries */
+          [class*="border-white"] {
+            border-color: #cbd5e1 !important;
+          }
+          /* Inner containers and sub-cards */
+          [class*="bg-white/60"], [class*="bg-white/70"], [class*="bg-white/80"] {
+            background-color: #f8fafc !important;
+            border-color: #e2e8f0 !important;
+          }
+          /* Make chart grid lines crisp and visible */
+          .recharts-cartesian-grid line,
+          .recharts-cartesian-grid-horizontal line {
+            stroke: #cbd5e1 !important;
+            stroke-dasharray: 4 4 !important;
+            stroke-opacity: 1 !important;
+          }
+          /* Make divider lines clean and clear */
+          [class*="border-slate-200"], [class*="border-slate-100"] {
+            border-color: #cbd5e1 !important;
+          }
+          [class*="border-apple-gray-200"] {
+            border-color: #cbd5e1 !important;
+          }
+        `;
+        clonedDoc.head.appendChild(styleTag);
+
         if (options.headerTitle) {
-          const header = clonedDoc.createElement('div');
-          header.style.padding = '18px 24px';
-          header.style.backgroundColor = '#ffffff';
-          header.style.border = '1px solid #e2e8f0';
-          header.style.marginBottom = '20px';
-          header.style.borderRadius = '16px';
-          header.style.display = 'flex';
-          header.style.justifyContent = 'space-between';
-          header.style.alignItems = 'center';
-          header.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.05)';
+          // Check if clonedElement already has a hero header to avoid duplicate headers
+          const hasHeroHeader = clonedElement.querySelector('[data-purpose="dashboard-hero-header"]');
+          if (!hasHeroHeader) {
+            const header = clonedDoc.createElement('div');
+            header.style.padding = '16px 24px';
+            header.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95))';
+            header.style.border = '1px solid rgba(226, 232, 240, 0.9)';
+            header.style.marginBottom = '20px';
+            header.style.borderRadius = '20px';
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
+            header.style.boxShadow = '0 4px 16px -2px rgba(0, 0, 0, 0.05)';
 
-          const nowStr = new Date().toLocaleString('id-ID', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          });
+            const nowStr = new Date().toLocaleString('id-ID', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            });
 
-          header.innerHTML = `
-            <div>
-              <div style="font-size: 10px; font-weight: 700; color: #0284c7; letter-spacing: 0.06em; text-transform: uppercase;">
-                PT STEEL PIPE INDUSTRY OF INDONESIA TBK
+            header.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #007AFF, #59ADC4); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);">
+                  SP
+                </div>
+                <div>
+                  <div style="font-size: 10px; font-weight: 700; color: #007AFF; letter-spacing: 0.06em; text-transform: uppercase;">
+                    PT STEEL PIPE INDUSTRY OF INDONESIA TBK
+                  </div>
+                  <div style="font-size: 18px; font-weight: 800; color: #1e293b; margin-top: 1px;">
+                    ${options.headerTitle}
+                  </div>
+                  ${
+                    options.headerSubtitle
+                      ? `<div style="font-size: 11px; font-weight: 500; color: #64748b; margin-top: 1px;">${options.headerSubtitle}</div>`
+                      : ''
+                  }
+                </div>
               </div>
-              <div style="font-size: 17px; font-weight: 800; color: #0f172a; margin-top: 2px;">
-                ${options.headerTitle}
+              <div style="text-align: right; font-size: 10px; color: #94a3b8; font-weight: 500;">
+                <div style="text-transform: uppercase; letter-spacing: 0.05em;">Waktu Salin:</div>
+                <div style="font-weight: 700; color: #334155; font-size: 12px; margin-top: 2px;">${nowStr}</div>
               </div>
-              ${
-                options.headerSubtitle
-                  ? `<div style="font-size: 11px; font-weight: 500; color: #64748b; margin-top: 2px;">${options.headerSubtitle}</div>`
-                  : ''
-              }
-            </div>
-            <div style="text-align: right; font-size: 10px; color: #94a3b8; font-weight: 500;">
-              <div>Waktu Salin:</div>
-              <div style="font-weight: 700; color: #334155; font-size: 11px; margin-top: 1px;">${nowStr}</div>
-            </div>
-          `;
-          clonedElement.insertBefore(header, clonedElement.firstChild);
+            `;
+            clonedElement.insertBefore(header, clonedElement.firstChild);
+          }
         }
       },
     });
