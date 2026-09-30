@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   ClipboardList,
   ClipboardCheck,
-  PanelLeftClose,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -142,17 +141,6 @@ export default function Sidebar() {
               </div>
             )}
           </div>
-
-          {isOpen && (
-            <button
-              type="button"
-              onClick={toggle}
-              className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-apple shrink-0 cursor-pointer"
-              title="Sembunyikan sidebar"
-            >
-              <PanelLeftClose size={16} strokeWidth={2} />
-            </button>
-          )}
         </div>
 
         {/* ─── Navigation ─── */}

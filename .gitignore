@@ -49,3 +49,21 @@ prisma/prisma/*.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scratch, debug & local ad-hoc scripts
+scratch*
+test-*
+fix-*
+fix_*
+check-*
+find-*
+sim-*
+diag*
+*.tmp
+.debug-tmp/
+.codex/
+graphify-out/
+*.csv
+restore_report*.txt
+*-preview*.png
+
