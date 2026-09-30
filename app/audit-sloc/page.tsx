@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { GUDANG_LIST } from '@/lib/gudang';
-import { parseAuditSlocText, parseAuditSlocExcel } from '@/lib/audit-sloc-parser';
 import { PageHeader } from '@/components/PageHeader';
 import {
   AuditSlocChart,
@@ -166,14 +165,11 @@ function AuditSlocContent() {
 
   // Upload Modal State
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
-  const [uploadTab, setUploadTab] = useState<'file' | 'paste'>('file');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [pasteText, setPasteText] = useState<string>('');
   const [uploadTitle, setUploadTitle] = useState<string>('');
   const [uploadDate, setUploadDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>('');
-  const [parsedPreviewCount, setParsedPreviewCount] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -288,20 +284,6 @@ function AuditSlocContent() {
     }
   }, [selectedSessionId, fetchSessionItems]);
 
-  // Handle live preview count when pasting text
-  useEffect(() => {
-    if (uploadTab === 'paste' && pasteText.trim()) {
-      try {
-        const preview = parseAuditSlocText(pasteText);
-        setParsedPreviewCount(preview.rows.length);
-      } catch {
-        setParsedPreviewCount(null);
-      }
-    } else {
-      setParsedPreviewCount(null);
-    }
-  }, [uploadTab, pasteText]);
-
   // Handle file drop / select
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -314,45 +296,28 @@ function AuditSlocContent() {
     }
   };
 
-  // Submit upload or paste
+  // Submit file upload
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploadError('');
     setIsSubmitting(true);
 
     try {
-      let res;
-      if (uploadTab === 'file') {
-        if (!uploadFile) {
-          throw new Error('Pilih file Excel atau CSV terlebih dahulu');
-        }
-        const formData = new FormData();
-        formData.append('file', uploadFile);
-        formData.append('title', uploadTitle || `Audit SLoc - ${uploadDate}`);
-        formData.append('dateStr', uploadDate);
-        if (selectedGudang) {
-          formData.append('gudangId', String(selectedGudang));
-        }
-
-        res = await fetch('/api/audit-sloc', {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        if (!pasteText.trim()) {
-          throw new Error('Tempelkan teks data tabel dari SAP terlebih dahulu');
-        }
-        res = await fetch('/api/audit-sloc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rawText: pasteText,
-            title: uploadTitle || `Audit SLoc (Paste) - ${uploadDate}`,
-            dateStr: uploadDate,
-            gudangId: selectedGudang,
-          }),
-        });
+      if (!uploadFile) {
+        throw new Error('Pilih file Excel atau CSV terlebih dahulu');
       }
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('title', uploadTitle || `Audit SLoc - ${uploadDate}`);
+      formData.append('dateStr', uploadDate);
+      if (selectedGudang) {
+        formData.append('gudangId', String(selectedGudang));
+      }
+
+      const res = await fetch('/api/audit-sloc', {
+        method: 'POST',
+        body: formData,
+      });
 
       const result = await res.json();
       if (!res.ok) {
@@ -361,7 +326,6 @@ function AuditSlocContent() {
 
       setIsUploadOpen(false);
       setUploadFile(null);
-      setPasteText('');
       setUploadTitle('');
       if (result.session?.dateStr) {
         setSelectedDate(result.session.dateStr);
@@ -1200,166 +1164,145 @@ function AuditSlocContent() {
       )}
     </main>
 
-      {/* ─── Upload & Update Audit Modal (Apple Sheet Style) ─── */}
+      {/* ─── Upload Audit Modal (Apple Sheet Style) ─── */}
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/95 backdrop-blur-2xl w-full max-w-2xl rounded-[28px] shadow-2xl border border-white/90 overflow-hidden flex flex-col max-h-[90vh] shadow-slate-900/15">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white/95 backdrop-blur-2xl w-full max-w-lg rounded-3xl shadow-apple-card border border-white/80 overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-slate-200/50 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-black text-slate-900 tracking-tight">Update Data Audit SLoc</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Upload file Excel (.xlsx) SAP atau tempelkan data tabel hasil copy langsung dari SAP
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Upload Data Audit SLoc</h3>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  Pilih file Excel (.xlsx, .xls) atau .csv hasil export SAP
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsUploadOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-apple cursor-pointer"
+                className="w-7 h-7 rounded-xl bg-slate-100/70 hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-apple cursor-pointer"
+                title="Tutup"
               >
-                <X size={16} strokeWidth={2.4} />
+                <X size={14} strokeWidth={2.4} />
               </button>
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleUploadSubmit} className="p-5 space-y-4">
               {uploadError && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 text-xs font-semibold flex items-center gap-2">
-                  <AlertTriangle size={16} className="shrink-0" />
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 text-xs font-medium flex items-center gap-2">
+                  <AlertTriangle size={15} className="shrink-0 text-rose-600" />
                   <span>{uploadError}</span>
                 </div>
               )}
 
               {/* Title & Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Judul Sesi Audit
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Judul Sesi
                   </label>
                   <input
                     type="text"
                     value={uploadTitle}
                     onChange={e => setUploadTitle(e.target.value)}
-                    placeholder="Contoh: Audit Fisik SLoc 5M Akhir Bulan"
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
+                    placeholder="Contoh: Audit Fisik SLoc 5M"
+                    className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 transition-apple"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                     Tanggal Audit
                   </label>
                   <input
                     type="date"
                     value={uploadDate}
                     onChange={e => setUploadDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
+                    className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 transition-apple cursor-pointer"
                   />
                 </div>
               </div>
 
-              {/* Mode Tabs (iOS Segmented Control) */}
-              <div className="flex rounded-xl bg-slate-200/50 p-1 border border-slate-200/60">
-                <button
-                  type="button"
-                  onClick={() => setUploadTab('file')}
-                  className={`flex-1 py-2 text-xs transition-apple cursor-pointer ${
-                    uploadTab === 'file'
-                      ? 'bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] font-bold rounded-[9px]'
-                      : 'text-slate-600 hover:text-slate-900 font-semibold'
-                  }`}
-                >
-                  Upload File Excel / CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadTab('paste')}
-                  className={`flex-1 py-2 text-xs transition-apple cursor-pointer ${
-                    uploadTab === 'paste'
-                      ? 'bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] font-bold rounded-[9px]'
-                      : 'text-slate-600 hover:text-slate-900 font-semibold'
-                  }`}
-                >
-                  Paste Data dari SAP
-                </button>
+              {/* File Dropzone / Selected File Card */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  File Laporan SAP
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.txt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                {uploadFile ? (
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200/60 shadow-apple-xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white text-[#007AFF] border border-blue-100 flex items-center justify-center shrink-0 shadow-2xs">
+                        <FileSpreadsheet size={18} strokeWidth={2.2} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {uploadFile.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {(uploadFile.size / 1024).toFixed(1)} KB • Siap diproses
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setUploadFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-apple shrink-0 cursor-pointer"
+                      title="Ganti file"
+                    >
+                      <X size={14} strokeWidth={2.4} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group border border-dashed border-slate-300 hover:border-[#007AFF] rounded-2xl p-6 text-center cursor-pointer transition-apple bg-slate-50/50 hover:bg-blue-50/30"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-white group-hover:bg-blue-50 text-slate-400 group-hover:text-[#007AFF] border border-slate-200/80 group-hover:border-blue-200/60 flex items-center justify-center mx-auto mb-2.5 transition-apple shadow-apple-xs">
+                      <Upload size={18} strokeWidth={2.2} />
+                    </div>
+                    <p className="text-xs font-semibold text-slate-700 group-hover:text-[#007AFF] transition-colors">
+                      Pilih file Excel / CSV dari komputer
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      Mendukung format .xlsx, .xls, .csv hasil export SAP
+                    </p>
+                  </div>
+                )}
               </div>
-
-              {uploadTab === 'file' ? (
-                /* Dropzone */
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-200 hover:border-[#007AFF] rounded-2xl p-8 text-center cursor-pointer transition-apple bg-slate-50/50 hover:bg-blue-50/20"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv,.txt"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#007AFF] border border-blue-200/60 flex items-center justify-center mx-auto mb-3 shadow-apple-xs">
-                    <FileSpreadsheet size={24} strokeWidth={2.4} />
-                  </div>
-                  {uploadFile ? (
-                    <div>
-                      <div className="text-sm font-bold text-slate-900">{uploadFile.name}</div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        {(uploadFile.size / 1024).toFixed(1)} KB • Klik untuk mengganti file
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-xs font-bold text-slate-700">
-                        Klik untuk memilih file Excel / CSV dari komputer Anda
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1 font-medium">
-                        Mendukung format .xlsx, .xls, .csv hasil export ALV SAP
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Textarea Paste */
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Salin baris dari SAP lalu tempel (Ctrl+V) di sini:</span>
-                    {parsedPreviewCount !== null && (
-                      <span className="font-bold text-emerald-700">
-                        {parsedPreviewCount} baris terdeteksi
-                      </span>
-                    )}
-                  </div>
-                  <textarea
-                    rows={8}
-                    value={pasteText}
-                    onChange={e => setPasteText(e.target.value)}
-                    placeholder={`Plant\tSLoc\tMaterial\tBatch\tSAP\tEom\tQty Audit\tKG Audit\tDiff KG Audit\tDiff\n1105\t5M02\tZCB12CGC0220+08800\t5261841HFA\t0\t\t62\t172,546\t172,546-\t62-`}
-                    className="w-full p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
-                  />
-                </div>
-              )}
 
               {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-apple cursor-pointer"
+                  className="h-9 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-apple cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || (uploadTab === 'file' ? !uploadFile : !pasteText.trim())}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-[0_2px_8px_rgba(0,122,255,0.28)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-apple flex items-center gap-2 cursor-pointer"
+                  disabled={isSubmitting || !uploadFile}
+                  className="h-9 px-4 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-apple-xs hover:scale-[1.01] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-apple flex items-center gap-1.5 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
-                      <RefreshCw size={14} className="animate-spin" />
-                      <span>Menyimpan...</span>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Memproses...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 size={14} strokeWidth={2.4} />
+                      <CheckCircle2 size={13} strokeWidth={2.4} />
                       <span>Simpan Data Audit</span>
                     </>
                   )}
