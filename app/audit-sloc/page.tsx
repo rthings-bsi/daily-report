@@ -1245,7 +1245,7 @@ function AuditSlocContent() {
                         <p className="text-xs font-bold text-slate-900 truncate">
                           {uploadFile.name}
                         </p>
-                        <p className="text-[11px] text-slate-500 font-medium">
+                        <p className="text-[11px] text-blue-700/80 font-medium">
                           {(uploadFile.size / 1024).toFixed(1)} KB • Siap diproses
                         </p>
                       </div>
@@ -1257,7 +1257,7 @@ function AuditSlocContent() {
                         setUploadFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-apple shrink-0 cursor-pointer"
+                      className="w-7 h-7 rounded-lg text-blue-600/70 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-apple shrink-0 cursor-pointer"
                       title="Ganti file"
                     >
                       <X size={14} strokeWidth={2.4} />
@@ -1268,13 +1268,13 @@ function AuditSlocContent() {
                     onClick={() => fileInputRef.current?.click()}
                     className="group border border-dashed border-slate-300 hover:border-[#007AFF] rounded-2xl p-6 text-center cursor-pointer transition-apple bg-slate-50/50 hover:bg-blue-50/30"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-white group-hover:bg-blue-50 text-slate-400 group-hover:text-[#007AFF] border border-slate-200/80 group-hover:border-blue-200/60 flex items-center justify-center mx-auto mb-2.5 transition-apple shadow-apple-xs">
+                    <div className="w-10 h-10 rounded-xl bg-white text-slate-500 group-hover:text-[#007AFF] border border-slate-200/80 group-hover:border-blue-200/60 flex items-center justify-center mx-auto mb-2.5 transition-apple shadow-apple-xs">
                       <Upload size={18} strokeWidth={2.2} />
                     </div>
                     <p className="text-xs font-semibold text-slate-700 group-hover:text-[#007AFF] transition-colors">
                       Pilih file Excel / CSV dari komputer
                     </p>
-                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                       Mendukung format .xlsx, .xls, .csv hasil export SAP
                     </p>
                   </div>
