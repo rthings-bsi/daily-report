@@ -318,7 +318,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                  Hasil STO per SLoc
+                  Audit Per Sloc
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   {activeGudangLabel} • {slocStats.length} SLoc terdata
@@ -509,7 +509,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                  Status Akurasi Global
+                  Akurasi Audit
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Distribusi kecocokan fisik vs SAP
@@ -662,7 +662,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900 uppercase">
-                    {expandedCard === 'sloc' ? 'HASIL STO PER SLOC (DETAIL)' : 'HASIL STO ALL (DETAIL)'}
+                    {expandedCard === 'sloc' ? 'AUDIT PER SLOC (DETAIL)' : 'AKURASI AUDIT (DETAIL)'}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
                     {expandedCard === 'sloc'
