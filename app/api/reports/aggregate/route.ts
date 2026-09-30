@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { RawMovementRow, aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { MovementGroup } from "@/lib/sap-mapping";
+import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
 import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc, removeInternalTfSloc } from "@/lib/gudang";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,12 @@ export async function GET(req: NextRequest) {
   const gudangIdParam = searchParams.get("gudangId");
   const start = searchParams.get("start");
   const end = searchParams.get("end");
+  const shift = searchParams.get("shift");
+  const shiftNum = shift ? Number(shift) : null;
   const detail = searchParams.get("detail") === "true";
 
   // ── Cache check (setelah auth, cache per user supaya tidak lintas akun) ──
-  const cacheKey = `${ctx.userId ?? 'anon'}|${gudangIdParam ?? 'all'}|${start ?? ''}|${end ?? ''}|${detail}`;
+  const cacheKey = `${ctx.userId ?? 'anon'}|${gudangIdParam ?? 'all'}|${start ?? ''}|${end ?? ''}|${shift ?? ''}|${detail}`;
   const cached = aggregateCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.data);
@@ -203,7 +206,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const sessions = [latestSession, ...otherSessions];
+    // Saring sesi agar jika ada gudang mengunggah beberapa kali pada tanggal yang sama,
+    // hanya sesi terbaru (snapshot paling mutakhir) yang digunakan.
+    const seenGudangDate = new Set<string>();
+    const deduplicatedSessions: typeof otherSessions = [];
+    for (const s of [latestSession, ...otherSessions]) {
+      const key = `${s.gudangId ?? 'global'}_${s.dateStr}`;
+      if (!seenGudangDate.has(key)) {
+        seenGudangDate.add(key);
+        deduplicatedSessions.push(s);
+      }
+    }
+    const sessions = deduplicatedSessions;
 
     // ── Buat peta tanggal -> gudang mana saja yang mengunggah sesi lokal ──
     const localUploadsByDate = new Map<string, Set<number>>();
@@ -321,11 +335,18 @@ export async function GET(req: NextRequest) {
     // yang diminta → angka card Inbound/Outbound tidak sesuai data yang di-upload.
     if (start || end) {
       allRawMovements = allRawMovements.filter((m) => {
-        const d = m.dateStr || "";
+        const d = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : (m.dateStr || "");
         if (!d) return true;
         if (start && d < start) return false;
         if (end && d > end) return false;
         return true;
+      });
+    }
+
+    if (shiftNum) {
+      allRawMovements = allRawMovements.filter((m) => {
+        const s = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
+        return s === shiftNum;
       });
     }
 
@@ -347,23 +368,30 @@ export async function GET(req: NextRequest) {
     allRawMovements = removeInternalTfSloc(allRawMovements as any) as RawMovementRow[];
 
     // ── Build hydrated movements (matching loadSession format) ──
-    const movements = allRawMovements.map((m: RawMovementRow, idx: number) => ({
-      movementId: `agg-${idx}`,
-      postingDate: new Date(m.dateStr + 'T12:00:00Z'),
-      dateStr: m.dateStr,
-      moveType: m.moveType,
-      description: m.description,
-      material: m.material || undefined,
-      workCenter: m.workCenter || "",
-      batch: m.batch || "",
-      quantity: m.quantity,
-      unitQuantity: m.unitQuantity || 0,
-      userName: m.userName || "",
-      storageLocation: m.storageLocation || "",
-      group: m.group as MovementGroup,
-      color: m.color,
-      movementStatus: classifyBatch(m.batch || ""),
-    }));
+    const movements = allRawMovements.map((m: RawMovementRow, idx: number) => {
+      const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+      const mShift = (m.shift as 1 | 2 | 3) || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
+      return {
+        movementId: `agg-${idx}`,
+        postingDate: new Date(opDate + 'T12:00:00Z'),
+        dateStr: opDate,
+        moveType: m.moveType,
+        description: m.description,
+        material: m.material || undefined,
+        workCenter: m.workCenter || "",
+        batch: m.batch || "",
+        quantity: m.quantity,
+        unitQuantity: m.unitQuantity || 0,
+        userName: m.userName || "",
+        storageLocation: m.storageLocation || "",
+        group: m.group as MovementGroup,
+        color: m.color,
+        movementStatus: classifyBatch(m.batch || ""),
+        entryTime: m.entryTime || undefined,
+        entryDate: m.entryDate || undefined,
+        shift: mShift,
+      };
+    });
 
     // Server-side (where localStorage is unavailable) fallback: we do not reclassify 311 
     // inside the aggregate API here. The client side \`filterAndReclassify()\` logic

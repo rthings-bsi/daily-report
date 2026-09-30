@@ -153,7 +153,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
   const donutChartData = useMemo(() => {
     return [
       {
-        name: 'Sesuai',
+        name: 'Match',
         value: overall.matchCount,
         color: '#10b981',
         statusKey: 'MATCH',
@@ -207,9 +207,9 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
         y={posY}
         fill={labelColor}
         textAnchor="middle"
-        fontSize={10}
-        fontWeight={700}
-        className="font-mono tabular-nums select-none"
+        fontSize={11}
+        fontWeight={600}
+        className="font-sans tabular-nums select-none"
       >
         {displayLabel}
       </text>
@@ -223,25 +223,27 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
     const s: SlocStatItem = data.raw;
 
     return (
-      <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-3.5 shadow-xl text-xs space-y-2 z-50 min-w-[200px]">
+      <div className="bg-white/95 backdrop-blur-xl border border-white/90 rounded-2xl p-4 shadow-xl text-xs space-y-2 z-50 min-w-[210px] shadow-apple-card">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <div className="flex items-center gap-1.5 font-black text-slate-900 text-sm">
-            <MapPin size={13} className="text-blue-600" />
+            <div className="w-5 h-5 rounded-md bg-blue-50 text-[#007AFF] flex items-center justify-center">
+              <MapPin size={12} strokeWidth={2.5} />
+            </div>
             <span>SLoc {s.sloc}</span>
           </div>
           <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider"
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider shadow-xs"
             style={{ backgroundColor: getAccuracyColor(s.accuracyPct) }}
           >
             {s.accuracyPct >= 95 ? 'Tinggi' : s.accuracyPct >= 85 ? 'Sedang' : 'Kritis'}
           </span>
         </div>
 
-        <div className="space-y-1 text-slate-600 font-medium">
+        <div className="space-y-1.5 text-slate-600 font-medium">
           <div className="flex justify-between items-center">
             <span>Akurasi Fisik:</span>
             <span
-              className="font-bold font-mono"
+              className="font-bold font-mono tabular-nums"
               style={{ color: getAccuracyColor(s.accuracyPct) }}
             >
               {s.accuracyPct.toFixed(1)}%
@@ -249,25 +251,25 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           </div>
           <div className="flex justify-between items-center">
             <span>Total Item Baris:</span>
-            <span className="font-bold text-slate-800 font-mono">
+            <span className="font-bold text-slate-800 font-mono tabular-nums">
               {s.totalItems.toLocaleString('id-ID')}
             </span>
           </div>
           <div className="flex justify-between items-center text-emerald-700">
-            <span>Sesuai (Match):</span>
-            <span className="font-bold font-mono">{s.matchCount.toLocaleString('id-ID')}</span>
+            <span>Match:</span>
+            <span className="font-bold font-mono tabular-nums">{s.matchCount.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between items-center text-rose-600">
-            <span>Selisih Kurang (-):</span>
-            <span className="font-bold font-mono">{s.deficitCount.toLocaleString('id-ID')}</span>
+            <span>Mismatch Kurang (-):</span>
+            <span className="font-bold font-mono tabular-nums">{s.deficitCount.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between items-center text-amber-600">
-            <span>Selisih Lebih (+):</span>
-            <span className="font-bold font-mono">{s.surplusCount.toLocaleString('id-ID')}</span>
+            <span>Mismatch Lebih (+):</span>
+            <span className="font-bold font-mono tabular-nums">{s.surplusCount.toLocaleString('id-ID')}</span>
           </div>
-          <div className="border-t border-slate-100 pt-1 mt-1 flex justify-between items-center">
+          <div className="border-t border-slate-100 pt-1.5 mt-1 flex justify-between items-center">
             <span>Fisik Audit:</span>
-            <span className="font-bold text-slate-900 font-mono">
+            <span className="font-bold text-slate-900 font-mono tabular-nums">
               {s.tonAudit.toFixed(2)} TON ({s.qtyAudit.toLocaleString('id-ID')} PCS)
             </span>
           </div>
@@ -305,66 +307,58 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* ─── CARD 1: HASIL STO PER SLOC (Left Column) ─── */}
-      <div className="lg:col-span-8 bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col justify-between transition-all hover:shadow-md min-w-0">
+      <div className="lg:col-span-8 glass-card rounded-[28px] p-5 sm:p-6 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple relative overflow-hidden group min-w-0">
         <div>
           {/* Card Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/50">
             {/* Title & Subtitle */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-slate-100/90 flex items-center justify-center text-slate-700 border border-slate-200/70 shrink-0">
-                <MapPin size={18} />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-50/80 text-[#007AFF] border border-blue-200/50 flex items-center justify-center shrink-0">
+                <MapPin size={16} strokeWidth={2.4} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-wider uppercase">
-                  HASIL STO PER SLOC
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  Hasil STO per SLoc
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Deviasi akurasi per SLoc di {activeGudangLabel} ({slocStats.length} SLoc)
+                <p className="text-xs text-slate-500 font-medium">
+                  {activeGudangLabel} • {slocStats.length} SLoc terdata
                 </p>
               </div>
             </div>
 
-            {/* Right Controls: Badge, Dropdown, Segmented Control, Expand */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {/* Gudang Badge */}
-              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                {activeGudangLabel}
-              </span>
-
-              {/* Warehouse Dropdown Switcher */}
+            {/* Right Controls: Warehouse Selector, Segmented Control, Expand */}
+            <div className="flex items-center gap-2">
+              {/* Warehouse Dropdown Switcher (minimal pill, no duplicate static badge) */}
               {onSelectGudang && (
                 <div className="relative">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-xs font-bold text-slate-700 transition-colors shadow-2xs">
-                    <Building2 size={13} className="text-slate-500" />
-                    <select
-                      value={gudangId ?? ''}
-                      onChange={e => {
-                        const val = e.target.value ? parseInt(e.target.value, 10) : null;
-                        onSelectGudang(val);
-                      }}
-                      className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer appearance-none pr-3"
-                    >
-                      <option value="">GUDANG: {activeGudangLabel}</option>
-                      {GUDANG_LIST.map(g => (
-                        <option key={g.gudangId} value={g.gudangId}>
-                          GUDANG: Gd.{g.gudangId} ({g.prefix})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="text-slate-400 -ml-2 pointer-events-none" />
-                  </div>
+                  <select
+                    value={gudangId ?? ''}
+                    onChange={e => {
+                      const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                      onSelectGudang(val);
+                    }}
+                    className="h-7 pl-2.5 pr-6 rounded-lg bg-slate-100/80 hover:bg-slate-200/60 border border-slate-200/60 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer appearance-none transition-apple"
+                  >
+                    <option value="">Semua Gudang</option>
+                    {GUDANG_LIST.map(g => (
+                      <option key={g.gudangId} value={g.gudangId}>
+                        Gd.{g.gudangId} ({g.prefix})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={11} className="text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               )}
 
-              {/* Metric Switcher: Tonase | Qty Pcs | Akurasi (%) */}
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200/80">
+              {/* iOS Segmented Metric Switcher: Tonase | Qty | Akurasi */}
+              <div className="flex items-center p-0.5 rounded-lg bg-slate-100/90 border border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setMetricView('tonnage')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-2.5 py-1 text-[11px] transition-apple cursor-pointer ${
                     metricView === 'tonnage'
-                      ? 'bg-white text-blue-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold rounded-[6px]'
+                      : 'text-slate-500 hover:text-slate-900 font-medium'
                   }`}
                 >
                   Tonase
@@ -372,24 +366,24 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                 <button
                   type="button"
                   onClick={() => setMetricView('qty')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-2.5 py-1 text-[11px] transition-apple cursor-pointer ${
                     metricView === 'qty'
-                      ? 'bg-white text-indigo-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold rounded-[6px]'
+                      : 'text-slate-500 hover:text-slate-900 font-medium'
                   }`}
                 >
-                  Qty Pcs
+                  Qty
                 </button>
                 <button
                   type="button"
                   onClick={() => setMetricView('accuracy')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-2.5 py-1 text-[11px] transition-apple cursor-pointer ${
                     metricView === 'accuracy'
-                      ? 'bg-white text-emerald-700 border border-emerald-300 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-[#34C759] shadow-xs font-bold rounded-[6px]'
+                      : 'text-slate-500 hover:text-slate-900 font-medium'
                   }`}
                 >
-                  Akurasi (%)
+                  Akurasi
                 </button>
               </div>
 
@@ -397,52 +391,47 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
               <button
                 type="button"
                 onClick={() => setExpandedCard(expandedCard === 'sloc' ? null : 'sloc')}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 flex items-center justify-center transition-apple cursor-pointer shrink-0"
                 title="Perbesar Grafik"
               >
-                <Maximize2 size={14} />
+                <Maximize2 size={13} strokeWidth={2.2} />
               </button>
             </div>
           </div>
 
           {/* Legend & Filter Sub-row */}
-          <div className="flex items-center justify-between gap-4 mt-3 mb-2 flex-wrap">
+          <div className="flex items-center justify-between gap-3 mt-2.5 mb-1.5 flex-wrap">
             {/* Color indicators */}
-            <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]" />
                 <span>Tinggi (≥ 95%)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF9500]" />
                 <span>Sedang (85 - 94%)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30]" />
                 <span>Kritis (&lt; 85%)</span>
               </div>
             </div>
 
             {/* SLoc Filter indicator Pill */}
-            <div className="flex items-center gap-2">
+            {selectedSloc ? (
               <button
                 type="button"
                 onClick={() => onSelectSloc && onSelectSloc('')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-                  selectedSloc
-                    ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                    : 'bg-slate-100/90 text-slate-700 border-slate-200 hover:bg-slate-200/70'
-                }`}
+                className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#007AFF] border border-blue-200/80 hover:bg-blue-100/80 transition-apple cursor-pointer"
               >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${selectedSloc ? 'bg-blue-600' : 'bg-slate-400'}`}
-                />
-                <span>
-                  {selectedSloc ? `Filter: ${selectedSloc} (Reset)` : `Semua SLoc (${slocStats.length})`}
-                </span>
-                {selectedSloc && <X size={12} className="ml-0.5 text-blue-600" />}
+                <span>SLoc: {selectedSloc}</span>
+                <X size={11} strokeWidth={2.5} />
               </button>
-            </div>
+            ) : (
+              <span className="text-[11px] font-medium text-slate-400">
+                {slocStats.length} SLoc
+              </span>
+            )}
           </div>
 
           {/* Main Bar Chart Canvas */}
@@ -465,7 +454,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                     }
                   }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.6)" />
                   <XAxis
                     dataKey="sloc"
                     tickLine={false}
@@ -480,10 +469,10 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                     axisLine={false}
                     tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8' }}
                   />
-                  <Tooltip content={<SlocTooltip />} cursor={{ fill: 'rgba(241, 245, 249, 0.6)' }} />
+                  <Tooltip content={<SlocTooltip />} cursor={{ fill: 'rgba(241, 245, 249, 0.5)' }} />
                   <Bar
                     dataKey="value"
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                     maxBarSize={38}
                     className="cursor-pointer transition-all duration-300"
                   >
@@ -491,7 +480,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                       <Cell
                         key={`cell-${index}`}
                         fill={entry.color}
-                        fillOpacity={entry.isSelected ? 1 : 0.28}
+                        fillOpacity={entry.isSelected ? 1 : 0.25}
                         stroke={selectedSloc === entry.sloc ? '#0f172a' : 'transparent'}
                         strokeWidth={selectedSloc === entry.sloc ? 2 : 0}
                       />
@@ -510,20 +499,20 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
       </div>
 
       {/* ─── CARD 2: HASIL STO ALL (Right Column) ─── */}
-      <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col justify-between transition-all hover:shadow-md min-w-0">
+      <div className="lg:col-span-4 glass-card rounded-[28px] p-5 sm:p-6 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple relative overflow-hidden group min-w-0">
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-slate-100/90 flex items-center justify-center text-slate-700 border border-slate-200/70 shrink-0">
-                <PieChartIcon size={18} />
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-50/80 text-[#AF52DE] border border-purple-200/50 flex items-center justify-center shrink-0">
+                <PieChartIcon size={16} strokeWidth={2.4} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-wider uppercase">
-                  HASIL STO ALL
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  Status Akurasi Global
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Persentase akurasi &amp; status selisih
+                <p className="text-xs text-slate-500 font-medium">
+                  Distribusi kecocokan fisik vs SAP
                 </p>
               </div>
             </div>
@@ -532,10 +521,10 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
             <button
               type="button"
               onClick={() => setExpandedCard(expandedCard === 'all' ? null : 'all')}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+              className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 flex items-center justify-center transition-apple cursor-pointer shrink-0"
               title="Perbesar Donut Chart"
             >
-              <Maximize2 size={14} />
+              <Maximize2 size={13} strokeWidth={2.2} />
             </button>
           </div>
 
@@ -543,6 +532,18 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           <div className="relative w-full h-[220px] sm:h-[235px] flex items-center justify-center mt-2 min-w-0">
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
+                {/* Background track circle */}
+                <Pie
+                  data={[{ value: 1 }]}
+                  dataKey="value"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={68}
+                  outerRadius={95}
+                  fill="#F1F5F9"
+                  isAnimationActive={false}
+                  stroke="none"
+                />
                 <Pie
                   data={donutChartData}
                   dataKey="value"
@@ -554,7 +555,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
                   startAngle={90}
                   endAngle={-270}
                   paddingAngle={donutChartData.filter(d => d.value > 0).length > 1 ? 2.5 : 0}
-                  cornerRadius={4}
+                  cornerRadius={6}
                   className="cursor-pointer"
                   onClick={(entry: any) => {
                     const statusKey = entry?.statusKey || entry?.payload?.statusKey;
@@ -577,35 +578,35 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
               </PieChart>
             </ResponsiveContainer>
 
-            {/* Center Label (Percentage + AKURASI) */}
+            {/* Center Label (Percentage + Akurasi Fisik) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-              <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight tabular-nums font-mono">
+              <span className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight tabular-nums">
                 {overall.accuracyPct.toFixed(1)}%
               </span>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                AKURASI
+              <span className="text-xs font-semibold text-slate-400 mt-0.5">
+                Akurasi Fisik
               </span>
             </div>
           </div>
         </div>
 
-        {/* Bottom 3 Summary Status Pills: Sesuai | Minus (-) | Plus (+) */}
-        <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-slate-100 mt-2">
+        {/* Bottom 3 Summary Status Cards: Sesuai | Kurang (-) | Lebih (+) */}
+        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200/50 mt-2">
           {/* 1. Sesuai */}
           <button
             type="button"
             onClick={() => onSelectStatus && onSelectStatus(selectedStatus === 'MATCH' ? 'ALL' : 'MATCH')}
-            className={`rounded-2xl p-2.5 text-center transition-all border ${
+            className={`p-2.5 rounded-xl text-center transition-apple cursor-pointer ${
               selectedStatus === 'MATCH'
-                ? 'bg-emerald-100/90 border-emerald-400 ring-2 ring-emerald-500/30'
-                : 'bg-emerald-50/50 hover:bg-emerald-50 border-emerald-200/80 hover:border-emerald-300'
+                ? 'bg-emerald-50/90 border border-emerald-300 ring-2 ring-emerald-500/20 shadow-apple-xs'
+                : 'bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/60'
             }`}
           >
-            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate">Sesuai</span>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] shrink-0" />
+              <span>Match</span>
             </div>
-            <div className="text-lg sm:text-xl font-black text-emerald-800 mt-1 tabular-nums font-mono">
+            <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">
               {overall.matchCount.toLocaleString('id-ID')}
             </div>
           </button>
@@ -614,17 +615,17 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           <button
             type="button"
             onClick={() => onSelectStatus && onSelectStatus(selectedStatus === 'DEFICIT' ? 'ALL' : 'DEFICIT')}
-            className={`rounded-2xl p-2.5 text-center transition-all border ${
+            className={`p-2.5 rounded-xl text-center transition-apple cursor-pointer ${
               selectedStatus === 'DEFICIT'
-                ? 'bg-rose-100/90 border-rose-400 ring-2 ring-rose-500/30'
-                : 'bg-rose-50/50 hover:bg-rose-50 border-rose-200/80 hover:border-rose-300'
+                ? 'bg-rose-50/90 border border-rose-300 ring-2 ring-rose-500/20 shadow-apple-xs'
+                : 'bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/60'
             }`}
           >
-            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-rose-800">
-              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-              <span className="truncate">Minus (-)</span>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] shrink-0" />
+              <span>Kurang (-)</span>
             </div>
-            <div className="text-lg sm:text-xl font-black text-rose-800 mt-1 tabular-nums font-mono">
+            <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">
               {overall.deficitCount.toLocaleString('id-ID')}
             </div>
           </button>
@@ -633,17 +634,17 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           <button
             type="button"
             onClick={() => onSelectStatus && onSelectStatus(selectedStatus === 'SURPLUS' ? 'ALL' : 'SURPLUS')}
-            className={`rounded-2xl p-2.5 text-center transition-all border ${
+            className={`p-2.5 rounded-xl text-center transition-apple cursor-pointer ${
               selectedStatus === 'SURPLUS'
-                ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-500/30'
-                : 'bg-amber-50/50 hover:bg-amber-50 border-amber-200/80 hover:border-amber-300'
+                ? 'bg-amber-50/90 border border-amber-300 ring-2 ring-amber-500/20 shadow-apple-xs'
+                : 'bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/60'
             }`}
           >
-            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-800">
-              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-              <span className="truncate">Plus (+)</span>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF9500] shrink-0" />
+              <span>Lebih (+)</span>
             </div>
-            <div className="text-lg sm:text-xl font-black text-amber-800 mt-1 tabular-nums font-mono">
+            <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">
               {overall.surplusCount.toLocaleString('id-ID')}
             </div>
           </button>
@@ -652,12 +653,12 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
 
       {/* ─── EXPANDED MODAL (Fullscreen inspection) ─── */}
       {expandedCard && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white/95 backdrop-blur-2xl border border-white/90 rounded-[28px] p-6 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-slate-900/15">
+            <div className="flex items-center justify-between border-b border-slate-200/50 pb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800">
-                  {expandedCard === 'sloc' ? <MapPin size={20} /> : <PieChartIcon size={20} />}
+                <div className="w-10 h-10 rounded-2xl bg-white shadow-apple-xs border border-slate-200/70 flex items-center justify-center text-slate-800">
+                  {expandedCard === 'sloc' ? <MapPin size={20} className="text-[#007AFF]" /> : <PieChartIcon size={20} className="text-[#AF52DE]" />}
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900 uppercase">
@@ -673,9 +674,9 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
               <button
                 type="button"
                 onClick={() => setExpandedCard(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-apple cursor-pointer"
               >
-                <X size={18} />
+                <X size={16} strokeWidth={2.4} />
               </button>
             </div>
 
@@ -770,7 +771,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
 
                 <div className="grid grid-cols-3 gap-4 w-full max-w-lg">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
-                    <div className="text-xs font-bold text-emerald-800">Sesuai</div>
+                    <div className="text-xs font-bold text-emerald-800">Match</div>
                     <div className="text-2xl font-black text-emerald-800 mt-1 font-mono">
                       {overall.matchCount.toLocaleString('id-ID')}
                     </div>

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { FileUp, LayoutDashboard, Layout, TrendingUp, Upload, Check, X, Filter, Package, Box, Copy, Loader2, AlertCircle, Download } from 'lucide-react';
 import { copyDashboardToClipboard } from '@/lib/clipboard-capture';
 import { useRouter } from 'next/navigation';
-import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock } from '@/lib/excel-parser';
+import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock, getShiftFromTime, getOperationalDateStr } from '@/lib/excel-parser';
 import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
 import { filterEnabledMovements, filterEnabledWorkCenters, getMovementInfo } from '@/lib/sap-mapping';
 import { StatsCard } from '@/components/StatsCard';
@@ -64,6 +64,7 @@ export default function Home() {
   const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedShift, setSelectedShift] = useState<number | null>(null);
   const [history, setHistory] = useState<HistorySession[]>([]);
   const sessionGudang = useMemo(() => getUserGudang(session?.user?.name), [session]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,16 +97,24 @@ export default function Home() {
        console.log('[FM-step4] after reclassify311:', result.length);
     }
     if (startDate) result = result.filter(m => {
-        const mDate = m.dateStr?.split('T')[0];
+        const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+        const mDate = opDate?.split('T')[0];
         return mDate ? mDate >= startDate : true;
     });
     if (endDate) result = result.filter(m => {
-        const mDate = m.dateStr?.split('T')[0];
+        const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+        const mDate = opDate?.split('T')[0];
         return mDate ? mDate <= endDate : true;
     });
+    if (selectedShift !== null) {
+      result = result.filter(m => {
+        const mShift = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
+        return mShift === selectedShift;
+      });
+    }
     console.log('[FM-final] filteredMovements:', result.length);
     return result;
-  }, [movements, selectedGudang, startDate, endDate]);
+  }, [movements, selectedGudang, startDate, endDate, selectedShift]);
 
   const filteredStocks = useMemo(() => {
     if (!selectedGudang || !stocks.length) return stocks;
@@ -122,37 +131,35 @@ export default function Home() {
   }, [stockSummary, filteredStocks, filteredMovements]);
 
   const filteredStats = useMemo(() => {
-    // Kalo movements (detail) lokal kosong (karena aggregate hanya mengembalikan summaries),
-    // langsung gunakan stats pre-calculated dari server (yang sudah difilter di server).
-    if (filteredMovements.length === 0) {
-      if (stats) return stats;
-
-      // Fallback jika ada data summary tetapi tidak ada object stats terpisah
-      if (movementSummaries && movementSummaries.length > 0) {
-          let incoming = 0, outgoing = 0, incCount = 0, outCount = 0;
-          movementSummaries.forEach(m => {
-              if (m.group === 'Masuk') {
-                  incoming += m.totalQuantity;
-                  incCount += m.totalCount;
-              } else if (m.group === 'Keluar') {
-                  outgoing += Math.abs(m.totalQuantity);
-                  outCount += m.totalCount;
-              }
-          });
-          return {
-              totalIncoming: incoming,
-              totalOutgoing: outgoing,
-              netMovement: incoming - outgoing,
-              incomingCount: incCount,
-              outgoingCount: outCount,
-              totalCount: incCount + outCount
-          };
-      }
-      return null;
+    if (movements && movements.length > 0) {
+      return calculateStats(filteredMovements);
     }
-    // Jika ada data movements lokal (habis upload baru), hitung manual
-    return calculateStats(filteredMovements);
-  }, [filteredMovements, movementSummaries, stats]);
+
+    if (stats) return stats;
+
+    // Fallback jika ada data summary tetapi tidak ada object stats terpisah
+    if (movementSummaries && movementSummaries.length > 0) {
+        let incoming = 0, outgoing = 0, incCount = 0, outCount = 0;
+        movementSummaries.forEach(m => {
+            if (m.group === 'Masuk') {
+                incoming += m.totalQuantity;
+                incCount += m.totalCount;
+            } else if (m.group === 'Keluar') {
+                outgoing += Math.abs(m.totalQuantity);
+                outCount += m.totalCount;
+            }
+        });
+        return {
+            totalIncoming: incoming,
+            totalOutgoing: outgoing,
+            netMovement: incoming - outgoing,
+            incomingCount: incCount,
+            outgoingCount: outCount,
+            totalCount: incCount + outCount
+        };
+    }
+    return null;
+  }, [movements, filteredMovements, movementSummaries, stats]);
 
   // ─── Pipa NC stats ───
   const pipaNCStats = useMemo(() => {
@@ -290,10 +297,12 @@ export default function Home() {
         const info = getMovementInfo(m.moveType);
         // For 311, keep the direction already set by parser (based on quantity sign)
         const is311 = m.moveType === '311';
+        const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+        const mShift = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
         return {
           movementId: m.movementId || `move-${Math.random()}`,
-          postingDate: m.dateStr,
-          dateStr: m.dateStr,
+          postingDate: opDate,
+          dateStr: opDate,
           moveType: m.moveType,
           description: is311 ? m.description : info.description,
           material: m.material || undefined,
@@ -306,6 +315,9 @@ export default function Home() {
           group: is311 ? (m.group || 'Transfer') : info.group,
           color: info.color,
           movementStatus: classifyBatch(m.batch || ''),
+          entryTime: m.entryTime || undefined,
+          entryDate: m.entryDate || undefined,
+          shift: mShift,
         };
       }) : [];
       // Fallback: if no stats, calculate from raw movements (legacy)
@@ -419,10 +431,12 @@ export default function Home() {
       const movs: ProcessedMovement[] = data.movements && data.movements.length > 0 ? data.movements.map((m: any) => {
         const info = getMovementInfo(m.moveType);
         const is311 = m.moveType === '311';
+        const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+        const mShift = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
         return {
           movementId: m.movementId || `agg-${Math.random()}`,
-          postingDate: m.dateStr,
-          dateStr: m.dateStr,
+          postingDate: opDate,
+          dateStr: opDate,
           moveType: m.moveType,
           description: is311 ? m.description : info.description,
           material: m.material || undefined,
@@ -435,6 +449,9 @@ export default function Home() {
           group: is311 ? (m.group || 'Transfer') : info.group,
           color: info.color,
           movementStatus: classifyBatch(m.batch || ''),
+          entryTime: m.entryTime || undefined,
+          entryDate: m.entryDate || undefined,
+          shift: mShift,
         };
       }) : [];
 
@@ -510,6 +527,7 @@ export default function Home() {
     if (selectedGudang) params.set('gudangId', String(selectedGudang));
     if (startDate) params.set('start', startDate);
     if (endDate) params.set('end', endDate);
+    if (selectedShift !== null) params.set('shift', String(selectedShift));
 
     const qs = params.toString();
     if (qs === lastAggregateQs.current) return;
@@ -522,7 +540,7 @@ export default function Home() {
       loadAggregate(params);
     }, 400);
     return () => clearTimeout(t);
-  }, [startDate, endDate, selectedGudang, history, loadAggregate]);
+  }, [startDate, endDate, selectedGudang, selectedShift, history, loadAggregate]);
 
   
   useEffect(() => {
@@ -760,7 +778,7 @@ export default function Home() {
           <button
             onClick={() => setFilterOpen(!filterOpen)}
             className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[10px] font-bold border transition-all shadow-sm ${
-              selectedGudang || startDate || endDate
+              selectedGudang || startDate || endDate || selectedShift !== null
                 ? 'bg-[#1591DC] text-white border-[#1591DC] hover:bg-[#2C5EAD]'
                 : 'text-[#1591DC] bg-white/80 border-[#C4E2F5]/60 hover:bg-white hover:border-[#4BB8FA]/50'
             }`}
@@ -768,9 +786,9 @@ export default function Home() {
           >
             <Filter size={12} strokeWidth={2.5} className="shrink-0" />
             <span className="hidden lg:inline">Filter</span>
-            {(selectedGudang || startDate || endDate) && (
+            {(selectedGudang || startDate || endDate || selectedShift !== null) && (
               <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-black">
-                {(selectedGudang ? 1 : 0) + ((startDate || endDate) ? 1 : 0)}
+                {(selectedGudang ? 1 : 0) + ((startDate || endDate) ? 1 : 0) + (selectedShift !== null ? 1 : 0)}
               </span>
             )}
           </button>
@@ -778,7 +796,7 @@ export default function Home() {
           {filterOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
-              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl shadow-xl shadow-[#1591DC]/10 p-4 min-w-[260px] space-y-3">
+              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl shadow-xl shadow-[#1591DC]/10 p-4 min-w-[280px] space-y-3">
                 <p className="text-[9px] font-bold text-[#2C5EAD]/50 uppercase tracking-widest">Filter Data</p>
 
                 {session?.user?.role === 'admin' && (
@@ -816,9 +834,71 @@ export default function Home() {
                   </div>
                 </div>
 
-                {(selectedGudang || startDate || endDate) && (
+                {/* ─── Shift Kerja Filter ─── */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-semibold text-[#2C5EAD]/70 block">Shift Kerja</label>
+                    <span className="text-[9px] text-slate-400 font-medium">Entered at (SAP)</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/60">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShift(null)}
+                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple ${
+                        selectedShift === null
+                          ? 'bg-white text-slate-800 shadow-sm border border-slate-200/80 font-bold'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShift(1)}
+                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
+                        selectedShift === 1
+                          ? 'bg-[#007AFF] text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                      }`}
+                      title="07:00 - 15:00"
+                    >
+                      Shift 1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShift(2)}
+                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
+                        selectedShift === 2
+                          ? 'bg-[#007AFF] text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                      }`}
+                      title="15:00 - 23:00"
+                    >
+                      Shift 2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShift(3)}
+                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
+                        selectedShift === 3
+                          ? 'bg-[#007AFF] text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                      }`}
+                      title="23:00 - 07:00"
+                    >
+                      Shift 3
+                    </button>
+                  </div>
+                  <div className="flex justify-between text-[8.5px] text-slate-400 mt-1 px-1 font-medium tracking-tight">
+                    <span>S1: 07.00–15.00</span>
+                    <span>S2: 15.00–23.00</span>
+                    <span>S3: 23.00–07.00</span>
+                  </div>
+                </div>
+
+                {(selectedGudang || startDate || endDate || selectedShift !== null) && (
                   <button
-                    onClick={() => { setSelectedGudang(null); setStartDate(''); setEndDate(''); setFilterOpen(false); }}
+                    onClick={() => { setSelectedGudang(null); setStartDate(''); setEndDate(''); setSelectedShift(null); setFilterOpen(false); }}
                     className="w-full h-7 text-[10px] font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5"
                   >
                     <X size={12} strokeWidth={3} /> Reset Filter
@@ -1131,6 +1211,7 @@ export default function Home() {
                   selectedGudang={selectedGudang}
                   startDate={startDate}
                   endDate={endDate}
+                  selectedShift={selectedShift}
                 />
               </div>
 
@@ -1214,8 +1295,14 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Date & Refresh Pill */}
+                  {/* Date Pill */}
                   <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/60 border border-white/70 shadow-apple-sm text-xs font-medium text-slate-700">
+                    {selectedShift !== null && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-apple-blue/10 border border-apple-blue/20 text-apple-blue text-[11px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-apple-blue animate-pulse" />
+                        Shift {selectedShift}
+                      </div>
+                    )}
                     <div className="flex flex-col text-right">
                       <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Waktu Update</span>
                       <span className="font-bold text-slate-800">
@@ -1224,29 +1311,13 @@ export default function Home() {
                           : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const params = new URLSearchParams();
-                        if (selectedGudang) params.set('gudangId', String(selectedGudang));
-                        if (startDate) params.set('start', startDate);
-                        if (endDate) params.set('end', endDate);
-                        loadAggregate(params);
-                      }}
-                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-white text-slate-700 flex items-center justify-center transition-apple shadow-sm cursor-pointer hover:rotate-180"
-                      title="Sync Data Sekarang"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-                      </svg>
-                    </button>
                   </div>
                 </div>
               </header>
 
               {/* ─── KPI Section ─── */}
               <section aria-label="Key Performance Indicators" data-purpose="hero-kpi-grid">
-                <SectionTitle subtitle="Arus tonase material masuk, keluar, dan selisih bersih">
+                <SectionTitle>
                   Key Performance Indicators
                 </SectionTitle>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
@@ -1438,6 +1509,7 @@ export default function Home() {
                   selectedGudang={selectedGudang}
                   startDate={startDate}
                   endDate={endDate}
+                  selectedShift={selectedShift}
                 />
               </section>
 

@@ -73,11 +73,13 @@ interface AuditSession {
 
 function AuditSlocContent() {
   const { data: session, status } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [sessions, setSessions] = useState<AuditSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [currentSession, setCurrentSession] = useState<AuditSession | null>(null);
   const [items, setItems] = useState<AuditItem[]>([]);
   const [availableSlocs, setAvailableSlocs] = useState<string[]>([]);
@@ -85,6 +87,41 @@ function AuditSlocContent() {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(50);
   const [totalItems, setTotalItems] = useState<number>(0);
+
+  // Dates with audit sessions
+  const availableDates = useMemo(() => {
+    const set = new Set<string>();
+    sessions.forEach(s => {
+      if (s.dateStr) set.add(s.dateStr);
+    });
+    return Array.from(set).sort().reverse();
+  }, [sessions]);
+
+  // Sessions for currently selected date
+  const sessionsOnSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return sessions.filter(s => s.dateStr === selectedDate);
+  }, [sessions, selectedDate]);
+
+  // Change date and auto-select matching session
+  const handleDateChange = useCallback(
+    (newDate: string) => {
+      setSelectedDate(newDate);
+      setPage(1);
+      const matching = sessions.filter(s => s.dateStr === newDate);
+      if (matching.length > 0) {
+        setSelectedSessionId(matching[0].id);
+      } else {
+        setSelectedSessionId('');
+        setCurrentSession(null);
+        setItems([]);
+        setTotalItems(0);
+        setSlocStats([]);
+        setOverallBreakdown(null);
+      }
+    },
+    [sessions]
+  );
 
   // Filters
   const [search, setSearch] = useState<string>('');
@@ -170,9 +207,30 @@ function AuditSlocContent() {
       const list: AuditSession[] = data.sessions || [];
       setSessions(list);
 
-      if (list.length > 0 && !selectedSessionId) {
-        setSelectedSessionId(list[0].id);
-      } else if (list.length === 0) {
+      if (list.length > 0) {
+        setSelectedDate(prevDate => {
+          const targetDate = prevDate && list.some(s => s.dateStr === prevDate)
+            ? prevDate
+            : list[0].dateStr;
+
+          const matching = list.filter(s => s.dateStr === targetDate);
+          if (matching.length > 0) {
+            setSelectedSessionId(prevId => {
+              const stillValid = matching.some(s => s.id === prevId);
+              return stillValid ? prevId : matching[0].id;
+            });
+          } else {
+            setSelectedSessionId('');
+            setCurrentSession(null);
+            setItems([]);
+            setTotalItems(0);
+            setSlocStats([]);
+            setOverallBreakdown(null);
+          }
+
+          return targetDate;
+        });
+      } else {
         setSelectedSessionId('');
         setCurrentSession(null);
         setItems([]);
@@ -185,7 +243,7 @@ function AuditSlocContent() {
     } finally {
       setLoading(false);
     }
-  }, [selectedGudang, selectedSessionId]);
+  }, [selectedGudang]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -305,6 +363,9 @@ function AuditSlocContent() {
       setUploadFile(null);
       setPasteText('');
       setUploadTitle('');
+      if (result.session?.dateStr) {
+        setSelectedDate(result.session.dateStr);
+      }
       setSelectedSessionId(result.session.id);
       await fetchSessions();
     } catch (err: any) {
@@ -316,6 +377,10 @@ function AuditSlocContent() {
 
   // Delete current session
   const handleDeleteSession = async () => {
+    if (!isAdmin) {
+      alert('Hanya admin yang memiliki izin untuk menghapus sesi audit.');
+      return;
+    }
     if (!selectedSessionId || !currentSession) return;
     const confirmDelete = window.confirm(
       `Hapus sesi audit "${currentSession.title}" beserta seluruh baris datanya? Tindakan ini tidak dapat dibatalkan.`
@@ -340,6 +405,10 @@ function AuditSlocContent() {
 
   // Export current table to Excel
   const handleExportExcel = () => {
+    if (!isAdmin) {
+      alert('Hanya admin yang memiliki izin untuk mengekspor data.');
+      return;
+    }
     if (items.length === 0) {
       alert('Tidak ada data yang dapat diekspor');
       return;
@@ -361,10 +430,10 @@ function AuditSlocContent() {
       'Diff Audit': item.diffAudit ?? '',
       Status:
         item.status === 'MATCH'
-          ? 'Cocok'
+          ? 'Match'
           : item.status === 'DEFICIT'
-            ? 'Selisih Kurang'
-            : 'Selisih Lebih',
+            ? 'Mismatch (-)'
+            : 'Mismatch (+)',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
@@ -384,21 +453,23 @@ function AuditSlocContent() {
   const totalPages = Math.ceil(totalItems / limit) || 1;
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="min-h-screen dashboard-apple-bg selection:bg-apple-blue/20 selection:text-apple-blue font-sans pb-16">
       {/* ─── Top Bar & Page Header ─── */}
       <PageHeader
         icon={ClipboardCheck}
-        iconBg="bg-blue-50 text-blue-600 border-blue-200/60"
+        iconBg="bg-blue-500/10 text-[#007AFF] border-blue-200/60 shadow-apple-xs"
         title="Audit SLoc"
         subtitle={
           currentSession
             ? `Plant ${currentSession.plant || '1105'} • ${currentSession.title}`
-            : 'Rekonsiliasi Fisik vs SAP'
+            : selectedDate
+              ? `Plant 1105 • Tanggal ${selectedDate}`
+              : 'Rekonsiliasi Fisik vs SAP'
         }
       >
         {/* Warehouse switcher (admin) */}
         {session?.user?.role === 'admin' && (
-          <div className="flex items-center gap-1.5 bg-slate-100/90 px-2 py-1.5 rounded-lg border border-slate-200">
+          <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl bg-white/80 backdrop-blur-md border border-slate-200/80 hover:bg-white text-xs font-semibold text-slate-700 shadow-apple-xs transition-apple">
             <Building2 size={13} className="text-slate-500 shrink-0" />
             <select
               value={selectedGudang ?? ''}
@@ -419,21 +490,32 @@ function AuditSlocContent() {
           </div>
         )}
 
-        {/* Session selector */}
-        {sessions.length > 0 && (
-          <div className="flex items-center gap-1.5 bg-slate-100/90 px-2 py-1.5 rounded-lg border border-slate-200">
-            <Calendar size={13} className="text-slate-500 shrink-0" />
+        {/* Date Filter */}
+        <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl bg-white/80 backdrop-blur-md border border-slate-200/80 hover:bg-white text-xs font-semibold text-slate-700 shadow-apple-xs transition-apple">
+          <Calendar size={13} className="text-[#007AFF] shrink-0" />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => handleDateChange(e.target.value)}
+            className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+            title="Filter tanggal audit"
+          />
+        </div>
+
+        {/* Multiple Sessions on Same Date Switcher */}
+        {sessionsOnSelectedDate.length > 1 && (
+          <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl bg-white/80 backdrop-blur-md border border-slate-200/80 hover:bg-white text-xs font-semibold text-slate-700 shadow-apple-xs transition-apple">
             <select
               value={selectedSessionId || ''}
               onChange={e => {
                 setSelectedSessionId(e.target.value);
                 setPage(1);
               }}
-              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[170px] truncate"
+              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[140px] truncate"
             >
-              {sessions.map(s => (
+              {sessionsOnSelectedDate.map((s, idx) => (
                 <option key={s.id} value={s.id}>
-                  {s.title} ({s.totalItems})
+                  Sesi {idx + 1}: {s.title} ({s.totalItems})
                 </option>
               ))}
             </select>
@@ -443,161 +525,230 @@ function AuditSlocContent() {
         {/* Actions */}
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
+          className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-[0_2px_8px_rgba(0,122,255,0.28)] hover:scale-[1.02] active:scale-[0.98] transition-apple cursor-pointer"
         >
-          <Upload size={13} />
+          <Upload size={13} strokeWidth={2.4} />
           <span className="hidden sm:inline">Upload</span>
         </button>
 
-        <button
-          onClick={handleExportExcel}
-          disabled={items.length === 0}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-50 transition-all"
-          title="Export Excel"
-        >
-          <Download size={13} />
-          <span className="hidden sm:inline">Export</span>
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              onClick={handleExportExcel}
+              disabled={items.length === 0}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold bg-white/80 backdrop-blur-md hover:bg-white text-slate-700 border border-slate-200/80 shadow-apple-xs hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-apple cursor-pointer"
+              title="Export Excel"
+            >
+              <Download size={13} strokeWidth={2.4} />
+              <span className="hidden sm:inline">Export</span>
+            </button>
 
-        {currentSession && (
-          <button
-            onClick={handleDeleteSession}
-            className="p-1.5 rounded-lg bg-white text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-all"
-            title="Hapus sesi audit"
-          >
-            <Trash2 size={13} />
-          </button>
+            {currentSession && (
+              <button
+                onClick={handleDeleteSession}
+                className="h-8 w-8 rounded-xl bg-white/80 backdrop-blur-md border border-slate-200/80 hover:bg-rose-50 hover:border-rose-200 text-rose-600 hover:text-rose-700 flex items-center justify-center shadow-apple-xs hover:scale-[1.02] active:scale-[0.98] transition-apple cursor-pointer"
+                title="Hapus sesi audit"
+              >
+                <Trash2 size={13} strokeWidth={2.2} />
+              </button>
+            )}
+          </>
         )}
       </PageHeader>
 
       {/* ─── Main Content Container ─── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* If no session exists */}
-        {!loading && sessions.length === 0 && (
-          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-              <FileSpreadsheet size={32} />
+        {/* If no session exists or no session for selected date */}
+        {!loading && !currentSession && (
+          <div className="glass-card rounded-[32px] p-12 text-center border border-white/80 shadow-apple-card space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#0A84FF] text-white flex items-center justify-center mx-auto shadow-apple-glow-blue">
+              <FileSpreadsheet size={30} strokeWidth={2.2} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Belum Ada Data Audit SLoc</h2>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                Silakan upload file Excel laporan audit SAP atau tempelkan data dari tabel SAP untuk memulai analisis rekonsiliasi stok fisik.
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                {selectedDate ? `Tidak Ada Data Audit pada ${selectedDate}` : 'Belum Ada Data Audit SLoc'}
+              </h2>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 font-medium">
+                {sessions.length > 0
+                  ? 'Belum ada data audit fisik SLoc untuk tanggal yang dipilih. Pilih tanggal yang memiliki data atau upload data audit baru.'
+                  : 'Silakan upload file Excel laporan audit SAP atau tempelkan data dari tabel SAP untuk memulai analisis rekonsiliasi stok fisik.'}
               </p>
             </div>
+
+            {availableDates.length > 0 && (
+              <div className="flex items-center justify-center gap-2 flex-wrap text-xs pt-1">
+                <span className="text-slate-400 font-medium">Tanggal tersedia:</span>
+                {availableDates.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleDateChange(d)}
+                    className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#007AFF] font-bold text-xs hover:bg-blue-100 transition-apple cursor-pointer"
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <button
-              onClick={() => setIsUploadOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
+              onClick={() => {
+                if (selectedDate) setUploadDate(selectedDate);
+                setIsUploadOpen(true);
+              }}
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-[0_2px_8px_rgba(0,122,255,0.28)] hover:scale-[1.02] active:scale-[0.98] transition-apple cursor-pointer"
             >
-              <Upload size={16} />
-              <span>Upload Data Sekarang</span>
+              <Upload size={14} strokeWidth={2.5} />
+              <span>{selectedDate ? `Upload Audit Tanggal ${selectedDate}` : 'Upload Data Sekarang'}</span>
             </button>
           </div>
         )}
 
-        {/* ─── KPI Summary Cards ─── */}
+        {/* ─── KPI Summary Cards (Apple iOS Style) ─── */}
         {currentSession && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Lines */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-                <span>Total Item Baris</span>
-                <Layers size={16} className="text-blue-600" />
+            {/* Card 1: Total Lines */}
+            <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Total Item Baris
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50/80 text-[#007AFF] border border-blue-100/60 flex items-center justify-center shrink-0">
+                  <Layers size={16} strokeWidth={2.4} />
+                </div>
               </div>
+
               <div className="mt-3">
-                <div className="text-2xl font-black text-slate-900 tabular-nums">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
                   {currentSession.totalItems.toLocaleString('id-ID')}
                 </div>
-                <div className="text-xs text-slate-500 font-medium mt-1">
-                  Plant {currentSession.plant || '1105'} • {availableSlocs.length} SLoc Terdata
+                <div className="text-xs text-slate-400 font-medium mt-1">
+                  Plant {currentSession.plant || '1105'} • {availableSlocs.length} SLoc terdata
                 </div>
               </div>
             </div>
 
-            {/* Total Audit Physical */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-                <span>Total Fisik Audit</span>
-                <CheckCircle2 size={16} className="text-emerald-600" />
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-black text-slate-900 tabular-nums">
-                  {currentSession.totalQtyAudit.toLocaleString('id-ID')}{' '}
-                  <span className="text-xs font-semibold text-slate-500">PCS</span>
+            {/* Card 2: Total Audit Physical */}
+            <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Total Fisik Audit
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50/80 text-[#34C759] border border-emerald-100/60 flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={16} strokeWidth={2.4} />
                 </div>
-                <div className="text-xs text-slate-600 font-bold mt-1">
+              </div>
+
+              <div className="mt-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+                    {currentSession.totalQtyAudit.toLocaleString('id-ID')}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-400">pcs</span>
+                </div>
+                <div className="text-xs text-slate-500 font-medium mt-1">
                   {(currentSession.totalKgAudit / 1000).toLocaleString('id-ID', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}{' '}
-                  <span className="text-[10px] text-slate-500">TON</span> (
-                  {currentSession.totalKgAudit.toLocaleString('id-ID')} KG)
+                  ton ({currentSession.totalKgAudit.toLocaleString('id-ID')} kg)
                 </div>
               </div>
             </div>
 
-            {/* Total Discrepancies */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-                <span>Selisih Net (Audit - SAP)</span>
-                {currentSession.totalDiffQty !== 0 ? (
-                  <AlertTriangle size={16} className="text-rose-600" />
-                ) : (
-                  <CheckCircle2 size={16} className="text-emerald-600" />
-                )}
-              </div>
-              <div className="mt-3">
+            {/* Card 3: Total Discrepancies */}
+            <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Selisih Net (Audit - SAP)
+                </span>
                 <div
-                  className={`text-2xl font-black tabular-nums ${
-                    currentSession.totalDiffQty < 0
-                      ? 'text-rose-600'
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${
+                    currentSession.totalDiffQty === 0
+                      ? 'bg-emerald-50/80 text-[#34C759] border-emerald-100/60'
                       : currentSession.totalDiffQty > 0
-                        ? 'text-amber-600'
-                        : 'text-emerald-600'
+                        ? 'bg-amber-50/80 text-[#FF9500] border-amber-100/60'
+                        : 'bg-rose-50/80 text-[#FF3B30] border-rose-100/60'
                   }`}
                 >
-                  {currentSession.totalDiffQty > 0 ? '+' : ''}
-                  {currentSession.totalDiffQty.toLocaleString('id-ID')}{' '}
-                  <span className="text-xs font-semibold text-slate-500">PCS</span>
+                  {currentSession.totalDiffQty !== 0 ? (
+                    <AlertTriangle size={16} strokeWidth={2.4} />
+                  ) : (
+                    <CheckCircle2 size={16} strokeWidth={2.4} />
+                  )}
                 </div>
-                <div className="text-xs font-bold text-slate-700 mt-1">
-                  Selisih KG:{' '}
+              </div>
+
+              <div className="mt-3">
+                <div className="flex items-baseline gap-1">
                   <span
-                    className={
-                      currentSession.totalDiffKg < 0
-                        ? 'text-rose-600'
-                        : currentSession.totalDiffKg > 0
-                          ? 'text-amber-600'
-                          : 'text-emerald-600'
-                    }
+                    className={`text-3xl font-bold tracking-tight tabular-nums ${
+                      currentSession.totalDiffQty < 0
+                        ? 'text-[#FF3B30]'
+                        : currentSession.totalDiffQty > 0
+                          ? 'text-[#FF9500]'
+                          : 'text-[#34C759]'
+                    }`}
                   >
-                    {currentSession.totalDiffKg > 0 ? '+' : ''}
-                    {currentSession.totalDiffKg.toLocaleString('id-ID', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    KG
+                    {currentSession.totalDiffQty > 0 ? '+' : ''}
+                    {currentSession.totalDiffQty.toLocaleString('id-ID')}
                   </span>
+                  <span className="text-xs font-semibold text-slate-400">pcs</span>
+                </div>
+                <div className="text-xs text-slate-500 font-medium mt-1">
+                  {currentSession.totalDiffKg === 0 ? (
+                    <span className="text-emerald-700 font-medium">Sesuai SAP (0 kg)</span>
+                  ) : (
+                    <span>
+                      Selisih berat:{' '}
+                      <span
+                        className={
+                          currentSession.totalDiffKg < 0
+                            ? 'text-rose-700 font-semibold'
+                            : 'text-amber-700 font-semibold'
+                        }
+                      >
+                        {currentSession.totalDiffKg > 0 ? '+' : ''}
+                        {(currentSession.totalDiffKg / 1000).toLocaleString('id-ID', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        ton
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Accuracy Rate */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-                <span>Akurasi Kesesuaian</span>
-                <FileCheck size={16} className="text-blue-600" />
+            {/* Card 4: Accuracy Rate */}
+            <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-apple-card border border-white/80 flex flex-col justify-between hover:shadow-apple-hover transition-apple">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Akurasi Kesesuaian
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50/80 text-[#AF52DE] border border-purple-100/60 flex items-center justify-center shrink-0">
+                  <FileCheck size={16} strokeWidth={2.4} />
+                </div>
               </div>
+
               <div className="mt-3">
-                <div className="text-2xl font-black text-slate-900 tabular-nums">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
                   {accuracyPct.toFixed(1)}%
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-500 font-medium mt-1">
-                  <span className="text-emerald-700 font-bold">
-                    {currentSession.matchCount} Cocok
-                  </span>
-                  <span className="text-rose-600 font-bold">
-                    {currentSession.diffCount} Ada Selisih
-                  </span>
+                <div className="mt-2 space-y-1">
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
+                    <div
+                      className="h-full bg-[#34C759] transition-all duration-500 rounded-full"
+                      style={{ width: `${Math.min(100, Math.max(0, accuracyPct))}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                    <span className="text-emerald-700 font-medium">{currentSession.matchCount} match</span>
+                    <span className={currentSession.diffCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}>
+                      {currentSession.diffCount} mismatch
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -650,10 +801,10 @@ function AuditSlocContent() {
 
         {/* ─── Table Section (Hidden by default, muncul saat klik diagram atau tombol buka) ─── */}
         {currentSession && !showTable && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+          <div className="glass-card rounded-2xl p-4 border border-white/80 shadow-apple-xs flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 text-xs text-slate-600 font-medium">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <Filter size={14} />
+              <div className="w-8 h-8 rounded-xl bg-blue-50/80 text-[#007AFF] border border-blue-200/60 flex items-center justify-center shrink-0 shadow-apple-xs">
+                <Filter size={14} strokeWidth={2.4} />
               </div>
               <span>
                 Klik bar SLoc atau status pada grafik diagram di atas untuk memunculkan tabel rincian data.
@@ -667,11 +818,11 @@ function AuditSlocContent() {
                   tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 80);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 transition-all shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white/80 backdrop-blur-md hover:bg-white border border-slate-200/80 shadow-apple-xs hover:scale-[1.02] active:scale-[0.98] transition-apple shrink-0 cursor-pointer"
             >
-              <FileText size={13} className="text-slate-500" />
+              <FileText size={13} className="text-slate-500" strokeWidth={2.4} />
               <span>Buka Tabel Data Lengkap</span>
-              <ChevronDown size={14} />
+              <ChevronDown size={14} strokeWidth={2.4} />
             </button>
           </div>
         )}
@@ -679,48 +830,48 @@ function AuditSlocContent() {
         {currentSession && showTable && (
           <div ref={tableRef} className="space-y-4 pt-1 animate-in fade-in duration-200">
             {/* Active Drill-Down Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-2.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl">
+            <div className="glass-card rounded-2xl px-4 py-2.5 bg-blue-50/70 backdrop-blur-md border border-blue-200/70 shadow-apple-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 <span className="font-bold text-blue-900">Rincian Data Aktif:</span>
                 {selectedSloc ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-white text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-white text-[#007AFF] border border-blue-200 font-mono shadow-2xs">
                     SLoc: {selectedSloc}
                   </span>
                 ) : (
-                  <span className="text-blue-700 font-medium">Semua SLoc</span>
+                  <span className="text-[#007AFF] font-semibold">Semua SLoc</span>
                 )}
                 {selectedStatus && selectedStatus !== 'ALL' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
                     Status:{' '}
                     {selectedStatus === 'MATCH'
-                      ? 'Cocok'
+                      ? 'Match'
                       : selectedStatus === 'DEFICIT'
-                        ? 'Selisih Kurang (-)'
+                        ? 'Mismatch (-)'
                         : selectedStatus === 'SURPLUS'
-                          ? 'Selisih Lebih (+)'
-                          : 'Selisih Saja'}
+                          ? 'Mismatch (+)'
+                          : 'Mismatch'}
                   </span>
                 )}
-                <span className="text-slate-500 text-[11px]">({totalItems} baris ditemukan)</span>
+                <span className="text-slate-500 text-[11px] font-medium">({totalItems} baris ditemukan)</span>
               </div>
 
               <button
                 type="button"
                 onClick={handleCloseTable}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-all self-end sm:self-auto shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-white/80 border border-transparent hover:border-slate-200 shadow-apple-xs transition-apple self-end sm:self-auto shrink-0 cursor-pointer"
                 title="Sembunyikan tabel rincian"
               >
-                <X size={14} />
+                <X size={14} strokeWidth={2.4} />
                 <span>Sembunyikan Tabel</span>
               </button>
             </div>
 
             {/* ─── Filters & Search Toolbar ─── */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+            <div className="glass-card rounded-2xl p-4 border border-white/80 shadow-apple-card space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Search input */}
               <div className="relative flex-1">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} strokeWidth={2.4} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={search}
@@ -729,7 +880,7 @@ function AuditSlocContent() {
                     setPage(1);
                   }}
                   placeholder="Cari Material, Batch, SLoc..."
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 focus:border-[#007AFF] transition-apple"
                 />
               </div>
 
@@ -742,7 +893,7 @@ function AuditSlocContent() {
                     setSelectedSloc(e.target.value);
                     setPage(1);
                   }}
-                  className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 cursor-pointer transition-apple"
                 >
                   <option value="">Semua SLoc ({availableSlocs.length})</option>
                   {availableSlocs.map(sloc => (
@@ -762,7 +913,7 @@ function AuditSlocContent() {
                     setLimit(parseInt(e.target.value, 10));
                     setPage(1);
                   }}
-                  className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 cursor-pointer transition-apple"
                 >
                   <option value={25}>25 baris</option>
                   <option value={50}>50 baris</option>
@@ -772,17 +923,17 @@ function AuditSlocContent() {
               </div>
             </div>
 
-            {/* Status Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100">
+            {/* Status Tabs (iOS Segmented Pill Row) */}
+            <div className="flex items-center gap-1 overflow-x-auto p-1 rounded-xl bg-slate-200/50 backdrop-blur-md border border-slate-200/60 pt-1">
               <button
                 onClick={() => {
                   setSelectedStatus('ALL');
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 text-xs transition-apple cursor-pointer ${
                   selectedStatus === 'ALL'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] font-bold rounded-[9px]'
+                    : 'text-slate-600 hover:text-slate-900 font-semibold'
                 }`}
               >
                 Semua Data
@@ -793,14 +944,14 @@ function AuditSlocContent() {
                   setSelectedStatus('DIFF');
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs transition-apple cursor-pointer flex items-center gap-1.5 ${
                   selectedStatus === 'DIFF'
-                    ? 'bg-rose-600 text-white'
-                    : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                    ? 'bg-[#FF3B30] text-white shadow-[0_2px_8px_rgba(255,59,48,0.28)] font-bold rounded-[9px]'
+                    : 'text-rose-700 hover:text-rose-900 font-semibold'
                 }`}
               >
-                <AlertTriangle size={13} />
-                <span>Selisih Saja ({currentSession.diffCount})</span>
+                <AlertTriangle size={13} strokeWidth={2.4} />
+                <span>Mismatch ({currentSession.diffCount})</span>
               </button>
 
               <button
@@ -808,13 +959,13 @@ function AuditSlocContent() {
                   setSelectedStatus('DEFICIT');
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 text-xs transition-apple cursor-pointer ${
                   selectedStatus === 'DEFICIT'
-                    ? 'bg-rose-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-[#FF3B30] text-white shadow-[0_2px_8px_rgba(255,59,48,0.28)] font-bold rounded-[9px]'
+                    : 'text-slate-600 hover:text-slate-900 font-semibold'
                 }`}
               >
-                Selisih Kurang (-)
+                Mismatch (-)
               </button>
 
               <button
@@ -822,13 +973,13 @@ function AuditSlocContent() {
                   setSelectedStatus('SURPLUS');
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 text-xs transition-apple cursor-pointer ${
                   selectedStatus === 'SURPLUS'
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-[#FF9500] text-white shadow-[0_2px_8px_rgba(255,149,0,0.28)] font-bold rounded-[9px]'
+                    : 'text-slate-600 hover:text-slate-900 font-semibold'
                 }`}
               >
-                Selisih Lebih (+)
+                Mismatch (+)
               </button>
 
               <button
@@ -836,37 +987,37 @@ function AuditSlocContent() {
                   setSelectedStatus('MATCH');
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs transition-apple cursor-pointer flex items-center gap-1.5 ${
                   selectedStatus === 'MATCH'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                    ? 'bg-[#34C759] text-white shadow-[0_2px_8px_rgba(52,199,89,0.28)] font-bold rounded-[9px]'
+                    : 'text-emerald-700 hover:text-emerald-900 font-semibold'
                 }`}
               >
-                <CheckCircle2 size={13} />
-                <span>Cocok ({currentSession.matchCount})</span>
+                <CheckCircle2 size={13} strokeWidth={2.4} />
+                <span>Match ({currentSession.matchCount})</span>
               </button>
             </div>
           </div>
 
           {/* ─── Audit SLoc Data Table ─── */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="glass-card rounded-[24px] border border-white/80 shadow-apple-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-100/80 text-slate-700 font-extrabold uppercase tracking-wider border-b border-slate-200">
+                  <tr className="bg-slate-100/70 backdrop-blur-md text-slate-600 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200/80">
                     <th className="py-3 px-3 w-16">Plant</th>
                     <th className="py-3 px-3 w-20">SLoc</th>
                     <th className="py-3 px-3 min-w-[170px]">Material</th>
                     <th className="py-3 px-3 min-w-[120px]">Batch</th>
                     <th className="py-3 px-3 text-right">SAP</th>
                     <th className="py-3 px-3 text-right">Eom (KG)</th>
-                    <th className="py-3 px-3 text-right bg-blue-50/50">Qty Audit</th>
-                    <th className="py-3 px-3 text-right bg-blue-50/50">KG Audit</th>
-                    <th className="py-3 px-3 text-right bg-slate-200/50">Diff KG</th>
-                    <th className="py-3 px-3 text-right bg-slate-200/50">Diff</th>
-                    <th className="py-3 px-3 text-right text-slate-500">SAP</th>
-                    <th className="py-3 px-3 text-right text-slate-500">Actual</th>
-                    <th className="py-3 px-3 text-right text-slate-500">Diff Audit</th>
+                    <th className="py-3 px-3 text-right bg-blue-50/50 text-[#007AFF]">Qty Audit</th>
+                    <th className="py-3 px-3 text-right bg-blue-50/50 text-[#007AFF]">KG Audit</th>
+                    <th className="py-3 px-3 text-right bg-slate-200/40">Diff KG</th>
+                    <th className="py-3 px-3 text-right bg-slate-200/40">Diff</th>
+                    <th className="py-3 px-3 text-right text-slate-400">SAP</th>
+                    <th className="py-3 px-3 text-right text-slate-400">Actual</th>
+                    <th className="py-3 px-3 text-right text-slate-400">Diff Audit</th>
                     <th className="py-3 px-3 text-center w-24">Status</th>
                   </tr>
                 </thead>
@@ -881,25 +1032,24 @@ function AuditSlocContent() {
                     items.map((item, idx) => {
                       const isMatch = item.status === 'MATCH';
                       const isDeficit = item.status === 'DEFICIT';
-                      const isSurplus = item.status === 'SURPLUS';
 
                       return (
                         <tr
                           key={item.id || idx}
-                          className={`hover:bg-slate-50/80 transition-colors ${
+                          className={`hover:bg-slate-100/50 transition-colors ${
                             !isMatch ? 'bg-rose-50/20' : ''
                           }`}
                         >
                           <td className="py-2.5 px-3 font-semibold text-slate-600">{item.plant}</td>
                           <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-slate-100 text-slate-800 border border-slate-200">
+                            <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-slate-100 text-slate-800 border border-slate-200/80">
                               {item.sloc}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
                             {item.material}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-700">
+                          <td className="py-2.5 px-3 font-mono text-slate-600">
                             {item.batch || '-'}
                           </td>
 
@@ -933,10 +1083,10 @@ function AuditSlocContent() {
                           <td
                             className={`py-2.5 px-3 text-right font-mono font-bold tabular-nums bg-slate-100/30 ${
                               item.diffKgAudit < -0.001
-                                ? 'text-rose-600'
+                                ? 'text-[#FF3B30]'
                                 : item.diffKgAudit > 0.001
-                                  ? 'text-amber-600'
-                                  : 'text-emerald-700'
+                                  ? 'text-[#FF9500]'
+                                  : 'text-[#34C759]'
                             }`}
                           >
                             {item.diffKgAudit.toLocaleString('id-ID', {
@@ -950,10 +1100,10 @@ function AuditSlocContent() {
                           <td
                             className={`py-2.5 px-3 text-right font-mono font-bold tabular-nums bg-slate-100/30 ${
                               item.diffQty < 0
-                                ? 'text-rose-600'
+                                ? 'text-[#FF3B30]'
                                 : item.diffQty > 0
-                                  ? 'text-amber-600'
-                                  : 'text-emerald-700'
+                                  ? 'text-[#FF9500]'
+                                  : 'text-[#34C759]'
                             }`}
                           >
                             {item.diffQty.toLocaleString('id-ID')}
@@ -961,21 +1111,21 @@ function AuditSlocContent() {
                           </td>
 
                           {/* Secondary SAP Ref */}
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-500">
+                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-400">
                             {item.sapRef !== null && item.sapRef !== undefined
                               ? item.sapRef.toLocaleString('id-ID')
                               : '-'}
                           </td>
 
                           {/* Actual */}
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-500">
+                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-400">
                             {item.actual !== null && item.actual !== undefined
                               ? item.actual.toLocaleString('id-ID')
                               : '-'}
                           </td>
 
                           {/* Diff Audit */}
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-500">
+                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-400">
                             {item.diffAudit !== null && item.diffAudit !== undefined
                               ? item.diffAudit.toLocaleString('id-ID')
                               : '-'}
@@ -984,16 +1134,22 @@ function AuditSlocContent() {
                           {/* Status Badge */}
                           <td className="py-2.5 px-3 text-center">
                             {isMatch ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                Cocok
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
+                                Match
                               </span>
                             ) : isDeficit ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                                Kurang
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/70 shadow-2xs"
+                                title="Selisih kurang (-)"
+                              >
+                                Mismatch
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                Lebih
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/70 shadow-2xs"
+                                title="Selisih lebih (+)"
+                              >
+                                Mismatch
                               </span>
                             )}
                           </td>
@@ -1006,7 +1162,7 @@ function AuditSlocContent() {
             </div>
 
             {/* Pagination footer */}
-            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 font-medium">
+            <div className="px-4 py-3 bg-white/50 backdrop-blur-md border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600 font-medium">
               <div>
                 Menampilkan{' '}
                 <strong className="text-slate-900 font-bold">
@@ -1023,7 +1179,7 @@ function AuditSlocContent() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-bold hover:bg-slate-100 disabled:opacity-40 transition-all"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200/80 bg-white font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 shadow-apple-xs transition-apple cursor-pointer"
                 >
                   Sebelumnya
                 </button>
@@ -1033,7 +1189,7 @@ function AuditSlocContent() {
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-bold hover:bg-slate-100 disabled:opacity-40 transition-all"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200/80 bg-white font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 shadow-apple-xs transition-apple cursor-pointer"
                 >
                   Selanjutnya
                 </button>
@@ -1044,30 +1200,30 @@ function AuditSlocContent() {
       )}
     </main>
 
-      {/* ─── Upload & Update Audit Modal ─── */}
+      {/* ─── Upload & Update Audit Modal (Apple Sheet Style) ─── */}
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white/95 backdrop-blur-2xl w-full max-w-2xl rounded-[28px] shadow-2xl border border-white/90 overflow-hidden flex flex-col max-h-[90vh] shadow-slate-900/15">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-black text-slate-900">Update Data Audit SLoc</h3>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">Update Data Audit SLoc</h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Upload file Excel (.xlsx) SAP atau tempelkan data tabel hasil copy langsung dari SAP
                 </p>
               </div>
               <button
                 onClick={() => setIsUploadOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-apple cursor-pointer"
               >
-                <X size={18} />
+                <X size={16} strokeWidth={2.4} />
               </button>
             </div>
 
             {/* Modal Body */}
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               {uploadError && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 text-xs font-semibold flex items-center gap-2">
                   <AlertTriangle size={16} className="shrink-0" />
                   <span>{uploadError}</span>
                 </div>
@@ -1084,7 +1240,7 @@ function AuditSlocContent() {
                     value={uploadTitle}
                     onChange={e => setUploadTitle(e.target.value)}
                     placeholder="Contoh: Audit Fisik SLoc 5M Akhir Bulan"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
                   />
                 </div>
 
@@ -1096,20 +1252,20 @@ function AuditSlocContent() {
                     type="date"
                     value={uploadDate}
                     onChange={e => setUploadDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-100/70 border border-slate-200/80 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
                   />
                 </div>
               </div>
 
-              {/* Mode Tabs */}
-              <div className="flex rounded-xl bg-slate-100 p-1">
+              {/* Mode Tabs (iOS Segmented Control) */}
+              <div className="flex rounded-xl bg-slate-200/50 p-1 border border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setUploadTab('file')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  className={`flex-1 py-2 text-xs transition-apple cursor-pointer ${
                     uploadTab === 'file'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] font-bold rounded-[9px]'
+                      : 'text-slate-600 hover:text-slate-900 font-semibold'
                   }`}
                 >
                   Upload File Excel / CSV
@@ -1117,10 +1273,10 @@ function AuditSlocContent() {
                 <button
                   type="button"
                   onClick={() => setUploadTab('paste')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  className={`flex-1 py-2 text-xs transition-apple cursor-pointer ${
                     uploadTab === 'paste'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-white text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] font-bold rounded-[9px]'
+                      : 'text-slate-600 hover:text-slate-900 font-semibold'
                   }`}
                 >
                   Paste Data dari SAP
@@ -1131,7 +1287,7 @@ function AuditSlocContent() {
                 /* Dropzone */
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-blue-50/20"
+                  className="border-2 border-dashed border-slate-200 hover:border-[#007AFF] rounded-2xl p-8 text-center cursor-pointer transition-apple bg-slate-50/50 hover:bg-blue-50/20"
                 >
                   <input
                     ref={fileInputRef}
@@ -1140,8 +1296,8 @@ function AuditSlocContent() {
                     onChange={handleFileChange}
                     className="hidden"
                   />
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
-                    <FileSpreadsheet size={24} />
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#007AFF] border border-blue-200/60 flex items-center justify-center mx-auto mb-3 shadow-apple-xs">
+                    <FileSpreadsheet size={24} strokeWidth={2.4} />
                   </div>
                   {uploadFile ? (
                     <div>
@@ -1155,7 +1311,7 @@ function AuditSlocContent() {
                       <div className="text-xs font-bold text-slate-700">
                         Klik untuk memilih file Excel / CSV dari komputer Anda
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
+                      <div className="text-[11px] text-slate-400 mt-1 font-medium">
                         Mendukung format .xlsx, .xls, .csv hasil export ALV SAP
                       </div>
                     </div>
@@ -1177,7 +1333,7 @@ function AuditSlocContent() {
                     value={pasteText}
                     onChange={e => setPasteText(e.target.value)}
                     placeholder={`Plant\tSLoc\tMaterial\tBatch\tSAP\tEom\tQty Audit\tKG Audit\tDiff KG Audit\tDiff\n1105\t5M02\tZCB12CGC0220+08800\t5261841HFA\t0\t\t62\t172,546\t172,546-\t62-`}
-                    className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 transition-apple"
                   />
                 </div>
               )}
@@ -1187,14 +1343,14 @@ function AuditSlocContent() {
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-apple cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || (uploadTab === 'file' ? !uploadFile : !pasteText.trim())}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm disabled:opacity-50 transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-[0_2px_8px_rgba(0,122,255,0.28)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-apple flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -1203,7 +1359,7 @@ function AuditSlocContent() {
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 size={14} />
+                      <CheckCircle2 size={14} strokeWidth={2.4} />
                       <span>Simpan Data Audit</span>
                     </>
                   )}

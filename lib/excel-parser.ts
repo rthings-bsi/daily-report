@@ -44,6 +44,206 @@ export const calculateStats = (movements: ProcessedMovement[]): MovementStats =>
   };
 };
 
+/**
+ * Format raw date string / number / Date to standard YYYY-MM-DD.
+ */
+export function parseDateString(rawDate: any): string | undefined {
+  if (rawDate === null || rawDate === undefined || rawDate === '') return undefined;
+
+  if (typeof rawDate === 'number') {
+    if (isNaN(rawDate)) return undefined;
+    const msSinceEpoch = Math.round((rawDate - 25569) * 86400 * 1000);
+    const d = new Date(msSinceEpoch);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+
+  if (rawDate instanceof Date) {
+    const y = rawDate.getUTCFullYear();
+    const m = String(rawDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(rawDate.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+
+  if (typeof rawDate === 'string' && rawDate.trim()) {
+    const s = rawDate.replace(/[\r\n\s]+/g, ' ').trim();
+    const dmyMatch = s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})$/);
+    const ymdMatch = s.match(/^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})$/);
+    if (dmyMatch) {
+      const dd = dmyMatch[1].padStart(2, '0');
+      const mm = dmyMatch[2].padStart(2, '0');
+      const yy = dmyMatch[3];
+      return `${yy}-${mm}-${dd}`;
+    }
+    if (ymdMatch) {
+      const yy = ymdMatch[1];
+      const mm = ymdMatch[2].padStart(2, '0');
+      const dd = ymdMatch[3].padStart(2, '0');
+      return `${yy}-${mm}-${dd}`;
+    }
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getUTCFullYear();
+      const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(parsed.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Parse SAP "Entered at" (CPUTM / time) into "HH:mm:ss" string.
+ * Supports:
+ * - Excel fraction of day (< 1): e.g. 0.3125 -> 07:30:00
+ * - SAP integer time: e.g. 71530 -> 07:15:30
+ * - Excel datetime serial (> 1): fractional day part converted
+ * - Date object
+ * - String: "07:15:30", "07.15.30", "7:15", "071530", etc.
+ */
+export function parseEntryTime(rawTime: any): string | undefined {
+  if (rawTime === null || rawTime === undefined || rawTime === '') return undefined;
+
+  if (typeof rawTime === 'number') {
+    if (isNaN(rawTime)) return undefined;
+
+    // Excel fraction of a day (e.g. 0.291666 -> 07:00:00)
+    if (rawTime >= 0 && rawTime < 1) {
+      const totalSeconds = Math.round(rawTime * 86400);
+      const h = Math.floor(totalSeconds / 3600) % 24;
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    // SAP integer representation (e.g. 71530 for 07:15:30 or 235959)
+    if (rawTime >= 100 && rawTime <= 240000) {
+      const intVal = Math.floor(rawTime);
+      const s = intVal % 100;
+      const m = Math.floor(intVal / 100) % 100;
+      const h = Math.floor(intVal / 10000);
+      if (h < 24 && m < 60 && s < 60) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+    }
+
+    // Excel datetime serial (> 1): take fractional day part
+    const fraction = rawTime - Math.floor(rawTime);
+    if (fraction > 0) {
+      const totalSeconds = Math.round(fraction * 86400);
+      const h = Math.floor(totalSeconds / 3600) % 24;
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+  }
+
+  if (rawTime instanceof Date) {
+    const h = rawTime.getUTCHours();
+    const m = rawTime.getUTCMinutes();
+    const s = rawTime.getUTCSeconds();
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  if (typeof rawTime === 'string') {
+    const clean = rawTime.trim();
+    if (!clean) return undefined;
+
+    // Pattern: HH:mm:ss or HH.mm.ss with optional AM/PM
+    const ampmMatch = clean.match(/^(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?\s*(AM|PM)?$/i);
+    if (ampmMatch) {
+      let h = parseInt(ampmMatch[1], 10);
+      const m = parseInt(ampmMatch[2], 10);
+      const s = ampmMatch[3] ? parseInt(ampmMatch[3], 10) : 0;
+      const meridiem = ampmMatch[4]?.toUpperCase();
+      if (meridiem === 'PM' && h < 12) h += 12;
+      if (meridiem === 'AM' && h === 12) h = 0;
+      if (h < 24 && m < 60 && s < 60) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+    }
+
+    // Pattern: 5 or 6 digit number string like "071530" or "71530"
+    if (/^\d{5,6}$/.test(clean)) {
+      const padded = clean.padStart(6, '0');
+      const h = parseInt(padded.slice(0, 2), 10);
+      const m = parseInt(padded.slice(2, 4), 10);
+      const s = parseInt(padded.slice(4, 6), 10);
+      if (h < 24 && m < 60 && s < 60) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Determine work shift from time value:
+ * - Shift 1: 07:00 - 15:00 (07:00:00 - 14:59:59)
+ * - Shift 2: 15:00 - 23:00 (15:00:00 - 22:59:59)
+ * - Shift 3: 23:00 - 07:00 (23:00:00 - 06:59:59)
+ */
+export function getShiftFromTime(timeVal: any): 1 | 2 | 3 | undefined {
+  const timeStr = typeof timeVal === 'string' && /^\d{2}:\d{2}/.test(timeVal)
+    ? timeVal
+    : parseEntryTime(timeVal);
+
+  if (!timeStr) return undefined;
+
+  const parts = timeStr.split(':').map(Number);
+  const hour = parts[0];
+  if (isNaN(hour)) return undefined;
+
+  // Shift 1: 07:00 - 15:00
+  if (hour >= 7 && hour < 15) {
+    return 1;
+  }
+  // Shift 2: 15:00 - 23:00
+  if (hour >= 15 && hour < 23) {
+    return 2;
+  }
+  // Shift 3: 23:00 - 07:00
+  return 3;
+}
+
+/**
+ * Adjust calendar date to operational work date based on 07:00 AM cut-off.
+ * Work hours cut-off runs from 07:00 to 07:00 the following morning:
+ * - 07:00 - 14:59 (Shift 1): same day
+ * - 15:00 - 22:59 (Shift 2): same day
+ * - 23:00 - 23:59 (Shift 3): same day
+ * - 00:00 - 06:59 (Shift 3): previous day (date - 1)
+ */
+export function getOperationalDateStr(calendarDateStr: string, timeVal: any): string {
+  if (!calendarDateStr) return calendarDateStr;
+  const timeStr = typeof timeVal === 'string' && /^\d{2}:\d{2}/.test(timeVal)
+    ? timeVal
+    : parseEntryTime(timeVal);
+
+  if (!timeStr) return calendarDateStr;
+
+  const parts = timeStr.split(':').map(Number);
+  const hour = parts[0];
+  if (isNaN(hour)) return calendarDateStr;
+
+  if (hour < 7) {
+    const [y, m, d] = calendarDateStr.split('-').map(Number);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      const prev = new Date(Date.UTC(y, m - 1, d - 1));
+      const py = prev.getUTCFullYear();
+      const pm = String(prev.getUTCMonth() + 1).padStart(2, '0');
+      const pd = String(prev.getUTCDate()).padStart(2, '0');
+      return `${py}-${pm}-${pd}`;
+    }
+  }
+
+  return calendarDateStr;
+}
+
 export interface RawSapData {
   'Posting Date'?: string | number;
   'Movement Type'?: string | number;
@@ -58,6 +258,12 @@ export interface RawSapData {
   'Plant'?: string;
   'Material'?: string;
   'Material Description'?: string;
+  'Entered at'?: string | number;
+  'Entered on'?: string | number;
+  'Entry Time'?: string | number;
+  'Entry Date'?: string | number;
+  'CPUTM'?: string | number;
+  'CPUDT'?: string | number;
 }
 
 export interface ProcessedMovement {
@@ -76,6 +282,9 @@ export interface ProcessedMovement {
   color: string;
   movementStatus: 'Fast' | 'Slow' | 'Unknown';
   material?: string;
+  entryTime?: string;
+  entryDate?: string;
+  shift?: 1 | 2 | 3;
 }
 
 export interface ProcessedStock {
@@ -275,13 +484,39 @@ export function parseSapBuffer(buffer: ArrayBufferLike): ExcelParseResult {
       dateStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}`;
     }
 
-    const [yyyy, mm2, dd2] = dateStr.split('-').map(Number);
+    const rawTime = getValFromRow(row, [
+      'Entered at',
+      'Entered At',
+      'Entry Time',
+      'Entry time',
+      'Time of Entry',
+      'Time',
+      'CPUTM',
+      'Uzeit',
+      'Jam',
+      'Waktu',
+    ]);
+    const rawEntryDate = getValFromRow(row, [
+      'Entered on',
+      'Entered On',
+      'Entry Date',
+      'Entry date',
+      'CPUDT',
+      'Erfdate',
+    ]);
+
+    const entryTime = parseEntryTime(rawTime);
+    const entryDate = parseDateString(rawEntryDate) || dateStr;
+    const shift = entryTime ? getShiftFromTime(entryTime) : undefined;
+    const operationalDateStr = entryTime ? getOperationalDateStr(entryDate || dateStr, entryTime) : dateStr;
+
+    const [yyyy, mm2, dd2] = operationalDateStr.split('-').map(Number);
     const dateObj = new Date(Date.UTC(yyyy, mm2 - 1, dd2));
 
     return {
       movementId: `move-${index}-${Date.now()}`,
       postingDate: dateObj,
-      dateStr: formatDateToYMD(dateObj),
+      dateStr: operationalDateStr,
       moveType: moveCode,
       description: moveDescription,
       group: moveGroup,
@@ -294,6 +529,9 @@ export function parseSapBuffer(buffer: ArrayBufferLike): ExcelParseResult {
       color: baseMoveInfo.color,
       movementStatus: classifyBatch(String(getValFromRow(row, ['Batch', 'Batch Number']) || '')),
       material: String(getValFromRow(row, ['Material', 'Material Number', 'Material No']) || '').trim() || undefined,
+      entryTime,
+      entryDate,
+      shift,
     };
   }).filter(Boolean) as ProcessedMovement[];
 

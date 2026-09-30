@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertOwnsSession, requireUserContext, respondError } from "@/lib/api-helpers";
+import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
 
 export const dynamic = "force-dynamic";
 
@@ -53,23 +54,30 @@ export async function GET(
   if (report.stats && report.rawMovements) {
     const stats = JSON.parse(report.stats);
     const movements = detail
-      ? JSON.parse(report.rawMovements).map((m: any, idx: number) => ({
-          movementId: `move-${idx}`,
-          postingDate: m.dateStr,
-          dateStr: m.dateStr,
-          moveType: m.moveType,
-          description: m.description,
-          material: m.material || undefined,
-          workCenter: m.workCenter || "",
-          batch: m.batch || "",
-          quantity: m.quantity,
-          unitQuantity: m.unitQuantity || 0,
-          userName: m.userName || "",
-          storageLocation: m.storageLocation || "",
-          group: m.group,
-          color: m.color,
-          movementStatus: 'Unknown',
-        }))
+      ? JSON.parse(report.rawMovements).map((m: any, idx: number) => {
+          const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+          const mShift = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
+          return {
+            movementId: `move-${idx}`,
+            postingDate: opDate,
+            dateStr: opDate,
+            moveType: m.moveType,
+            description: m.description,
+            material: m.material || undefined,
+            workCenter: m.workCenter || "",
+            batch: m.batch || "",
+            quantity: m.quantity,
+            unitQuantity: m.unitQuantity || 0,
+            userName: m.userName || "",
+            storageLocation: m.storageLocation || "",
+            group: m.group,
+            color: m.color,
+            movementStatus: 'Unknown',
+            entryTime: m.entryTime || undefined,
+            entryDate: m.entryDate || undefined,
+            shift: mShift,
+          };
+        })
       : [];
     const stocks = detail ? (report.rawStocks ? JSON.parse(report.rawStocks) : []) : [];
 

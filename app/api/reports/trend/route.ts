@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getGudangPrefix, filterByGudang, removeInternalTfSloc, reclassify311 } from "@/lib/gudang";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { deduplicateMovements, RawMovementRow } from "@/lib/aggregation";
+import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
 
 // GET /api/reports/trend?gudang=13&start=2026-08-01&end=2026-08-14 — return the trend of Masuk/Keluar.
 
@@ -29,12 +30,14 @@ export async function GET(request: NextRequest) {
     const requestedGudang = searchParams.get('gudang');
     const start = searchParams.get('start');
     const end = searchParams.get('end');
+    const shift = searchParams.get('shift');
+    const shiftNum = shift ? Number(shift) : null;
     const effectiveGudang = ctx.isAdmin
       ? (requestedGudang ? Number(requestedGudang) : null)
       : ctx.gudangId;
 
     // ── Cache check (hanya setelah auth, supaya tidak ada cache lintas user) ──
-    const cacheKey = `${ctx.userId ?? 'anon'}|${effectiveGudang ?? 'all'}|${start ?? ''}|${end ?? ''}`;
+    const cacheKey = `${ctx.userId ?? 'anon'}|${effectiveGudang ?? 'all'}|${start ?? ''}|${end ?? ''}|${shift ?? ''}`;
     const cached = trendCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return NextResponse.json(cached.data);
@@ -108,6 +111,7 @@ export async function GET(request: NextRequest) {
 
       sessions = await prisma.reportSession.findMany({
         where: { ...gudangWhere, reportSessionId: { in: ids }, rawMovements: { not: null } },
+        orderBy: { createdAt: 'desc' },
         select: {
           dateStr: true,
           gudangId: true,
@@ -129,6 +133,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Ambil sesi terbaru untuk tiap gudang pada tanggal yang sama
+    const seenGudangDate = new Set<string>();
+    const deduplicatedSessions: typeof sessions = [];
+    for (const s of sessions) {
+      const key = `${s.gudangId ?? 'global'}_${s.dateStr}`;
+      if (!seenGudangDate.has(key)) {
+        seenGudangDate.add(key);
+        deduplicatedSessions.push(s);
+      }
+    }
+    sessions = deduplicatedSessions;
+
     let allRawMovements: any[] = [];
 
     // Gabungkan semua movements dari semua session yang valid.
@@ -141,10 +157,12 @@ export async function GET(request: NextRequest) {
       if (!s.rawMovements) continue;
       const raw = JSON.parse(s.rawMovements) as RawMovementRow[];
       for (const m of raw) {
-        const d = m.dateStr || "";
-        if (start && d && d < start) continue;
-        if (end && d && d > end) continue;
-        allRawMovements.push(m);
+        const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
+        const sShift = m.shift || (m.entryTime ? getShiftFromTime(m.entryTime) : undefined);
+        if (start && opDate && opDate < start) continue;
+        if (end && opDate && opDate > end) continue;
+        if (shiftNum && sShift !== shiftNum) continue;
+        allRawMovements.push({ ...m, dateStr: opDate, shift: sShift });
       }
     }
 

@@ -21,6 +21,7 @@ interface MovementChartProps {
   selectedGudang?: number | null;
   startDate?: string;
   endDate?: string;
+  selectedShift?: number | null;
 }
 
 const easeOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -32,6 +33,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({
   selectedGudang = null,
   startDate = '',
   endDate = '',
+  selectedShift = null,
 }) => {
   const [trendData, setTrendData] = React.useState<TrendItem[] | null>(null);
 
@@ -42,6 +44,9 @@ export const MovementChart: React.FC<MovementChartProps> = ({
     if (selectedGudang) params.set('gudang', String(selectedGudang));
     if (startDate) params.set('start', startDate);
     if (endDate) params.set('end', endDate);
+    if (selectedShift !== null && selectedShift !== undefined) {
+      params.set('shift', String(selectedShift));
+    }
     fetch(`/api/reports/trend?${params}`)
       .then(r => r.json())
       .then(res => {
@@ -54,7 +59,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [useAllData, selectedGudang, startDate, endDate]);
+  }, [useAllData, selectedGudang, startDate, endDate, selectedShift]);
 
   const fullDailyData = React.useMemo(() => {
     if (useAllData && trendData) {
@@ -325,9 +330,8 @@ export const MovementChart: React.FC<MovementChartProps> = ({
         </div>
 
         {/* Footer info line */}
-        <p className="text-[11px] text-slate-500 font-medium mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between">
+        <p className="text-[11px] text-slate-500 font-medium mt-3 pt-2.5 border-t border-slate-200/80">
           <span>Rentang kalkulasi: {calcRangeStr || '7 Hari Terakhir'}</span>
-          <span className="text-apple-blue font-bold">Tersinkronisasi SAP</span>
         </p>
       </motion.article>
 

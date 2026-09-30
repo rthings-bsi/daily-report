@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "sim-*.ts", "test-*.ts", ".codex", "scratch*", "graphify-out"]
+  "exclude": ["node_modules", "sim-*.ts", "test-*.ts", "check-*.ts", "find-*.ts", "fix-*.ts", ".codex", "scratch*", "graphify-out"]
 }

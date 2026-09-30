@@ -414,6 +414,13 @@ export async function DELETE(req: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
 
+  if (!ctx.isAdmin) {
+    return NextResponse.json(
+      { error: 'Akses ditolak: hanya admin yang dapat menghapus sesi audit' },
+      { status: 403 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get('sessionId');
@@ -424,15 +431,11 @@ export async function DELETE(req: NextRequest) {
 
     const session = await prisma.auditSlocSession.findUnique({
       where: { id: sessionId },
-      select: { gudangId: true },
+      select: { id: true },
     });
 
     if (!session) {
       return NextResponse.json({ error: 'Sesi audit tidak ditemukan' }, { status: 404 });
-    }
-
-    if (!ctx.isAdmin && session.gudangId !== ctx.gudangId) {
-      return NextResponse.json({ error: 'Tidak memiliki izin menghapus sesi ini' }, { status: 403 });
     }
 
     await prisma.auditSlocSession.delete({

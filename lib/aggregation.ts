@@ -52,13 +52,16 @@ export interface RawMovementRow {
   group: string;
   color: string;
   userName: string | null;
+  entryTime?: string | null;
+  entryDate?: string | null;
+  shift?: number | null;
 }
 
 /**
  * Composite dedup key for material movements.
  * Fields that together uniquely identify a SAP material movement
  * (material document) within the same day:
- *   dateStr + moveType + material + batch + quantity + userName + workCenter + storageLocation
+ *   dateStr + moveType + material + batch + quantity + userName + workCenter + storageLocation + entryTime
  */
 export function movementDedupKey(m: RawMovementRow): string {
   return [
@@ -70,6 +73,7 @@ export function movementDedupKey(m: RawMovementRow): string {
     m.userName ?? '',
     m.workCenter ?? '',
     m.storageLocation ?? '',
+    m.entryTime ?? '',
   ].join('|');
 }
 
@@ -190,6 +194,9 @@ export function aggregateSessionData(args: AggregateArgs): AggregatedSession {
     group: m.group,
     color: m.color,
     userName: m.userName || null,
+    entryTime: m.entryTime || null,
+    entryDate: m.entryDate || null,
+    shift: m.shift ?? null,
   }));
 
   // ── 4) StockSummary — key = sloc|status ──
