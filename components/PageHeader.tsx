@@ -61,7 +61,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <Icon size={15} strokeWidth={2.5} />
         </motion.div>
         <div className="min-w-0 flex flex-col justify-center h-8">
-          <h1 className="text-[14px] font-bold text-slate-800 tracking-tight leading-none mb-0.5">{title}</h1>
+          <h1 className={cn("text-[14px] font-bold text-slate-800 tracking-tight leading-none", subtitle && "mb-0.5")}>{title}</h1>
           {subtitle && (
             <p className="text-[10px] text-slate-500 font-medium truncate leading-none">{subtitle}</p>
           )}

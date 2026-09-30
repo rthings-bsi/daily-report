@@ -423,13 +423,6 @@ function AuditSlocContent() {
         icon={ClipboardCheck}
         iconBg="bg-blue-500/10 text-[#007AFF] border-blue-200/60 shadow-apple-xs"
         title="Audit SLoc"
-        subtitle={
-          currentSession
-            ? `Plant ${currentSession.plant || '1105'} • ${currentSession.title}`
-            : selectedDate
-              ? `Plant 1105 • Tanggal ${selectedDate}`
-              : 'Rekonsiliasi Fisik vs SAP'
-        }
       >
         {/* Warehouse switcher (admin) */}
         {session?.user?.role === 'admin' && (

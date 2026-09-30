@@ -260,11 +260,11 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
             <span className="font-bold font-mono tabular-nums">{s.matchCount.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between items-center text-rose-600">
-            <span>Mismatch Kurang (-):</span>
+            <span>Minus (-):</span>
             <span className="font-bold font-mono tabular-nums">{s.deficitCount.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between items-center text-amber-600">
-            <span>Mismatch Lebih (+):</span>
+            <span>Plus (+):</span>
             <span className="font-bold font-mono tabular-nums">{s.surplusCount.toLocaleString('id-ID')}</span>
           </div>
           <div className="border-t border-slate-100 pt-1.5 mt-1 flex justify-between items-center">
@@ -590,7 +590,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           </div>
         </div>
 
-        {/* Bottom 3 Summary Status Cards: Sesuai | Kurang (-) | Lebih (+) */}
+        {/* Bottom 3 Summary Status Cards: Match | Minus (-) | Plus (+) */}
         <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200/50 mt-2">
           {/* 1. Sesuai */}
           <button
@@ -623,7 +623,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           >
             <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] shrink-0" />
-              <span>Kurang (-)</span>
+              <span>Minus (-)</span>
             </div>
             <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">
               {overall.deficitCount.toLocaleString('id-ID')}
@@ -642,7 +642,7 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
           >
             <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FF9500] shrink-0" />
-              <span>Lebih (+)</span>
+              <span>Plus (+)</span>
             </div>
             <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">
               {overall.surplusCount.toLocaleString('id-ID')}
