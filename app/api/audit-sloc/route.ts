@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireUserContext, respondError, buildGudangWhere } from '@/lib/api-helpers';
+import { requireUserContext, requirePermission, respondError, buildGudangWhere } from '@/lib/api-helpers';
 import {
   parseAuditSlocExcel,
   parseAuditSlocText,
@@ -11,6 +11,9 @@ import { getGudangPrefix } from '@/lib/gudang';
 export async function GET(req: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
+
+  const permCheck = requirePermission(ctx, 'audit-sloc');
+  if (permCheck) return permCheck;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -244,6 +247,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
+
+  const permCheck = requirePermission(ctx, 'audit-sloc');
+  if (permCheck) return permCheck;
 
   try {
     const contentType = req.headers.get('content-type') || '';

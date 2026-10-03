@@ -73,6 +73,8 @@ interface AuditSession {
 function AuditSlocContent() {
   const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === 'admin';
+  const userPerms = session?.user?.permissions ?? [];
+  const hasAccess = isAdmin || userPerms.includes('audit-sloc');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -179,6 +181,10 @@ function AuditSlocContent() {
       router.push('/login');
       return;
     }
+    if (status === 'authenticated' && !hasAccess) {
+      router.push('/');
+      return;
+    }
 
     if (status === 'authenticated' && session?.user) {
       if (session.user.role !== 'admin' && session.user.gudangId) {
@@ -188,7 +194,7 @@ function AuditSlocContent() {
         if (paramGudang) setSelectedGudang(parseInt(paramGudang, 10));
       }
     }
-  }, [status, session, router, searchParams]);
+  }, [status, hasAccess, session, router, searchParams]);
 
   // Load audit sessions list
   const fetchSessions = useCallback(async () => {
@@ -242,10 +248,10 @@ function AuditSlocContent() {
   }, [selectedGudang]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && hasAccess) {
       fetchSessions();
     }
-  }, [status, fetchSessions]);
+  }, [status, hasAccess, fetchSessions]);
 
   // Load items for the selected session
   const fetchSessionItems = useCallback(async () => {
@@ -415,6 +421,10 @@ function AuditSlocContent() {
   }, [currentSession]);
 
   const totalPages = Math.ceil(totalItems / limit) || 1;
+
+  if (status === 'authenticated' && !hasAccess) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen dashboard-apple-bg selection:bg-apple-blue/20 selection:text-apple-blue font-sans pb-16">

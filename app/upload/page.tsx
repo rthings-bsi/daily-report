@@ -6,11 +6,25 @@ import { ArchiveTable } from '@/components/ArchiveTable';
 import { PageHeader } from '@/components/PageHeader';
 import { FileUp, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ProcessedMovement, ProcessedStock } from '@/lib/excel-parser';
 import { motion } from 'framer-motion';
 
 export default function UploadPage() {
   const router = useRouter();
+  const { data: authSession, status } = useSession();
+  const isAdmin = authSession?.user?.role === 'admin';
+  const userPerms = authSession?.user?.permissions ?? [];
+  const hasAccess = isAdmin || userPerms.includes('upload');
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    } else if (status === 'authenticated' && !hasAccess) {
+      router.push('/');
+    }
+  }, [status, hasAccess, router]);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -80,6 +94,10 @@ export default function UploadPage() {
       router.push(`/?reportSessionId=${activeSessionId}`);
     }
   }, [activeSessionId, router]);
+
+  if (status === 'authenticated' && !hasAccess) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">

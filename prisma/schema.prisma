@@ -66,6 +66,8 @@ model ReportSession {
   stockSummaries    StockSummary[]    @relation("StockSummaryToSession")
 
   @@index([gudangId])
+  @@index([dateStr])
+  @@index([dateStr, gudangId])
 }
 
 model Movement {
@@ -199,4 +201,17 @@ model AuditSlocItem {
   @@index([sloc])
   @@index([material])
   @@index([status])
+}
+
+model RoleConfig {
+  id          String   @id @default(cuid())
+  roleId      String   @unique
+  name        String
+  description String?
+  color       String?  @default("bg-slate-500")
+  isSystem    Boolean  @default(false)
+  scope       String   @default("gudang") // "global" | "gudang"
+  permissions String   @default("[]") // JSON string of module keys
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

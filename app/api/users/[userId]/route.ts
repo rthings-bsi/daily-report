@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const { username, password, role, gudangId } = body as {
       username?: string;
       password?: string;
-      role?: "admin" | "user";
+      role?: string;
       gudangId?: number | null;
     };
 
@@ -65,25 +65,33 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       data.password = await bcrypt.hash(password, 12);
     }
 
+    let roleScope = "gudang";
     if (role !== undefined) {
-      if (role !== "admin" && role !== "user") {
-        throw new ApiError(400, "role harus 'admin' atau 'user'");
+      const roleRecord = await prisma.roleConfig.findUnique({ where: { roleId: role } });
+      if (!roleRecord && role !== "admin" && role !== "user") {
+        throw new ApiError(400, `Role '${role}' tidak terdaftar dalam sistem`);
       }
       data.role = role;
+      roleScope = roleRecord?.scope ?? (role === "admin" ? "global" : "gudang");
+    } else {
+      const existingRoleRecord = await prisma.roleConfig.findUnique({ where: { roleId: existing.role } });
+      roleScope = existingRoleRecord?.scope ?? (existing.role === "admin" ? "global" : "gudang");
     }
 
     if (gudangId !== undefined) {
-      const finalRole = (data.role as string) ?? existing.role;
-      if (finalRole === "user") {
+      if (roleScope === "gudang") {
         if (typeof gudangId !== "number" || gudangId < 1 || gudangId > 14) {
-          throw new ApiError(400, "User (non-admin) harus punya gudangId 1-14");
+          throw new ApiError(400, "Role per-gudang harus memiliki gudangId 1-14");
         }
+        data.gudangId = gudangId;
       } else {
         if (gudangId !== null) {
-          throw new ApiError(400, "Admin tidak boleh terikat ke gudang");
+          throw new ApiError(400, "Role global tidak boleh terikat ke gudang");
         }
+        data.gudangId = null;
       }
-      data.gudangId = gudangId;
+    } else if (role !== undefined && roleScope === "global") {
+      data.gudangId = null;
     }
 
     const user = await prisma.user.update({

@@ -49,6 +49,16 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  const userRole = session?.user?.role?.toLowerCase() || '';
+  const isAdmin = session?.user?.role === 'admin';
+  const userPerms = session?.user?.permissions || [];
+  const hasDashboardAccess = isAdmin || userPerms.includes('dashboard');
+  const isRepairRole =
+    userRole === 'repair' ||
+    userRole === 'rep' ||
+    userRole.includes('repair') ||
+    (!hasDashboardAccess && userPerms.includes('repair-packing'));
+
   const [movements, setMovements] = useState<ProcessedMovement[]>([]);
   const [movementSummaries, setMovementSummaries] = useState<MovementSummaryItem[] | null>(null);
   const [stocks, setStocks] = useState<ProcessedStock[]>([]);
@@ -236,8 +246,10 @@ export default function Home() {
   );
 
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (status === 'authenticated' && hasDashboardAccess && !isRepairRole) {
+      loadHistory();
+    }
+  }, [status, hasDashboardAccess, isRepairRole, loadHistory]);
 
   const loadGen = useRef(0);
 
@@ -521,6 +533,7 @@ export default function Home() {
 
   // Load aggregated data whenever filters change
   useEffect(() => {
+    if (!hasDashboardAccess || isRepairRole) return;
     if (!history.length) return;
 
     const params = new URLSearchParams();
@@ -540,22 +553,24 @@ export default function Home() {
       loadAggregate(params);
     }, 400);
     return () => clearTimeout(t);
-  }, [startDate, endDate, selectedGudang, selectedShift, history, loadAggregate]);
-
-  
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      if (session.user.role !== 'admin' && session.user.gudangId) {
-        setSelectedGudang(session.user.gudangId);
-      }
-    }
-  }, [status, session]);
+  }, [hasDashboardAccess, isRepairRole, startDate, endDate, selectedGudang, selectedShift, history, loadAggregate]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
+    } else if (status === 'authenticated') {
+      if (isRepairRole) {
+        router.replace('/repair-packing');
+      } else if (!hasDashboardAccess) {
+        const firstModule = userPerms.find((p: string) =>
+          ['repair-packing', 'pipa-nc', 'audit-sloc', 'upload'].includes(p)
+        );
+        router.replace(firstModule ? `/${firstModule}` : '/login');
+      } else if (session?.user?.role !== 'admin' && session?.user?.gudangId) {
+        setSelectedGudang(session.user.gudangId);
+      }
     }
-  }, [status, router]);
+  }, [status, session, isRepairRole, hasDashboardAccess, userPerms, router]);
 
   // ─── Protected Routes Handling ───
   if (status === 'loading') {
@@ -566,7 +581,7 @@ export default function Home() {
     );
   }
 
-  if (status === 'unauthenticated') return null;
+  if (status === 'unauthenticated' || isRepairRole || !hasDashboardAccess) return null;
 
   // ─── Save to DB ───
   const saveToDb = async (movs: ProcessedMovement[], stks: ProcessedStock[], fileName: string, stockCards?: any[]) => {

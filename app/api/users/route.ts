@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const { username, password, role, gudangId } = body as {
       username?: string;
       password?: string;
-      role?: "admin" | "user";
+      role?: string;
       gudangId?: number | null;
     };
 
@@ -52,20 +52,25 @@ export async function POST(req: NextRequest) {
     if (password.length < 6) {
       throw new ApiError(400, "Password minimal 6 karakter");
     }
-    if (role !== "admin" && role !== "user") {
-      throw new ApiError(400, "role harus 'admin' atau 'user'");
+    if (!role) {
+      throw new ApiError(400, "role wajib dipilih");
     }
 
-    // Non-admin users MUST have a gudangId; admin MUST NOT.
+    const roleRecord = await prisma.roleConfig.findUnique({
+      where: { roleId: role },
+    });
+    const isGlobal = roleRecord ? roleRecord.scope === "global" : role === "admin";
+
+    // Global roles must NOT have gudangId; per-gudang roles MUST have gudangId 1-14.
     let resolvedGudangId: number | null = null;
-    if (role === "user") {
+    if (!isGlobal) {
       if (typeof gudangId !== "number" || gudangId < 1 || gudangId > 14) {
-        throw new ApiError(400, "User (non-admin) harus punya gudangId 1-14");
+        throw new ApiError(400, "Role per-gudang harus memiliki gudangId 1-14");
       }
       resolvedGudangId = gudangId;
     } else {
       if (gudangId !== null && gudangId !== undefined) {
-        throw new ApiError(400, "Admin tidak boleh terikat ke gudang");
+        throw new ApiError(400, "Role global tidak boleh terikat ke gudang");
       }
       resolvedGudangId = null;
     }

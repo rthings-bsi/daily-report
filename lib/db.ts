@@ -32,6 +32,11 @@ const pool = new Pool({
 
 const adapter = new PrismaPg(pool);
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+const existingPrisma = globalForPrisma.prisma;
+const isStale = existingPrisma && !("roleConfig" in existingPrisma);
+
+export const prisma =
+  (existingPrisma && !isStale ? existingPrisma : undefined) ??
+  new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertOwnsSession, requireUserContext, respondError } from "@/lib/api-helpers";
 import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
+import { invalidateRepairPackingCache } from "../repair-packing/route";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,7 @@ export async function DELETE(
   try {
     await assertOwnsSession(ctx, id);
     await prisma.reportSession.delete({ where: { reportSessionId: id } });
+    invalidateRepairPackingCache();
     return NextResponse.json({ ok: true });
   } catch (err) {
     return respondError(err);

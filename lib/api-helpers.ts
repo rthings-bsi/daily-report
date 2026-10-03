@@ -5,9 +5,10 @@ import { prisma } from "@/lib/db";
 export interface UserContext {
   userId: string;
   username: string;
-  role: "admin" | "user";
+  role: string;
   gudangId: number | null;
   isAdmin: boolean;
+  permissions: string[];
 }
 
 export class ApiError extends Error {
@@ -37,7 +38,32 @@ export async function requireUserContext(): Promise<UserContext | NextResponse> 
     role: session.user.role,
     gudangId: session.user.gudangId ?? null,
     isAdmin: session.user.role === "admin",
+    permissions: session.user.permissions ?? [],
   };
+}
+
+/**
+ * Check if the user has permission for a specific module.
+ * Admin always has access.
+ */
+export function hasPermission(ctx: UserContext, moduleId: string): boolean {
+  if (ctx.isAdmin) return true;
+  return ctx.permissions.includes(moduleId);
+}
+
+/**
+ * Require permission for a specific module.
+ * Returns a 403 NextResponse if the caller lacks permission, null otherwise.
+ */
+export function requirePermission(ctx: UserContext, moduleId: string): NextResponse | null {
+  if (ctx.isAdmin) return null;
+  if (!ctx.permissions.includes(moduleId)) {
+    return NextResponse.json(
+      { error: `Forbidden: role anda tidak memiliki hak akses modul ${moduleId}` },
+      { status: 403 }
+    );
+  }
+  return null;
 }
 
 /**

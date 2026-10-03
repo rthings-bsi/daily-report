@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, User, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
@@ -42,7 +42,20 @@ export default function LoginPage() {
       if (res?.error) {
         setError('Username atau password salah.');
       } else {
-        router.push('/');
+        const sess = await getSession();
+        const role = sess?.user?.role?.toLowerCase() || '';
+        const perms = sess?.user?.permissions || [];
+        const isRepair =
+          role === 'repair' ||
+          role === 'rep' ||
+          role.includes('repair') ||
+          (!perms.includes('dashboard') && perms.includes('repair-packing'));
+
+        if (isRepair) {
+          router.push('/repair-packing');
+        } else {
+          router.push('/');
+        }
         router.refresh();
       }
     } finally {

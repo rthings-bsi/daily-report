@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   ClipboardList,
   ClipboardCheck,
+  Wrench,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -25,21 +27,24 @@ interface MenuItem {
   href: string;
   icon: React.ElementType;
   color: string;
+  moduleId?: string;
 }
 
 const baseMenuItems: MenuItem[] = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard, color: "bg-[#007AFF]" },
-  { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList, color: "bg-[#5856D6]" },
-  { name: "Audit SLoc", href: "/audit-sloc", icon: ClipboardCheck, color: "bg-[#34C759]" },
-  { name: "Upload", href: "/upload", icon: FileUp, color: "bg-[#FF9500]" },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, color: "bg-[#007AFF]", moduleId: "dashboard" },
+  { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList, color: "bg-[#5856D6]", moduleId: "pipa-nc" },
+  { name: "Repair & Packing", href: "/repair-packing", icon: Wrench, color: "bg-[#F59E0B]", moduleId: "repair-packing" },
+  { name: "Audit SLoc", href: "/audit-sloc", icon: ClipboardCheck, color: "bg-[#34C759]", moduleId: "audit-sloc" },
+  { name: "Upload", href: "/upload", icon: FileUp, color: "bg-[#FF9500]", moduleId: "upload" },
 ];
 
 const adminMenuItems: MenuItem[] = [
-  { name: "Manajemen User", href: "/admin/users", icon: Users, color: "bg-[#AF52DE]" },
+  { name: "Manajemen User", href: "/admin/users", icon: Users, color: "bg-[#AF52DE]", moduleId: "admin-users" },
+  { name: "Konfigurasi Role", href: "/admin/roles", icon: ShieldCheck, color: "bg-[#FF2D55]", moduleId: "admin-roles" },
 ];
 
 const settingsMenuItems: MenuItem[] = [
-  { name: "Settings", href: "/settings", icon: Settings, color: "bg-[#8E8E93]" },
+  { name: "Settings", href: "/settings", icon: Settings, color: "bg-[#8E8E93]", moduleId: "settings" },
 ];
 
 export default function Sidebar() {
@@ -47,7 +52,44 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const { isOpen, toggle } = useSidebar();
 
+  const userRole = session?.user?.role?.toLowerCase() || "";
+  const isAdmin = userRole === "admin";
+  const userPerms = session?.user?.permissions || [];
+  const isRepairRole =
+    userRole === "repair" ||
+    userRole === "rep" ||
+    userRole.includes("repair") ||
+    (!userPerms.includes("dashboard") && userPerms.includes("repair-packing"));
+
+  const canAccess = (item: MenuItem) => {
+    if (isAdmin) return true;
+    if (!item.moduleId) return true;
+    return userPerms.includes(item.moduleId);
+  };
+
+  const visibleBaseMenuItems = useMemo(() => {
+    if (!session) return [];
+    let items = baseMenuItems.filter(canAccess);
+    if (isRepairRole) {
+      items = items.map((it) => {
+        if (it.moduleId === "repair-packing") {
+          return { ...it, name: "Dashboard Repair" };
+        }
+        return it;
+      });
+      return [...items].sort((a, b) => {
+        if (a.moduleId === "repair-packing") return -1;
+        if (b.moduleId === "repair-packing") return 1;
+        return 0;
+      });
+    }
+    return items;
+  }, [session, isAdmin, userPerms, isRepairRole]);
+
   if (!session) return null;
+
+  const visibleAdminMenuItems = adminMenuItems.filter(canAccess);
+  const visibleSettingsMenuItems = settingsMenuItems.filter(canAccess);
 
   const renderMenuItem = (item: MenuItem) => {
     const isActive = pathname === item.href;
@@ -114,9 +156,10 @@ export default function Sidebar() {
         )}
       >
         {/* ─── Logo Header ─── */}
-        <div
+        <Link
+          href={isRepairRole ? "/repair-packing" : "/"}
           className={cn(
-            "flex items-center h-16 shrink-0 border-b border-slate-200/50",
+            "flex items-center h-16 shrink-0 border-b border-slate-200/50 hover:bg-slate-50/50 transition-colors",
             isOpen ? "px-4 justify-between" : "px-2 justify-center"
           )}
         >
@@ -136,42 +179,50 @@ export default function Sidebar() {
                   SPINDO
                 </span>
                 <span className="text-[9px] font-bold text-slate-400 tracking-[0.18em] uppercase block leading-tight mt-0.5">
-                  Warehouse Ops
+                  {isRepairRole ? "Repair & Packing" : "Warehouse Ops"}
                 </span>
               </div>
             )}
           </div>
-        </div>
+        </Link>
 
         {/* ─── Navigation ─── */}
         <nav className="flex-1 space-y-1 px-2.5 py-4 overflow-x-hidden overflow-y-auto">
           {/* Main Menu Section */}
-          <div className={cn("px-3 pt-1 pb-1", isOpen ? "block" : "sr-only")}>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-              Menu
-            </span>
-          </div>
-          {baseMenuItems.map(renderMenuItem)}
+          {visibleBaseMenuItems.length > 0 && (
+            <>
+              <div className={cn("px-3 pt-1 pb-1", isOpen ? "block" : "sr-only")}>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                  Menu
+                </span>
+              </div>
+              {visibleBaseMenuItems.map(renderMenuItem)}
+            </>
+          )}
 
           {/* Admin Section */}
-          {session.user?.role === "admin" && (
+          {visibleAdminMenuItems.length > 0 && (
             <>
               <div className={cn("px-3 pt-5 pb-1", isOpen ? "block" : "sr-only")}>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
                   Administrasi
                 </span>
               </div>
-              {adminMenuItems.map(renderMenuItem)}
+              {visibleAdminMenuItems.map(renderMenuItem)}
             </>
           )}
 
           {/* Preferences Section */}
-          <div className={cn("px-3 pt-5 pb-1", isOpen ? "block" : "sr-only")}>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-              Preferensi
-            </span>
-          </div>
-          {settingsMenuItems.map(renderMenuItem)}
+          {visibleSettingsMenuItems.length > 0 && (
+            <>
+              <div className={cn("px-3 pt-5 pb-1", isOpen ? "block" : "sr-only")}>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                  Preferensi
+                </span>
+              </div>
+              {visibleSettingsMenuItems.map(renderMenuItem)}
+            </>
+          )}
         </nav>
 
         {/* ─── User Profile ─── */}

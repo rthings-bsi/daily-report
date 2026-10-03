@@ -92,13 +92,18 @@ function PipaNCContent() {
     }
   }, [status, session, selectedGudang]);
 
+  const userPerms = session?.user?.permissions ?? [];
+  const isAdmin = session?.user?.role === 'admin';
+  const hasAccess = isAdmin || userPerms.includes('pipa-nc');
+
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
-  }, [status, router]);
+    else if (status === 'authenticated' && !hasAccess) router.push('/');
+  }, [status, hasAccess, router]);
 
   useEffect(() => {
     let active = true;
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || !hasAccess) return;
 
     if (!loading) {
       Promise.resolve().then(() => setLoading(true));
@@ -171,6 +176,8 @@ function PipaNCContent() {
     router.push('/');
   }, [router]);
 
+  if (status === 'unauthenticated' || (status === 'authenticated' && !hasAccess)) return null;
+
   // ── LOADING ──
   if (status === 'loading' || loading) {
     return (
@@ -194,7 +201,6 @@ function PipaNCContent() {
       </div>
     );
   }
-  if (status === 'unauthenticated') return null;
 
   // ── EMPTY ──
   if (!loading && pipaNCData.length === 0) {

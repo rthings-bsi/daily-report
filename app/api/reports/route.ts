@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { filterByGudang, getGudangPrefix } from "@/lib/gudang";
-import { buildGudangWhere, requireUserContext, respondError } from "@/lib/api-helpers";
+import { buildGudangWhere, requireUserContext, requirePermission, respondError } from "@/lib/api-helpers";
 import { invalidateTrendCache } from "./trend/route";
 import { invalidateAggregateCache } from "./aggregate/route";
+import { invalidateRepairPackingCache } from "./repair-packing/route";
 
 // GET /api/reports — list sessions visible to the caller
 // Admin sees all; non-admin sees own gudang strictly.
@@ -54,9 +55,13 @@ export async function POST(req: NextRequest) {
   const ctx = await requireUserContext();
   if (ctx instanceof NextResponse) return ctx;
 
+  const permCheck = requirePermission(ctx, 'upload');
+  if (permCheck) return permCheck;
+
   // Data baru = hasil lama basi. Buang cache aggregate & trend supaya tidak menampilkan angka lama.
   invalidateTrendCache();
   invalidateAggregateCache();
+  invalidateRepairPackingCache();
 
   const body = await req.json();
   const { label, dateStr, fileName, movements, stocks, stockCards } = body;

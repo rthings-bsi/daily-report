@@ -10,11 +10,12 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { GUDANG_LIST } from '@/lib/gudang';
+import { RoleConfigItem } from '@/lib/roles';
 
 interface UserRow {
   userId: string;
   username: string;
-  role: 'admin' | 'user';
+  role: string;
   gudangId: number | null;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [roles, setRoles] = useState<RoleConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState<FormMode>({ kind: 'closed' });
@@ -46,8 +48,12 @@ export default function AdminUsersPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/users');
-      if (res.ok) setUsers(await res.json());
+      const [uRes, rRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/roles'),
+      ]);
+      if (uRes.ok) setUsers(await uRes.json());
+      if (rRes.ok) setRoles(await rRes.json());
     } catch {
       /* silent */
     } finally {
@@ -79,7 +85,7 @@ export default function AdminUsersPage() {
   const submitForm = async (data: {
     username: string;
     password?: string;
-    role: 'admin' | 'user';
+    role: string;
     gudangId: number | null;
   }) => {
     setSaving(true);
@@ -223,6 +229,7 @@ export default function AdminUsersPage() {
                   filtered.map((u) => {
                     const gudang = u.gudangId ? GUDANG_LIST.find((g) => g.gudangId === u.gudangId) : null;
                     const isSelf = u.userId === session?.user?.id;
+                    const roleObj = roles.find((r) => r.roleId === u.role);
                     return (
                       <tr key={u.userId} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/40">
                         <td className="px-4 py-2.5">
@@ -239,10 +246,15 @@ export default function AdminUsersPage() {
                               <ShieldCheck size={10} />
                               Admin
                             </span>
+                          ) : roleObj ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+                              <Shield size={10} />
+                              {roleObj.name}
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                               <Shield size={10} />
-                              User
+                              {u.role}
                             </span>
                           )}
                         </td>
@@ -263,7 +275,7 @@ export default function AdminUsersPage() {
                           <div className="inline-flex items-center gap-1">
                             <button
                               onClick={() => setForm({ kind: 'edit', user: u })}
-                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                              className="p-1.5 text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded-lg transition-colors"
                               title="Edit user"
                             >
                               <Edit3 size={12} />
@@ -271,7 +283,7 @@ export default function AdminUsersPage() {
                             <button
                               onClick={() => deleteUser(u)}
                               disabled={isSelf}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               title={isSelf ? 'Tidak bisa hapus akun sendiri' : 'Hapus user'}
                             >
                               <Trash2 size={12} />
@@ -292,6 +304,7 @@ export default function AdminUsersPage() {
         {form.kind !== 'closed' && (
           <UserForm
             mode={form}
+            roles={roles}
             onClose={() => setForm({ kind: 'closed' })}
             onSubmit={submitForm}
             saving={saving}
@@ -304,28 +317,36 @@ export default function AdminUsersPage() {
 
 interface UserFormProps {
   mode: { kind: 'create' } | { kind: 'edit'; user: UserRow };
+  roles: RoleConfigItem[];
   onClose: () => void;
   onSubmit: (data: {
     username: string;
     password?: string;
-    role: 'admin' | 'user';
+    role: string;
     gudangId: number | null;
   }) => Promise<void>;
   saving: boolean;
 }
 
-const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) => {
+const UserForm: React.FC<UserFormProps> = ({ mode, roles, onClose, onSubmit, saving }) => {
   const isEdit = mode.kind === 'edit';
   const [username, setUsername] = useState(mode.kind === 'edit' ? mode.user.username : '');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'admin' | 'user'>(mode.kind === 'edit' ? mode.user.role : 'user');
+  const [role, setRole] = useState<string>(mode.kind === 'edit' ? mode.user.role : (roles[0]?.roleId || 'user'));
   const [gudangId, setGudangId] = useState<number | null>(mode.kind === 'edit' ? mode.user.gudangId : 1);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRoleChange = (newRole: 'admin' | 'user') => {
+  const selectedRoleObj = roles.find((r) => r.roleId === role);
+  const isPerGudang = selectedRoleObj ? selectedRoleObj.scope === 'gudang' : role === 'user';
+
+  const handleRoleChange = (newRole: string) => {
     setRole(newRole);
-    if (newRole === 'admin') setGudangId(null);
-    else if (gudangId === null) setGudangId(1);
+    const rObj = roles.find((r) => r.roleId === newRole);
+    if (rObj?.scope === 'global' || newRole === 'admin') {
+      setGudangId(null);
+    } else if (gudangId === null) {
+      setGudangId(1);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -343,11 +364,11 @@ const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) 
       setError(`Password minimal ${PASSWORD_MIN} karakter`);
       return;
     }
-    if (role === 'user' && (gudangId === null || gudangId < 1 || gudangId > 14)) {
-      setError('User (non-admin) harus terikat ke gudang');
+    if (isPerGudang && (gudangId === null || gudangId < 1 || gudangId > 14)) {
+      setError('User role per-gudang harus terikat ke gudang 1-14');
       return;
     }
-    const payload: any = { username: username.trim(), role, gudangId: role === 'admin' ? null : gudangId };
+    const payload: any = { username: username.trim(), role, gudangId: isPerGudang ? gudangId : null };
     if (password) payload.password = password;
     onSubmit(payload).catch((e) => setError(e.message));
   };
@@ -409,32 +430,28 @@ const UserForm: React.FC<UserFormProps> = ({ mode, onClose, onSubmit, saving }) 
           </Field>
 
           <Field label="Role">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleRoleChange('user')}
-                className={`h-9 px-3 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                  role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Shield size={12} />
-                User
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleChange('admin')}
-                className={`h-9 px-3 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                  role === 'admin' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <ShieldCheck size={12} />
-                Admin
-              </button>
-            </div>
+            <select
+              value={role}
+              onChange={(e) => handleRoleChange(e.target.value)}
+              className="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            >
+              {roles.length > 0 ? (
+                roles.map((r) => (
+                  <option key={r.roleId} value={r.roleId}>
+                    {r.name} ({r.scope === 'global' ? 'Global' : 'Per-Gudang'})
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="user">Operator Gudang (Per-Gudang)</option>
+                  <option value="admin">Administrator (Global)</option>
+                </>
+              )}
+            </select>
           </Field>
 
-          {role === 'user' && (
-            <Field label="Gudang">
+          {isPerGudang && (
+            <Field label="Gudang Penugasan">
               <select
                 value={gudangId ?? ''}
                 onChange={(e) => setGudangId(Number(e.target.value))}
