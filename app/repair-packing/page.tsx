@@ -45,6 +45,13 @@ import {
 
 const getTodayIso = () => new Date().toLocaleDateString('en-CA');
 
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
 const EMPTY_METRICS: RepairPackingMetrics = {
   totalRecords: 0,
   totalPcsIn: 0,
@@ -64,9 +71,10 @@ const CustomChartTooltip = ({ active, payload, label }: {
   label?: string;
 }) => {
   if (active && payload && payload.length) {
+    const formattedDate = label ? label.split('-').reverse().join('/') : '';
     return (
       <div className="glass-card rounded-2xl p-3 shadow-apple-card border border-white/90 text-xs">
-        <p className="font-bold text-slate-800 mb-1">{label}</p>
+        <p className="font-bold text-slate-800 mb-1">{formattedDate || label}</p>
         <div className="space-y-1">
           {payload.map(entry => (
             <div key={entry.name} className="flex items-center justify-between gap-3 text-[11px]">
@@ -103,6 +111,7 @@ export default function RepairPackingPage() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   const [rawItems, setRawItems] = useState<RepairPackingItem[]>([]);
+  const [trendRawItems, setTrendRawItems] = useState<RepairPackingItem[]>([]);
   const [serverWorkCenters, setServerWorkCenters] = useState<string[]>([]);
 
   const [selectedGudang, setSelectedGudang] = useState<number | null>(null);
@@ -203,6 +212,7 @@ export default function RepairPackingPage() {
 
       const data = await res.json();
       setRawItems(data.items || []);
+      setTrendRawItems(data.trendItems || []);
       if (Array.isArray(data.availableWorkCenters)) {
         setServerWorkCenters(data.availableWorkCenters);
       }
@@ -213,14 +223,15 @@ export default function RepairPackingPage() {
     }
   }, [selectedGudang, startDate, endDate]);
 
-  const { filteredItems, metrics, byWorkCenter, byMoveType, dailyTrend, availableWorkCenters } = useMemo(() => {
-    if (!rawItems.length) {
+  const { filteredItems, metrics, byWorkCenter, byMoveType, dailyTrend, trendTotals, availableWorkCenters } = useMemo(() => {
+    if (!rawItems.length && !trendRawItems.length) {
       return {
         filteredItems: [] as RepairPackingItem[],
         metrics: EMPTY_METRICS,
         byWorkCenter: [] as WorkCenterBreakdownItem[],
         byMoveType: [] as MoveTypeBreakdownItem[],
         dailyTrend: [] as DailyTrendItem[],
+        trendTotals: { totalMasuk: 0, totalKeluar: 0, net: 0 },
         availableWorkCenters: serverWorkCenters,
       };
     }
@@ -234,8 +245,43 @@ export default function RepairPackingPage() {
     });
 
     const calculated = calculateRepairPackingMetrics(filtered);
+
+    // Client-side filtering for 7-day trend
+    const trendFiltered = trendRawItems.filter(item => {
+      if (selectedShift !== null && item.shift !== selectedShift) return false;
+      if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
+      if (workCenterFilter && item.workCenter.toLowerCase() !== workCenterFilter.toLowerCase()) return false;
+      if (moveTypeFilter && item.moveType !== moveTypeFilter) return false;
+      return true;
+    });
+
+    const todayStr = getTodayIso();
+    const refEnd = endDate || (
+      trendRawItems.length > 0
+        ? (trendRawItems[0].operationalDate > todayStr || trendRawItems[0].operationalDate < addDays(todayStr, -7)
+            ? trendRawItems[0].operationalDate
+            : todayStr)
+        : todayStr
+    );
+    const refStart = addDays(refEnd, -6);
+
+    const trendCalc = calculateRepairPackingMetrics(trendFiltered);
+    const trendMap = new Map(trendCalc.dailyTrend.map(d => [d.date, d]));
+    const fullDailyTrend: DailyTrendItem[] = [];
+    for (let i = 0; i < 7; i++) {
+      const dStr = addDays(refStart, i);
+      fullDailyTrend.push(trendMap.get(dStr) || { date: dStr, masuk: 0, keluar: 0, net: 0 });
+    }
+
+    const totalMasuk = fullDailyTrend.reduce((sum, d) => sum + d.masuk, 0);
+    const totalKeluar = fullDailyTrend.reduce((sum, d) => sum + d.keluar, 0);
+    const net = totalMasuk - totalKeluar;
+
     const wcSet = new Set<string>(serverWorkCenters);
     rawItems.forEach(i => {
+      if (i.workCenter) wcSet.add(i.workCenter);
+    });
+    trendRawItems.forEach(i => {
       if (i.workCenter) wcSet.add(i.workCenter);
     });
 
@@ -244,10 +290,11 @@ export default function RepairPackingPage() {
       metrics: calculated.metrics,
       byWorkCenter: calculated.byWorkCenter,
       byMoveType: calculated.byMoveType,
-      dailyTrend: calculated.dailyTrend,
+      dailyTrend: fullDailyTrend,
+      trendTotals: { totalMasuk, totalKeluar, net },
       availableWorkCenters: Array.from(wcSet).sort(),
     };
-  }, [rawItems, selectedShift, categoryFilter, workCenterFilter, moveTypeFilter, serverWorkCenters]);
+  }, [rawItems, trendRawItems, selectedShift, categoryFilter, workCenterFilter, moveTypeFilter, serverWorkCenters, endDate]);
 
   useEffect(() => {
     if (status === 'authenticated' && hasAccess) {
@@ -905,7 +952,7 @@ export default function RepairPackingPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/80 pb-4">
                   <div>
                     <h2 className="text-base font-bold text-slate-800">Tren Pergerakan Harian</h2>
-                    <p className="text-xs text-slate-500 font-medium">Bahan Masuk (GI) vs Selesai (GR) (TON)</p>
+                    <p className="text-xs text-slate-500 font-medium">Bahan Masuk (GI) vs Selesai (GR) (TON) • 7 Hari Terakhir</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs font-semibold">
                     <span className="flex items-center gap-1.5 text-slate-700">
@@ -924,22 +971,22 @@ export default function RepairPackingPage() {
                   <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/50 flex flex-col">
                     <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Total Masuk</span>
                     <span className="text-sm sm:text-base font-extrabold text-emerald-600 tabular-nums">
-                      +{metrics.totalTonIn.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
+                      +{trendTotals.totalMasuk.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
                       <span className="text-xs font-normal text-emerald-500">TON</span>
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-rose-50/70 border border-rose-200/50 flex flex-col">
                     <span className="text-[10px] text-rose-700 font-bold uppercase tracking-wider">Total Keluar</span>
                     <span className="text-sm sm:text-base font-extrabold text-rose-600 tabular-nums">
-                      -{metrics.totalTonOut.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
+                      -{trendTotals.totalKeluar.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
                       <span className="text-xs font-normal text-rose-500">TON</span>
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/50 flex flex-col">
                     <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider">Net Movement</span>
                     <span className="text-sm sm:text-base font-extrabold text-apple-blue tabular-nums">
-                      {metrics.netTon >= 0 ? '+' : ''}
-                      {metrics.netTon.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
+                      {trendTotals.net >= 0 ? '+' : ''}
+                      {trendTotals.net.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
                       <span className="text-xs font-normal text-blue-500">TON</span>
                     </span>
                   </div>
@@ -954,7 +1001,7 @@ export default function RepairPackingPage() {
                         tick={{ fontSize: 10, fill: '#64748B' }}
                         tickLine={false}
                         axisLine={{ stroke: '#E8E8ED' }}
-                        tickFormatter={val => val.split('-').slice(1).join('/')}
+                        tickFormatter={val => val.split('-').slice(1).reverse().join('/')}
                       />
                       <YAxis
                         tick={{ fontSize: 10, fill: '#64748B' }}

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireUserContext, requirePermission, respondError } from '@/lib/api-helpers';
 import {
   RepairPackingItem,
+  DailyTrendItem,
   parseRawMovementToRepairPackingItem,
   calculateRepairPackingMetrics,
 } from '@/lib/repair-packing';
@@ -18,6 +19,13 @@ const CACHE_TTL_MS = 60_000;
 export function invalidateRepairPackingCache() {
   repairPackingResponseCache.clear();
   sessionParsedCache.clear();
+}
+
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split('T')[0];
 }
 
 export async function GET(req: NextRequest) {
@@ -63,20 +71,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const trendEnd = end || todayStr;
+    const trendStart = addDays(trendEnd, -6);
+
     const hasDateRange = !!(start || end);
     if (hasDateRange) {
-      const dateFilter: Record<string, string> = {};
-      if (start) {
-        const d = new Date(start);
-        d.setDate(d.getDate() - 1);
-        dateFilter.gte = d.toISOString().split('T')[0];
-      }
-      if (end) {
-        const d = new Date(end);
-        d.setDate(d.getDate() + 1);
-        dateFilter.lte = d.toISOString().split('T')[0];
-      }
-      andConditions.push({ dateStr: dateFilter });
+      const queryStart = start && start < trendStart ? start : trendStart;
+      const queryEnd = end && end > trendEnd ? end : trendEnd;
+
+      andConditions.push({
+        dateStr: {
+          gte: addDays(queryStart, -1),
+          lte: addDays(queryEnd, 1),
+        },
+      });
     }
 
     const sessions = await prisma.reportSession.findMany({
@@ -92,6 +101,13 @@ export async function GET(req: NextRequest) {
         rawMovements: true,
       },
     });
+
+    const effectiveTrendEnd = end || (
+      sessions.length > 0
+        ? (sessions[0].dateStr > todayStr || sessions[0].dateStr < addDays(todayStr, -7) ? sessions[0].dateStr : todayStr)
+        : todayStr
+    );
+    const effectiveTrendStart = addDays(effectiveTrendEnd, -6);
 
     const allItems: RepairPackingItem[] = [];
     const availableWcSet = new Set<string>();
@@ -136,10 +152,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Granular filters
+    // Granular filters for user's selected date range (metrics, breakdown, table)
     const filteredItems = allItems.filter(item => {
       if (start && item.operationalDate < start) return false;
       if (end && item.operationalDate > end) return false;
+      if (shiftNum !== null && item.shift !== shiftNum) return false;
+      if (categoryParam !== 'ALL' && item.category !== categoryParam) return false;
+      if (workCenterParam && item.workCenter.toLowerCase() !== workCenterParam.toLowerCase()) return false;
+      if (moveTypeParam && item.moveType !== moveTypeParam) return false;
+      return true;
+    });
+
+    // 7-day rolling trend items ending at effectiveTrendEnd
+    const trendItems = allItems.filter(item => {
+      if (item.operationalDate < effectiveTrendStart || item.operationalDate > effectiveTrendEnd) return false;
       if (shiftNum !== null && item.shift !== shiftNum) return false;
       if (categoryParam !== 'ALL' && item.category !== categoryParam) return false;
       if (workCenterParam && item.workCenter.toLowerCase() !== workCenterParam.toLowerCase()) return false;
@@ -156,14 +182,23 @@ export async function GET(req: NextRequest) {
       return timeB.localeCompare(timeA);
     });
 
-    const { metrics, byWorkCenter, byMoveType, dailyTrend } = calculateRepairPackingMetrics(filteredItems);
+    const { metrics, byWorkCenter, byMoveType } = calculateRepairPackingMetrics(filteredItems);
+    const { dailyTrend: rawTrend } = calculateRepairPackingMetrics(trendItems);
+
+    const trendMap = new Map(rawTrend.map(d => [d.date, d]));
+    const full7DayTrend: DailyTrendItem[] = [];
+    for (let i = 0; i < 7; i++) {
+      const dStr = addDays(effectiveTrendStart, i);
+      full7DayTrend.push(trendMap.get(dStr) || { date: dStr, masuk: 0, keluar: 0, net: 0 });
+    }
 
     const payload = {
       items: includeItems ? filteredItems : [],
+      trendItems: includeItems ? trendItems : [],
       metrics,
       byWorkCenter,
       byMoveType,
-      dailyTrend,
+      dailyTrend: full7DayTrend,
       availableWorkCenters: Array.from(availableWcSet).sort(),
     };
 
