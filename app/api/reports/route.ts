@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
-import { filterByGudang, getGudangPrefix } from "@/lib/gudang";
+import { filterByGudang, filterByGudangList, getGudangPrefix } from "@/lib/gudang";
 import { buildGudangWhere, requireUserContext, requirePermission, respondError } from "@/lib/api-helpers";
 import { invalidateTrendCache } from "./trend/route";
 import { invalidateAggregateCache } from "./aggregate/route";
@@ -72,19 +72,37 @@ export async function POST(req: NextRequest) {
     let filteredStocks = stocks;
     let filteredStockCards = stockCards;
 
-    // Securely filter incoming data so users only save their own gudang's data
-    if (!ctx.isAdmin && ctx.gudangId) {
-      filteredMovements = filterByGudang(movements, ctx.gudangId);
-      const prefix = getGudangPrefix(ctx.gudangId);
-      filteredStocks = stocks.filter((s: any) => {
-        const sloc = (s.sloc || '').toUpperCase();
-        return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
-      });
-      if (filteredStockCards) {
-        filteredStockCards = filteredStockCards.filter((sc: any) => {
-          const sloc = (sc.sloc || '').toUpperCase();
-          return sloc.startsWith(prefix) || sc.status === 'Sloc Penampungan';
+    const isMerger = ctx.roleScope === 'merger' && !!ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0;
+
+    // Securely filter incoming data so users only save their authorized gudangs
+    if (!ctx.isAdmin && ctx.roleScope !== 'global') {
+      if (isMerger) {
+        const assignedIds = ctx.mergerGudangIds!;
+        filteredMovements = filterByGudangList(movements, assignedIds);
+        const prefixes = assignedIds.map(getGudangPrefix).filter(Boolean);
+        filteredStocks = stocks.filter((s: any) => {
+          const sloc = (s.sloc || '').toUpperCase();
+          return prefixes.some((p) => sloc.startsWith(p)) || s.status === 'Sloc Penampungan';
         });
+        if (filteredStockCards) {
+          filteredStockCards = filteredStockCards.filter((sc: any) => {
+            const sloc = (sc.sloc || '').toUpperCase();
+            return prefixes.some((p) => sloc.startsWith(p)) || sc.status === 'Sloc Penampungan';
+          });
+        }
+      } else if (ctx.gudangId) {
+        filteredMovements = filterByGudang(movements, ctx.gudangId);
+        const prefix = getGudangPrefix(ctx.gudangId);
+        filteredStocks = stocks.filter((s: any) => {
+          const sloc = (s.sloc || '').toUpperCase();
+          return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+        });
+        if (filteredStockCards) {
+          filteredStockCards = filteredStockCards.filter((sc: any) => {
+            const sloc = (sc.sloc || '').toUpperCase();
+            return sloc.startsWith(prefix) || sc.status === 'Sloc Penampungan';
+          });
+        }
       }
     }
 
@@ -95,15 +113,18 @@ export async function POST(req: NextRequest) {
       rawStocks,
       stats,
       stockCardsJson,
-    } = aggregateSessionData({ 
-      movements: filteredMovements, 
-      stocks: filteredStocks, 
-      stockCards: filteredStockCards 
+    } = aggregateSessionData({
+      movements: filteredMovements,
+      stocks: filteredStocks,
+      stockCards: filteredStockCards
     });
 
-    // Stamp gudang: non-admin must have a gudang; admin without one → null
-    // (so the session becomes "unscoped" and only admin can see it).
-    const gudangId = ctx.gudangId;
+    const gudangId = isMerger
+      ? (ctx.gudangId ?? ctx.mergerGudangIds![0] ?? null)
+      : ctx.gudangId;
+    const gudangIds = isMerger
+      ? JSON.stringify(ctx.mergerGudangIds)
+      : (ctx.gudangId ? JSON.stringify([ctx.gudangId]) : "[]");
 
     const reportSession = await prisma.reportSession.create({
       data: {
@@ -111,6 +132,7 @@ export async function POST(req: NextRequest) {
         dateStr,
         fileName: fileName ?? null,
         gudangId,
+        gudangIds,
         stockCards: stockCardsJson,
         stats: JSON.stringify(stats),
         rawMovements: JSON.stringify(rawMovements),
@@ -144,9 +166,16 @@ export async function DELETE(req: NextRequest) {
     const whereClause: any = {
       reportSessionId: { in: ids },
     };
-    
-    if (!ctx.isAdmin) {
-      whereClause.gudangId = ctx.gudangId;
+
+    if (!ctx.isAdmin && ctx.roleScope !== 'global') {
+      if (ctx.roleScope === 'merger' && ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0) {
+        whereClause.OR = [
+          { gudangId: { in: ctx.mergerGudangIds } },
+          ...ctx.mergerGudangIds.map((id) => ({ gudangIds: { contains: String(id) } })),
+        ];
+      } else {
+        whereClause.gudangId = ctx.gudangId;
+      }
     }
 
     // Execute bulk deletion directly in database

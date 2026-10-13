@@ -58,6 +58,12 @@ export async function GET() {
       } catch {
         perms = [];
       }
+      let gudangIds: number[] = [];
+      try {
+        if (r.gudangIds) gudangIds = JSON.parse(r.gudangIds);
+      } catch {
+        gudangIds = [];
+      }
       return {
         id: r.id,
         roleId: r.roleId,
@@ -65,7 +71,8 @@ export async function GET() {
         description: r.description || '',
         color: r.color || 'bg-slate-500',
         isSystem: r.isSystem,
-        scope: r.scope as 'global' | 'gudang',
+        scope: r.scope as 'global' | 'gudang' | 'merger',
+        gudangIds,
         permissions: perms,
         userCount: userCountByRole[r.roleId] || 0,
         createdAt: r.createdAt.toISOString(),
@@ -89,12 +96,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { roleId, name, description, color, scope, permissions } = body as {
+    const { roleId, name, description, color, scope, permissions, gudangIds } = body as {
       roleId?: string;
       name?: string;
       description?: string;
       color?: string;
-      scope?: 'global' | 'gudang';
+      scope?: 'global' | 'gudang' | 'merger';
+      gudangIds?: number[];
       permissions?: string[];
     };
 
@@ -120,6 +128,11 @@ export async function POST(req: NextRequest) {
       ? permissions.filter((p) => validModuleIds.has(p))
       : [];
 
+    const safeScope = scope === 'global' ? 'global' : scope === 'merger' ? 'merger' : 'gudang';
+    const safeGudangIds = Array.isArray(gudangIds)
+      ? gudangIds.map(Number).filter((n) => !isNaN(n) && n >= 1 && n <= 14)
+      : [];
+
     const newRole = await prisma.roleConfig.create({
       data: {
         roleId: cleanRoleId,
@@ -127,7 +140,8 @@ export async function POST(req: NextRequest) {
         description: description?.trim() || '',
         color: color || 'bg-indigo-500',
         isSystem: false,
-        scope: scope === 'global' ? 'global' : 'gudang',
+        scope: safeScope,
+        gudangIds: JSON.stringify(safeGudangIds),
         permissions: JSON.stringify(safePerms),
       },
     });
@@ -135,6 +149,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ...newRole,
+        scope: safeScope,
+        gudangIds: safeGudangIds,
         permissions: safePerms,
         userCount: 0,
       },

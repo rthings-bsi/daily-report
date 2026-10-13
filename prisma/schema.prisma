@@ -53,6 +53,7 @@ model ReportSession {
   fileName          String?
   createdAt         DateTime          @default(now())
   gudangId          Int?
+  gudangIds         String?           @default("[]")
   rawMovements      String?
   rawStocks         String?
   reportSessionId   String            @id @default(cuid())
@@ -210,7 +211,8 @@ model RoleConfig {
   description String?
   color       String?  @default("bg-slate-500")
   isSystem    Boolean  @default(false)
-  scope       String   @default("gudang") // "global" | "gudang"
+  scope       String   @default("gudang") // "global" | "gudang" | "merger"
+  gudangIds   String?  @default("[]") // JSON array of numbers e.g. "[10, 11, 12]"
   permissions String   @default("[]") // JSON string of module keys
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

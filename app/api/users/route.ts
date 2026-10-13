@@ -59,15 +59,16 @@ export async function POST(req: NextRequest) {
     const roleRecord = await prisma.roleConfig.findUnique({
       where: { roleId: role },
     });
-    const isGlobal = roleRecord ? roleRecord.scope === "global" : role === "admin";
+    const roleScope = roleRecord ? roleRecord.scope : (role === "admin" ? "global" : "gudang");
 
-    // Global roles must NOT have gudangId; per-gudang roles MUST have gudangId 1-14.
     let resolvedGudangId: number | null = null;
-    if (!isGlobal) {
+    if (roleScope === "gudang") {
       if (typeof gudangId !== "number" || gudangId < 1 || gudangId > 14) {
         throw new ApiError(400, "Role per-gudang harus memiliki gudangId 1-14");
       }
       resolvedGudangId = gudangId;
+    } else if (roleScope === "merger") {
+      resolvedGudangId = typeof gudangId === "number" && gudangId >= 1 && gudangId <= 14 ? gudangId : null;
     } else {
       if (gudangId !== null && gudangId !== undefined) {
         throw new ApiError(400, "Role global tidak boleh terikat ke gudang");

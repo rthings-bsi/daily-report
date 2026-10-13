@@ -12,7 +12,8 @@ export interface RoleConfigItem {
   description: string;
   color: string;
   isSystem: boolean;
-  scope: 'global' | 'gudang';
+  scope: 'global' | 'gudang' | 'merger';
+  gudangIds?: number[];
   permissions: string[];
   userCount?: number;
   createdAt?: string;

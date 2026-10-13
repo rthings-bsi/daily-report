@@ -95,7 +95,7 @@ export const filterByGudang = <T extends { moveType?: string; storageLocation?: 
     if (item.moveType === '311') {
       const sloc = (item.storageLocation || '').toUpperCase();
       const slocGudang = gudangFromSloc(sloc);
-      
+
       const isFromThis = userGudang === gudangNum;
       const isToThis = slocGudang === gudangNum;
       const isExit = getSlocExitGudang(sloc) === gudangNum;
@@ -112,10 +112,10 @@ export const filterByGudang = <T extends { moveType?: string; storageLocation?: 
 
       // Barang Masuk (TF Sloc In) -> masuk ke SLOC Exit yang terdaftar di pengaturan gudang ini
       if ((item as any).quantity > 0 && isExit) return true;
-      
+
       // Fallback untuk TF Sloc In: jika SlocExit kosong, tetapi barang dikirim oleh gudang lain masuk ke sloc milik gudang ini
       if ((item as any).quantity > 0 && isToThis && !isFromThis) return true;
-      
+
       // Barang dikirim OLEH user gudang ini ke SLOC gudang lain (qty < 0).
       // User gudang ini yang melakukan MVT 311, jadi pastinya dia kirim barang ke luar sloc dia.
       // Skenario: Gudang 14 tf ke 5M16 (Gudang 13) menggunakan Sloc 5N19.
@@ -131,6 +131,44 @@ export const filterByGudang = <T extends { moveType?: string; storageLocation?: 
     // Fallback: Jika username tidak terdeteksi, filter berdasarkan prefix SLOC
     const sloc = (item.storageLocation || '').toUpperCase();
     return sloc.startsWith(prefix);
+  });
+};
+
+export const filterByGudangList = <T extends { moveType?: string; storageLocation?: string | null; userName?: string | null }>(
+  items: T[],
+  gudangNums: number[]
+): T[] => {
+  if (!gudangNums || gudangNums.length === 0) return items;
+  if (gudangNums.length === 1) return filterByGudang(items, gudangNums[0]);
+
+  const numSet = new Set(gudangNums);
+  const prefixes = gudangNums.map(getGudangPrefix).filter(Boolean);
+
+  return items.filter(item => {
+    const userGudang = getUserGudang(item.userName);
+
+    if (item.moveType === '311') {
+      const sloc = (item.storageLocation || '').toUpperCase();
+      const slocGudang = gudangFromSloc(sloc);
+
+      const isFromThis = userGudang !== null && numSet.has(userGudang);
+      const isToThis = slocGudang !== null && numSet.has(slocGudang);
+      const exitGudang = getSlocExitGudang(sloc);
+      const isExit = exitGudang !== null && numSet.has(exitGudang);
+
+      if (isFromThis && isToThis) return true;
+      if (slocGudang !== null && numSet.has(slocGudang) && (item as any).quantity < 0) return true;
+      if ((item as any).quantity > 0 && isExit) return true;
+      if ((item as any).quantity > 0 && isToThis && !isFromThis) return true;
+      if (isFromThis && (item as any).quantity < 0) return true;
+
+      return false;
+    }
+
+    if (userGudang !== null && numSet.has(userGudang)) return true;
+
+    const sloc = (item.storageLocation || '').toUpperCase();
+    return prefixes.some(p => sloc.startsWith(p));
   });
 };
 

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShieldCheck, Shield, Users, CheckCircle2, AlertCircle,
   Plus, Edit3, Trash2, X, Lock, Check,
-  Search, Sliders, Globe, Building2,
+  Search, Sliders, Globe, Building2, Layers,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { GUDANG_LIST } from '@/lib/gudang';
@@ -311,13 +311,19 @@ export default function AdminRolesPage() {
                     <div className="flex items-center gap-2 mb-3">
                       <span
                         className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          isGlobal
+                          r.scope === 'global'
                             ? 'text-purple-700 bg-purple-50 border border-purple-200/80'
+                            : r.scope === 'merger'
+                            ? 'text-indigo-700 bg-indigo-50 border border-indigo-200/80'
                             : 'text-sky-700 bg-sky-50 border border-sky-200/80'
                         }`}
                       >
-                        {isGlobal ? <Globe size={10} /> : <Building2 size={10} />}
-                        {isGlobal ? 'Scope Global (Semua Gudang)' : 'Scope Per-Gudang (Terikat PIC)'}
+                        {r.scope === 'global' ? <Globe size={10} /> : r.scope === 'merger' ? <Layers size={10} /> : <Building2 size={10} />}
+                        {r.scope === 'global'
+                          ? 'Scope Global (Semua Gudang)'
+                          : r.scope === 'merger'
+                          ? `Scope Merger (Gudang ${(r.gudangIds && r.gudangIds.length > 0 ? [...r.gudangIds].sort((a, b) => a - b).join(', ') : '-')})`
+                          : 'Scope Per-Gudang (Terikat PIC)'}
                       </span>
                     </div>
 
@@ -696,36 +702,47 @@ export default function AdminRolesPage() {
                     onChange={(e) => {
                       const newRole = e.target.value;
                       const roleObj = roles.find((r) => r.roleId === newRole);
+                      let defaultGudang: number | null = null;
+                      if (roleObj?.scope === 'gudang') {
+                        defaultGudang = userAssignmentModal.selectedGudang ?? 1;
+                      } else if (roleObj?.scope === 'merger') {
+                        defaultGudang = roleObj.gudangIds?.[0] ?? userAssignmentModal.selectedGudang ?? 1;
+                      }
                       setUserAssignmentModal({
                         ...userAssignmentModal,
                         selectedRole: newRole,
-                        selectedGudang: roleObj?.scope === 'global' ? null : (userAssignmentModal.selectedGudang ?? 1),
+                        selectedGudang: defaultGudang,
                       });
                     }}
                     className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 focus:outline-none focus:border-indigo-400"
                   >
                     {roles.map((r) => (
                       <option key={r.roleId} value={r.roleId}>
-                        {r.name} ({r.scope === 'global' ? 'Global' : 'Per-Gudang'})
+                        {r.name} ({r.scope === 'global' ? 'Global' : r.scope === 'merger' ? `Merger: ${r.gudangIds?.join(',') || '-'}` : 'Per-Gudang'})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Show Gudang dropdown if the selected role is per-gudang */}
+                {/* Show Gudang dropdown if the selected role is per-gudang or merger */}
                 {(() => {
                   const targetRole = roles.find((r) => r.roleId === userAssignmentModal.selectedRole);
                   const isPerGudang = targetRole ? targetRole.scope === 'gudang' : userAssignmentModal.selectedRole === 'user';
+                  const isMerger = targetRole?.scope === 'merger';
 
-                  if (!isPerGudang) return null;
+                  if (!isPerGudang && !isMerger) return null;
+
+                  const optionsList = isMerger && targetRole?.gudangIds && targetRole.gudangIds.length > 0
+                    ? GUDANG_LIST.filter(g => targetRole.gudangIds!.includes(g.gudangId))
+                    : GUDANG_LIST;
 
                   return (
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Gudang Penugasan
+                        {isMerger ? 'Gudang Utama PIC (Dari Grup Merger)' : 'Gudang Penugasan'}
                       </label>
                       <select
-                        value={userAssignmentModal.selectedGudang ?? 1}
+                        value={userAssignmentModal.selectedGudang ?? (optionsList[0]?.gudangId ?? 1)}
                         onChange={(e) =>
                           setUserAssignmentModal({
                             ...userAssignmentModal,
@@ -734,7 +751,7 @@ export default function AdminRolesPage() {
                         }
                         className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 focus:outline-none focus:border-indigo-400"
                       >
-                        {GUDANG_LIST.map((g) => (
+                        {optionsList.map((g) => (
                           <option key={g.gudangId} value={g.gudangId}>
                             {g.name} ({g.prefix})
                           </option>
@@ -781,7 +798,8 @@ interface RoleFormModalProps {
     name: string;
     description: string;
     color: string;
-    scope: 'global' | 'gudang';
+    scope: 'global' | 'gudang' | 'merger';
+    gudangIds?: number[];
     permissions: string[];
   }) => Promise<void>;
   saving: boolean;
@@ -799,7 +817,8 @@ const RoleFormModal: React.FC<RoleFormModalProps> = ({
   const [name, setName] = useState(initialData?.name || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [color, setColor] = useState(initialData?.color || 'bg-indigo-500');
-  const [scope, setScope] = useState<'global' | 'gudang'>(initialData?.scope || 'gudang');
+  const [scope, setScope] = useState<'global' | 'gudang' | 'merger'>(initialData?.scope || 'gudang');
+  const [gudangIds, setGudangIds] = useState<number[]>(initialData?.gudangIds || []);
   const [permissions, setPermissions] = useState<string[]>(initialData?.permissions || []);
   const [error, setError] = useState<string | null>(null);
 
@@ -836,6 +855,10 @@ const RoleFormModal: React.FC<RoleFormModalProps> = ({
       setError('Nama Role wajib diisi');
       return;
     }
+    if (scope === 'merger' && (!gudangIds || gudangIds.length === 0)) {
+      setError('Pilih minimal 1 gudang untuk role merger');
+      return;
+    }
 
     try {
       await onSave({
@@ -844,6 +867,7 @@ const RoleFormModal: React.FC<RoleFormModalProps> = ({
         description: description.trim(),
         color,
         scope,
+        gudangIds: scope === 'merger' ? gudangIds : [],
         permissions,
       });
     } catch (err: any) {
@@ -933,33 +957,108 @@ const RoleFormModal: React.FC<RoleFormModalProps> = ({
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
               Scope Batasan Akses
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
                 disabled={isSystemAdmin}
                 onClick={() => setScope('gudang')}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${
+                className={`px-2 py-2 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 border transition-all ${
                   scope === 'gudang'
                     ? 'bg-sky-50 border-sky-300 text-sky-700 shadow-sm'
                     : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                <Building2 size={13} />
-                Per-Gudang (PIC 1-14)
+                <Building2 size={12} />
+                Per-Gudang
+              </button>
+              <button
+                type="button"
+                disabled={isSystemAdmin}
+                onClick={() => setScope('merger')}
+                className={`px-2 py-2 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 border transition-all ${
+                  scope === 'merger'
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <Layers size={12} />
+                Merger Multi
               </button>
               <button
                 type="button"
                 onClick={() => setScope('global')}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${
+                className={`px-2 py-2 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1 border transition-all ${
                   scope === 'global'
                     ? 'bg-purple-50 border-purple-300 text-purple-700 shadow-sm'
                     : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                <Globe size={13} />
-                Global (Semua Gudang)
+                <Globe size={12} />
+                Global
               </button>
             </div>
+            {scope === 'merger' && (
+              <div className="mt-2.5 p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider">
+                    Gudang Terhubung ({gudangIds.length} dipilih)
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setGudangIds([10, 11, 12])}
+                      className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 underline"
+                    >
+                      10, 11, 12
+                    </button>
+                    <span className="text-indigo-300 text-[10px]">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setGudangIds(GUDANG_LIST.map((g) => g.gudangId))}
+                      className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 underline"
+                    >
+                      Semua
+                    </button>
+                    <span className="text-indigo-300 text-[10px]">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setGudangIds([])}
+                      className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 underline"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {GUDANG_LIST.map((g) => {
+                    const isSelected = gudangIds.includes(g.gudangId);
+                    return (
+                      <button
+                        key={g.gudangId}
+                        type="button"
+                        onClick={() => {
+                          setGudangIds((prev) =>
+                            prev.includes(g.gudangId)
+                              ? prev.filter((id) => id !== g.gudangId)
+                              : [...prev, g.gudangId].sort((a, b) => a - b)
+                          );
+                        }}
+                        className={`py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                          isSelected
+                            ? 'bg-indigo-600 border-indigo-700 text-white shadow-sm'
+                            : 'bg-white border-indigo-200/80 text-indigo-950 hover:border-indigo-400 hover:bg-indigo-100/60'
+                        }`}
+                      >
+                        G{g.gudangId}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-indigo-800/80 leading-tight">
+                  User dengan role ini upload 1x mencakup semua gudang di atas, dan dapat memfilter per-gudang di dashboard.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

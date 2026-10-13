@@ -84,6 +84,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           throw new ApiError(400, "Role per-gudang harus memiliki gudangId 1-14");
         }
         data.gudangId = gudangId;
+      } else if (roleScope === "merger") {
+        data.gudangId = typeof gudangId === "number" && gudangId >= 1 && gudangId <= 14 ? gudangId : null;
       } else {
         if (gudangId !== null) {
           throw new ApiError(400, "Role global tidak boleh terikat ke gudang");

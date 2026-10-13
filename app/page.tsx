@@ -5,7 +5,7 @@ import { FileUp, LayoutDashboard, Layout, TrendingUp, Upload, Check, X, Filter, 
 import { copyDashboardToClipboard } from '@/lib/clipboard-capture';
 import { useRouter } from 'next/navigation';
 import { parseSapExcel, ProcessedMovement, MovementStats, calculateStats, ProcessedStock, getShiftFromTime, getOperationalDateStr } from '@/lib/excel-parser';
-import { getUserGudang, filterByGudang, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
+import { getUserGudang, filterByGudang, filterByGudangList, getGudangPrefix, gudangFromSloc, reclassify311, removeInternalTfSloc, classifyBatch, isPenampunganSloc } from '@/lib/gudang';
 import { filterEnabledMovements, filterEnabledWorkCenters, getMovementInfo } from '@/lib/sap-mapping';
 import { StatsCard } from '@/components/StatsCard';
 import { MovementTable } from '@/components/MovementTable';
@@ -51,6 +51,9 @@ export default function Home() {
 
   const userRole = session?.user?.role?.toLowerCase() || '';
   const isAdmin = session?.user?.role === 'admin';
+  const isMerger = (session?.user as any)?.roleScope === 'merger';
+  const mergerGudangIds: number[] = ((session?.user as any)?.mergerGudangIds as number[] | undefined) || [];
+  const canFilterGudang = isAdmin || (session?.user as any)?.roleScope === 'global' || isMerger;
   const userPerms = session?.user?.permissions || [];
   const hasDashboardAccess = isAdmin || userPerms.includes('dashboard');
   const isRepairRole =
@@ -97,14 +100,19 @@ export default function Home() {
     if (!movements || movements.length === 0) return [];
 
     let result = filterEnabledMovements(filterEnabledWorkCenters(movements));
-    console.log('[FM-step1] after enabled filters:', result.length, 'of', movements.length);
     if (selectedGudang) {
        const afterRemove = removeInternalTfSloc(result);
-       console.log('[FM-step2] after removeInternalTfSloc:', afterRemove.length);
        const afterGudang = filterByGudang(afterRemove, selectedGudang);
-       console.log('[FM-step3] after filterByGudang(', selectedGudang, '):', afterGudang.length);
        result = reclassify311(afterGudang, selectedGudang);
-       console.log('[FM-step4] after reclassify311:', result.length);
+    } else if (isMerger && mergerGudangIds.length > 0) {
+       const afterRemove = removeInternalTfSloc(result);
+       const afterFilter = filterByGudangList(afterRemove, mergerGudangIds);
+       result = afterFilter.map(m => {
+         if (m.moveType !== '311' || m.group !== 'Transfer') return m;
+         return m.quantity < 0
+           ? { ...m, description: 'TF Sloc Out', group: 'Keluar' }
+           : { ...m, description: 'TF Sloc In', group: 'Masuk' };
+       });
     }
     if (startDate) result = result.filter(m => {
         const opDate = m.entryTime ? getOperationalDateStr(m.entryDate || m.dateStr, m.entryTime) : m.dateStr;
@@ -122,19 +130,28 @@ export default function Home() {
         return mShift === selectedShift;
       });
     }
-    console.log('[FM-final] filteredMovements:', result.length);
     return result;
-  }, [movements, selectedGudang, startDate, endDate, selectedShift]);
+  }, [movements, selectedGudang, isMerger, mergerGudangIds, startDate, endDate, selectedShift]);
 
   const filteredStocks = useMemo(() => {
-    if (!selectedGudang || !stocks.length) return stocks;
-    const prefix = getGudangPrefix(selectedGudang);
-    if (!prefix) return stocks;
-    return stocks.filter(s => {
-      const sloc = (s.sloc || '').toUpperCase();
-      return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
-    });
-  }, [stocks, selectedGudang]);
+    if (!stocks.length) return stocks;
+    if (selectedGudang) {
+      const prefix = getGudangPrefix(selectedGudang);
+      if (!prefix) return stocks;
+      return stocks.filter(s => {
+        const sloc = (s.sloc || '').toUpperCase();
+        return sloc.startsWith(prefix) || s.status === 'Sloc Penampungan';
+      });
+    }
+    if (isMerger && mergerGudangIds.length > 0) {
+      const prefixes = mergerGudangIds.map(getGudangPrefix).filter(Boolean);
+      return stocks.filter(s => {
+        const sloc = (s.sloc || '').toUpperCase();
+        return prefixes.some(p => sloc.startsWith(p)) || s.status === 'Sloc Penampungan';
+      });
+    }
+    return stocks;
+  }, [stocks, selectedGudang, isMerger, mergerGudangIds]);
 
   const adjustedStockSummary = useMemo(() => {
     return adjustStockSummaryWithMovements(stockSummary, filteredStocks, filteredMovements);
@@ -529,12 +546,11 @@ export default function Home() {
         setLoading(false);
       }
     }
-  }, [history.length]);
+  }, []);
 
   // Load aggregated data whenever filters change
   useEffect(() => {
     if (!hasDashboardAccess || isRepairRole) return;
-    if (!history.length) return;
 
     const params = new URLSearchParams();
     if (selectedGudang) params.set('gudangId', String(selectedGudang));
@@ -553,7 +569,7 @@ export default function Home() {
       loadAggregate(params);
     }, 400);
     return () => clearTimeout(t);
-  }, [hasDashboardAccess, isRepairRole, startDate, endDate, selectedGudang, selectedShift, history, loadAggregate]);
+  }, [hasDashboardAccess, isRepairRole, startDate, endDate, selectedGudang, selectedShift, loadAggregate]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -566,7 +582,7 @@ export default function Home() {
           ['repair-packing', 'pipa-nc', 'audit-sloc', 'upload'].includes(p)
         );
         router.replace(firstModule ? `/${firstModule}` : '/login');
-      } else if (session?.user?.role !== 'admin' && session?.user?.gudangId) {
+      } else if (session?.user?.role !== 'admin' && !isMerger && session?.user?.gudangId) {
         setSelectedGudang(session.user.gudangId);
       }
     }
@@ -814,7 +830,7 @@ export default function Home() {
               <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl shadow-xl shadow-[#1591DC]/10 p-4 min-w-[280px] space-y-3">
                 <p className="text-[9px] font-bold text-[#2C5EAD]/50 uppercase tracking-widest">Filter Data</p>
 
-                {session?.user?.role === 'admin' && (
+                {canFilterGudang && (
                   <div>
                     <label className="text-[10px] font-semibold text-[#2C5EAD]/70 mb-1 block">Gudang</label>
                     <select
@@ -822,8 +838,8 @@ export default function Home() {
                       onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
                       className="w-full h-8 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-3 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm"
                     >
-                      <option value="">Semua Gudang</option>
-                      {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+                      <option value="">{isMerger ? 'Semua Gudang Terhubung' : 'Semua Gudang'}</option>
+                      {(isMerger ? mergerGudangIds : Array.from({ length: 14 }, (_, i) => i + 1)).map(n => (
                         <option key={n} value={n}>Gudang {n}</option>
                       ))}
                     </select>
@@ -1267,14 +1283,14 @@ export default function Home() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-apple-blue to-apple-teal text-white flex items-center justify-center font-black text-xl shadow-apple-glow-blue shrink-0">
-                    {selectedGudang || sessionGudang || '13'}
+                    {selectedGudang || (isMerger ? 'M' : sessionGudang || '13')}
                   </div>
                   <div>
                     <div className="flex items-baseline gap-3 flex-wrap">
                       <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800">
                         Warehouse Dashboard{' '}
                         <span className="text-apple-blue font-black">
-                          – {selectedGudang ? `Gudang ${selectedGudang}` : sessionGudang ? `Gudang ${sessionGudang}` : 'Semua Gudang'}
+                          – {selectedGudang ? `Gudang ${selectedGudang}` : isMerger ? `Merger (Gudang ${mergerGudangIds.join(', ')})` : sessionGudang ? `Gudang ${sessionGudang}` : 'Semua Gudang'}
                         </span>
                       </h1>
                     </div>
@@ -1285,15 +1301,21 @@ export default function Home() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Segmented Warehouse Selector for Admin */}
-                  {session?.user?.role === 'admin' && (
+                  {/* Segmented Warehouse Selector for Admin / Merger */}
+                  {(session?.user?.role === 'admin' || isMerger) && (
                     <div className="glass-pill p-1 rounded-2xl flex items-center shadow-apple-sm text-xs font-medium">
-                      {[
-                        { label: 'Semua', val: null },
-                        { label: 'Gudang 13', val: 13 },
-                        { label: 'Gudang 10', val: 10 },
-                        { label: 'Gudang 08', val: 8 },
-                      ].map(g => (
+                      {(isMerger
+                        ? [
+                            { label: 'Semua', val: null },
+                            ...mergerGudangIds.map(id => ({ label: `Gudang ${id}`, val: id })),
+                          ]
+                        : [
+                            { label: 'Semua', val: null },
+                            { label: 'Gudang 13', val: 13 },
+                            { label: 'Gudang 10', val: 10 },
+                            { label: 'Gudang 08', val: 8 },
+                          ]
+                      ).map(g => (
                         <button
                           key={g.label}
                           type="button"

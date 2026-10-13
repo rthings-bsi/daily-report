@@ -9,6 +9,8 @@ export interface UserContext {
   gudangId: number | null;
   isAdmin: boolean;
   permissions: string[];
+  roleScope?: 'global' | 'gudang' | 'merger';
+  mergerGudangIds?: number[];
 }
 
 export class ApiError extends Error {
@@ -39,6 +41,8 @@ export async function requireUserContext(): Promise<UserContext | NextResponse> 
     gudangId: session.user.gudangId ?? null,
     isAdmin: session.user.role === "admin",
     permissions: session.user.permissions ?? [],
+    roleScope: session.user.roleScope,
+    mergerGudangIds: session.user.mergerGudangIds,
   };
 }
 
@@ -76,22 +80,40 @@ export function buildGudangWhere(
   extra?: Record<string, unknown>,
   options?: { includeNull?: boolean },
 ): Record<string, unknown> {
-  if (ctx.isAdmin) return extra ?? {};
+  if (ctx.isAdmin || ctx.roleScope === 'global') return extra ?? {};
   const base: Record<string, unknown> = { ...(extra ?? {}) };
+
+  if (ctx.roleScope === 'merger' && ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0) {
+    const ids = ctx.mergerGudangIds;
+    base.OR = [
+      { gudangId: { in: ids } },
+      { gudangId: null },
+      ...ids.map((id) => ({ gudangIds: { contains: String(id) } })),
+    ];
+    return base;
+  }
+
   if (options?.includeNull) {
     base.gudangId = ctx.gudangId === null ? null : { in: [ctx.gudangId] };
-    // For non-admin: own gudangId OR null (legacy unscoped) — but only if ctx.gudangId is set
     if (ctx.gudangId !== null) {
       delete base.gudangId;
       base.OR = [
         { gudangId: ctx.gudangId },
-        { gudangId: null }
+        { gudangId: null },
+        { gudangIds: { contains: String(ctx.gudangId) } },
       ];
     } else {
       base.gudangId = null;
     }
   } else {
-    base.gudangId = ctx.gudangId;
+    if (ctx.gudangId !== null) {
+      base.OR = [
+        { gudangId: ctx.gudangId },
+        { gudangIds: { contains: String(ctx.gudangId) } },
+      ];
+    } else {
+      base.gudangId = null;
+    }
   }
   return base;
 }
@@ -105,16 +127,37 @@ export async function assertOwnsSession(
   ctx: UserContext,
   reportSessionId: string,
 ): Promise<void> {
-  if (ctx.isAdmin) return;
+  if (ctx.isAdmin || ctx.roleScope === 'global') return;
   const s = await prisma.reportSession.findUnique({
     where: { reportSessionId },
-    select: { gudangId: true },
+    select: { gudangId: true, gudangIds: true },
   });
   if (!s) throw new ApiError(404, "Not found");
-  // Non-admin can ONLY access sessions explicitly tagged with their gudangId
-  if (s.gudangId !== ctx.gudangId) {
+
+  if (ctx.roleScope === 'merger' && ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0) {
+    if (s.gudangId && ctx.mergerGudangIds.includes(s.gudangId)) return;
+    if (s.gudangIds) {
+      try {
+        const sIds: number[] = JSON.parse(s.gudangIds);
+        if (sIds.some((id) => ctx.mergerGudangIds!.includes(id))) return;
+      } catch {
+        /* silent */
+      }
+    }
     throw new ApiError(404, "Not found");
   }
+
+  // Non-admin can ONLY access sessions explicitly tagged with their gudangId
+  if (s.gudangId === ctx.gudangId) return;
+  if (s.gudangIds && ctx.gudangId) {
+    try {
+      const sIds: number[] = JSON.parse(s.gudangIds);
+      if (sIds.includes(ctx.gudangId)) return;
+    } catch {
+      /* silent */
+    }
+  }
+  throw new ApiError(404, "Not found");
 }
 
 /**

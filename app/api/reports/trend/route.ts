@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getGudangPrefix, filterByGudang, removeInternalTfSloc, reclassify311 } from "@/lib/gudang";
+import { getGudangPrefix, filterByGudang, filterByGudangList, removeInternalTfSloc, reclassify311 } from "@/lib/gudang";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { deduplicateMovements, RawMovementRow } from "@/lib/aggregation";
 import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     const end = searchParams.get('end');
     const shift = searchParams.get('shift');
     const shiftNum = shift ? Number(shift) : null;
-    const effectiveGudang = ctx.isAdmin
+    const isMerger = ctx.roleScope === 'merger' && !!ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0;
+    const effectiveGudang = (ctx.isAdmin || ctx.roleScope === 'global' || isMerger)
       ? (requestedGudang ? Number(requestedGudang) : null)
       : ctx.gudangId;
 
@@ -43,11 +44,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    const gudangWhere: Record<string, unknown> = ctx.isAdmin
-      ? (effectiveGudang ? { OR: [{ gudangId: effectiveGudang }, { gudangId: null }] } : {})
-      : ctx.gudangId === null
+    let gudangWhere: Record<string, unknown> = {};
+    if (ctx.isAdmin || ctx.roleScope === 'global') {
+      gudangWhere = effectiveGudang
+        ? { OR: [{ gudangId: effectiveGudang }, { gudangId: null }, { gudangIds: { contains: String(effectiveGudang) } }] }
+        : {};
+    } else if (isMerger) {
+      if (effectiveGudang) {
+        gudangWhere = { OR: [{ gudangId: effectiveGudang }, { gudangId: null }, { gudangIds: { contains: String(effectiveGudang) } }] };
+      } else {
+        gudangWhere = {
+          OR: [
+            { gudangId: { in: ctx.mergerGudangIds } },
+            { gudangId: null },
+            ...ctx.mergerGudangIds!.map((id) => ({ gudangIds: { contains: String(id) } })),
+          ],
+        };
+      }
+    } else {
+      gudangWhere = ctx.gudangId === null
         ? { gudangId: null }
-        : { OR: [{ gudangId: ctx.gudangId }, { gudangId: null }] };
+        : { OR: [{ gudangId: ctx.gudangId }, { gudangId: null }, { gudangIds: { contains: String(ctx.gudangId) } }] };
+    }
 
     let sessions: {
       dateStr: string;
@@ -169,6 +187,8 @@ export async function GET(request: NextRequest) {
     // Identik dengan langkah di aggregate/route.ts
     if (effectiveGudang !== null) {
       allRawMovements = filterByGudang(allRawMovements, effectiveGudang);
+    } else if (isMerger) {
+      allRawMovements = filterByGudangList(allRawMovements, ctx.mergerGudangIds!);
     }
 
     allRawMovements = deduplicateMovements(allRawMovements as any);
@@ -177,6 +197,13 @@ export async function GET(request: NextRequest) {
     // Lakukan klasifikasi MVT 311 karena raw belum mengkategorikan group "Masuk/Keluar" untuk 311 sesuai tujuan
     if (effectiveGudang !== null) {
       allRawMovements = reclassify311(allRawMovements, effectiveGudang);
+    } else if (isMerger) {
+      allRawMovements = allRawMovements.map(m => {
+        if (m.moveType !== '311' || m.group !== 'Transfer') return m;
+        return m.quantity < 0
+          ? { ...m, description: 'TF Sloc Out', group: 'Keluar' }
+          : { ...m, description: 'TF Sloc In', group: 'Masuk' };
+      });
     }
 
     // Kelompokkan hasil akhir ke per tanggal untuk grafik Trend

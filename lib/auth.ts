@@ -35,15 +35,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (role === "admin") {
           session.user.permissions = APP_MODULES.map((m) => m.id);
+          session.user.roleScope = 'global';
+          session.user.mergerGudangIds = [];
         } else {
           try {
             const roleRec = await prisma.roleConfig.findUnique({
               where: { roleId: role },
-              select: { permissions: true },
+              select: { permissions: true, scope: true, gudangIds: true },
             });
             session.user.permissions = roleRec ? JSON.parse(roleRec.permissions) : [];
+            session.user.roleScope = (roleRec?.scope as 'global' | 'gudang' | 'merger') ?? 'gudang';
+            session.user.mergerGudangIds = roleRec?.gudangIds ? JSON.parse(roleRec.gudangIds) : [];
           } catch {
             session.user.permissions = [];
+            session.user.roleScope = 'gudang';
+            session.user.mergerGudangIds = [];
           }
         }
       }

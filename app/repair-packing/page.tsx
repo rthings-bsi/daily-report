@@ -131,11 +131,16 @@ export default function RepairPackingPage() {
 
   const router = useRouter();
   const isAdmin = authSession?.user?.role === 'admin';
+  const isMerger = (authSession?.user as any)?.roleScope === 'merger';
+  const mergerGudangIds: number[] = ((authSession?.user as any)?.mergerGudangIds as number[] | undefined) || [];
+  const canFilterGudang = isAdmin || (authSession?.user as any)?.roleScope === 'global' || isMerger;
   const userPerms = authSession?.user?.permissions ?? [];
   const hasAccess = isAdmin || userPerms.includes('repair-packing');
 
   const gudangLabel = selectedGudang
     ? `Gudang ${selectedGudang}`
+    : isMerger
+    ? `Merger (Gudang ${mergerGudangIds.join(', ')})`
     : (authSession?.user?.gudangId ? `Gudang ${authSession.user.gudangId}` : 'Semua Gudang');
 
   useEffect(() => {
@@ -147,10 +152,10 @@ export default function RepairPackingPage() {
   }, [status, hasAccess, router]);
 
   useEffect(() => {
-    if (authSession?.user && !isAdmin && authSession.user.gudangId) {
+    if (authSession?.user && !isAdmin && !isMerger && authSession.user.gudangId) {
       setSelectedGudang(authSession.user.gudangId);
     }
-  }, [authSession, isAdmin]);
+  }, [authSession, isAdmin, isMerger]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -479,7 +484,7 @@ export default function RepairPackingPage() {
 
           {filterOpen && (
             <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-2xl shadow-xl p-4 min-w-[310px] max-w-[340px] space-y-3.5">
-              {isAdmin && (
+              {canFilterGudang && (
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Gudang
@@ -489,8 +494,11 @@ export default function RepairPackingPage() {
                     onChange={e => setSelectedGudang(e.target.value ? parseInt(e.target.value, 10) : null)}
                     className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none"
                   >
-                    <option value="">Semua Gudang</option>
-                    {GUDANG_LIST.map(g => (
+                    <option value="">{isMerger ? 'Semua Gudang Terhubung' : 'Semua Gudang'}</option>
+                    {(isMerger
+                      ? GUDANG_LIST.filter(g => mergerGudangIds.includes(g.gudangId))
+                      : GUDANG_LIST
+                    ).map(g => (
                       <option key={g.gudangId} value={g.gudangId}>
                         {g.name} ({g.prefix})
                       </option>
@@ -702,7 +710,7 @@ export default function RepairPackingPage() {
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center font-black text-xl shadow-apple-glow-blue shrink-0">
-              {selectedGudang || authSession?.user?.gudangId || 'MP'}
+              {selectedGudang || (isMerger ? 'M' : authSession?.user?.gudangId || 'MP')}
             </div>
             <div>
               <div className="flex items-baseline gap-3 flex-wrap">

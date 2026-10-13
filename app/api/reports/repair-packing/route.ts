@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
     const moveTypeParam = searchParams.get('moveType')?.trim() || '';
     const includeItems = searchParams.get('includeItems') === 'true' || searchParams.get('exportAll') === 'true';
 
-    const effectiveGudang = ctx.isAdmin
+    const isMerger = ctx.roleScope === 'merger' && !!ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0;
+    const effectiveGudang = (ctx.isAdmin || ctx.roleScope === 'global' || isMerger)
       ? (gudangParam ? parseInt(gudangParam, 10) : null)
       : ctx.gudangId;
 
@@ -67,6 +68,15 @@ export async function GET(req: NextRequest) {
         OR: [
           { gudangId: effectiveGudang },
           { gudangId: null },
+          { gudangIds: { contains: String(effectiveGudang) } },
+        ],
+      });
+    } else if (isMerger) {
+      andConditions.push({
+        OR: [
+          { gudangId: { in: ctx.mergerGudangIds } },
+          { gudangId: null },
+          ...ctx.mergerGudangIds!.map((id) => ({ gudangIds: { contains: String(id) } })),
         ],
       });
     }
@@ -143,6 +153,11 @@ export async function GET(req: NextRequest) {
         if (effectiveGudang) {
           const itemGudang = gudangFromSloc(item.storageLocation) || session.gudangId;
           if (itemGudang && itemGudang !== effectiveGudang) {
+            continue;
+          }
+        } else if (isMerger) {
+          const itemGudang = gudangFromSloc(item.storageLocation) || session.gudangId;
+          if (itemGudang && !ctx.mergerGudangIds!.includes(itemGudang)) {
             continue;
           }
         }

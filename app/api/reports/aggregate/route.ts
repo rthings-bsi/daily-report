@@ -4,7 +4,7 @@ import { requireUserContext, respondError } from "@/lib/api-helpers";
 import { RawMovementRow, aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
 import { MovementGroup } from "@/lib/sap-mapping";
 import { getShiftFromTime, getOperationalDateStr } from "@/lib/excel-parser";
-import { classifyBatch, filterByGudang, getGudangPrefix, gudangFromSloc, removeInternalTfSloc } from "@/lib/gudang";
+import { classifyBatch, filterByGudang, filterByGudangList, getGudangPrefix, gudangFromSloc, removeInternalTfSloc } from "@/lib/gudang";
 
 export const dynamic = "force-dynamic";
 
@@ -44,20 +44,42 @@ export async function GET(req: NextRequest) {
 
   // ── Build Prisma where clause ──
   const where: Record<string, unknown> = {};
+  const isMerger = ctx.roleScope === 'merger' && !!ctx.mergerGudangIds && ctx.mergerGudangIds.length > 0;
 
-  if (ctx.isAdmin) {
+  if (ctx.isAdmin || ctx.roleScope === 'global') {
     if (gudangIdParam) {
-      // Saat admin memfilter Gudang 1, ambil session Gudang 1 ATAU session global (null)
-      // Karena session global berisi data gabungan semua gudang
+      const gNum = parseInt(gudangIdParam, 10);
       where.OR = [
-        { gudangId: parseInt(gudangIdParam, 10) },
-        { gudangId: null }
+        { gudangId: gNum },
+        { gudangId: null },
+        { gudangIds: { contains: String(gNum) } }
       ];
     }
-    // Jika admin tanpa filter, tidak ada filter di mana-mana -> ambil SEMUA
+  } else if (isMerger) {
+    if (gudangIdParam) {
+      const gNum = parseInt(gudangIdParam, 10);
+      where.OR = [
+        { gudangId: gNum },
+        { gudangId: null },
+        { gudangIds: { contains: String(gNum) } }
+      ];
+    } else {
+      where.OR = [
+        { gudangId: { in: ctx.mergerGudangIds } },
+        { gudangId: null },
+        ...ctx.mergerGudangIds!.map((id) => ({ gudangIds: { contains: String(id) } }))
+      ];
+    }
   } else {
-    // non-admin: strictly gudang mereka sendiri
-    where.gudangId = ctx.gudangId;
+    // non-admin single gudang
+    if (ctx.gudangId !== null) {
+      where.OR = [
+        { gudangId: ctx.gudangId },
+        { gudangIds: { contains: String(ctx.gudangId) } }
+      ];
+    } else {
+      where.gudangId = null;
+    }
   }
 
   // ⚠ BUG FIX: Buffer dateStr filter.
@@ -182,16 +204,17 @@ export async function GET(req: NextRequest) {
       });
     } else {
       // FIX: Default dashboard (no date filter).
-      // If we only take 'latestSession', admin only sees ONE gudang's Excel file,
-      // and all other uploaded gudangs on the same day disappear.
-      // We must fetch ALL sessions sharing the same date as the latest one.
+      // If we only take 'latestSession', admin/merger only sees ONE gudang's Excel file,
+      // and all other uploaded gudangs disappear.
+      // Fetch latest session for each gudang (merger) or same date (admin).
       otherSessions = await prisma.reportSession.findMany({
         where: {
           ...where,
-          dateStr: latestSession.dateStr,
-          reportSessionId: { not: latestSession.reportSessionId }
+          reportSessionId: { not: latestSession.reportSessionId },
+          ...(isMerger && !gudangIdParam ? {} : { dateStr: latestSession.dateStr }),
         },
         orderBy: { createdAt: "desc" },
+        take: 100,
         select: {
           reportSessionId: true,
           gudangId: true,
@@ -199,6 +222,8 @@ export async function GET(req: NextRequest) {
           label: true,
           createdAt: true,
           rawMovements: true,
+          rawStocks: true,
+          stockCards: true,
           stats: true,
           movementSummaries: true,
           stockSummaries: true
@@ -211,7 +236,9 @@ export async function GET(req: NextRequest) {
     const seenGudangDate = new Set<string>();
     const deduplicatedSessions: typeof otherSessions = [];
     for (const s of [latestSession, ...otherSessions]) {
-      const key = `${s.gudangId ?? 'global'}_${s.dateStr}`;
+      const key = isMerger && !gudangIdParam
+        ? String(s.gudangId ?? 'global')
+        : `${s.gudangId ?? 'global'}_${s.dateStr}`;
       if (!seenGudangDate.has(key)) {
         seenGudangDate.add(key);
         deduplicatedSessions.push(s);
@@ -301,7 +328,9 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Filter by Gudang if requested ──
-    const effectiveGudangId = ctx.isAdmin ? (gudangIdParam ? parseInt(gudangIdParam, 10) : null) : ctx.gudangId;
+    const effectiveGudangId = (ctx.isAdmin || ctx.roleScope === 'global' || isMerger)
+      ? (gudangIdParam ? parseInt(gudangIdParam, 10) : null)
+      : ctx.gudangId;
 
     // ── Deduplicate stock cards by batch|materialNumber|sloc ──
     const seenStockCards = new Set<string>();
@@ -325,6 +354,18 @@ export async function GET(req: NextRequest) {
           return sloc.startsWith(prefix) || sc.status === 'Sloc Penampungan';
         });
       }
+    } else if (isMerger) {
+      const assignedIds = ctx.mergerGudangIds!;
+      const prefixes = assignedIds.map(getGudangPrefix).filter(Boolean);
+      allRawMovements = filterByGudangList(allRawMovements, assignedIds);
+      allStocks = allStocks.filter((s: any) => {
+        const sloc = (s.sloc || '').toUpperCase();
+        return prefixes.some((p) => sloc.startsWith(p)) || s.status === 'Sloc Penampungan';
+      });
+      uniqueStockCards = uniqueStockCards.filter((sc: any) => {
+        const sloc = (sc.sloc || '').toUpperCase();
+        return prefixes.some((p) => sloc.startsWith(p)) || sc.status === 'Sloc Penampungan';
+      });
     }
 
     // ── Presisi filter tanggal DI SERVER ──

@@ -18,11 +18,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
     const { roleId } = await params;
     const body = await req.json();
-    const { name, description, color, scope, permissions } = body as {
+    const { name, description, color, scope, permissions, gudangIds } = body as {
       name?: string;
       description?: string;
       color?: string;
-      scope?: 'global' | 'gudang';
+      scope?: 'global' | 'gudang' | 'merger';
+      gudangIds?: number[];
       permissions?: string[];
     };
 
@@ -53,7 +54,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       if (existing.roleId === 'admin' && scope !== 'global') {
         throw new ApiError(400, 'Role admin wajib memiliki scope global');
       }
-      data.scope = scope;
+      data.scope = scope === 'global' ? 'global' : scope === 'merger' ? 'merger' : 'gudang';
+    }
+
+    if (gudangIds !== undefined) {
+      const safeGudangIds = Array.isArray(gudangIds)
+        ? gudangIds.map(Number).filter((n) => !isNaN(n) && n >= 1 && n <= 14)
+        : [];
+      data.gudangIds = JSON.stringify(safeGudangIds);
     }
 
     if (permissions !== undefined) {
@@ -81,8 +89,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       perms = [];
     }
 
+    let parsedGudangIds: number[] = [];
+    try {
+      if (updated.gudangIds) parsedGudangIds = JSON.parse(updated.gudangIds);
+    } catch {
+      parsedGudangIds = [];
+    }
+
     return NextResponse.json({
       ...updated,
+      gudangIds: parsedGudangIds,
       permissions: perms,
     });
   } catch (err) {

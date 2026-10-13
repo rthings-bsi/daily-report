@@ -7,12 +7,16 @@ declare module "next-auth" {
       role: string;
       gudangId: number | null;
       permissions: string[];
+      roleScope?: 'global' | 'gudang' | 'merger';
+      mergerGudangIds?: number[];
     } & DefaultSession["user"];
   }
   interface User {
     role?: string;
     gudangId?: number | null;
     permissions?: string[];
+    roleScope?: 'global' | 'gudang' | 'merger';
+    mergerGudangIds?: number[];
   }
 }
 
@@ -22,5 +26,7 @@ declare module "next-auth/jwt" {
     role?: string;
     gudangId?: number | null;
     permissions?: string[];
+    roleScope?: 'global' | 'gudang' | 'merger';
+    mergerGudangIds?: number[];
   }
 }
