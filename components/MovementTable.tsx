@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedMovement } from '@/lib/excel-parser';
+import { classifyBatch } from '@/lib/gudang';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,25 +15,25 @@ type SortField = 'moveType' | 'description' | 'count' | 'totalWeight';
 type SortDirection = 'asc' | 'desc';
 
 const getMoveTypeBadge = (moveType: string, group: string) => {
-  if (moveType === '101') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (moveType === '311' && group === 'Masuk') return 'bg-teal-50 text-teal-700 border-teal-200';
-  if (moveType === '311' && group === 'Keluar') return 'bg-purple-50 text-purple-700 border-purple-200';
-  if (moveType === '262') return 'bg-blue-50 text-blue-700 border-blue-200';
-  if (moveType === '601') return 'bg-pink-50 text-pink-700 border-pink-200';
-  if (moveType === '261') return 'bg-rose-50 text-rose-700 border-rose-200';
+  if (moveType === '101') return 'bg-[var(--neu-green-soft)] text-[var(--neu-green)]';
+  if (moveType === '311' && group === 'Masuk') return 'bg-[var(--neu-accent-soft)] text-[var(--neu-accent)]';
+  if (moveType === '311' && group === 'Keluar') return 'bg-[var(--neu-purple-soft)] text-[var(--neu-purple)]';
+  if (moveType === '262') return 'bg-[var(--neu-accent-soft)] text-[var(--neu-accent)]';
+  if (moveType === '601') return 'bg-[var(--neu-amber-soft)] text-[var(--neu-amber)]';
+  if (moveType === '261') return 'bg-[var(--neu-red-soft)] text-[var(--neu-red)]';
   return group === 'Masuk'
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : 'bg-rose-50 text-rose-700 border-rose-200';
+    ? 'bg-[var(--neu-green-soft)] text-[var(--neu-green)]'
+    : 'bg-[var(--neu-red-soft)] text-[var(--neu-red)]';
 };
 
-const getDotColor = (moveType: string, group: string) => {
-  if (moveType === '101') return 'bg-emerald-500';
-  if (moveType === '311' && group === 'Masuk') return 'bg-teal-500';
-  if (moveType === '311' && group === 'Keluar') return 'bg-purple-500';
-  if (moveType === '262') return 'bg-blue-500';
-  if (moveType === '601') return 'bg-pink-500';
-  if (moveType === '261') return 'bg-rose-500';
-  return group === 'Masuk' ? 'bg-emerald-500' : 'bg-rose-500';
+const getDotVar = (moveType: string, group: string) => {
+  if (moveType === '101') return 'var(--neu-green-bar)';
+  if (moveType === '311' && group === 'Masuk') return 'var(--neu-accent)';
+  if (moveType === '311' && group === 'Keluar') return 'var(--neu-purple-bar)';
+  if (moveType === '262') return 'var(--neu-accent)';
+  if (moveType === '601') return 'var(--neu-amber-bar)';
+  if (moveType === '261') return 'var(--neu-red-bar)';
+  return group === 'Masuk' ? 'var(--neu-green-bar)' : 'var(--neu-red-bar)';
 };
 
 export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = false }) => {
@@ -53,12 +54,12 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
-      return <ArrowUpDown size={11} className="opacity-30 group-hover:opacity-100 transition-opacity ml-1 inline-block" />;
+      return <ArrowUpDown size={11} className="opacity-40 group-hover:opacity-100 transition-opacity ml-1 inline-block" />;
     }
     return sortDirection === 'asc' ? (
-      <ArrowUp size={11} className="text-apple-blue ml-1 inline-block" />
+      <ArrowUp size={11} className="text-[var(--neu-accent)] ml-1 inline-block" />
     ) : (
-      <ArrowDown size={11} className="text-apple-blue ml-1 inline-block" />
+      <ArrowDown size={11} className="text-[var(--neu-accent)] ml-1 inline-block" />
     );
   };
 
@@ -75,6 +76,8 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
         totalPcs: number;
         fastCount: number;
         slowCount: number;
+        fastWeight: number;
+        slowWeight: number;
       }
     >();
 
@@ -91,15 +94,36 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
           totalPcs: 0,
           fastCount: 0,
           slowCount: 0,
+          fastWeight: 0,
+          slowWeight: 0,
         });
       }
       const entry = map.get(key)!;
-      entry.count += 1;
-      // Konversi KG dari SAP ke satuan TON (/ 1000)
       entry.totalWeight += item.quantity / 1000;
       entry.totalPcs += item.unitQuantity;
-      if (item.movementStatus === 'Fast') entry.fastCount += 1;
-      if (item.movementStatus === 'Slow') entry.slowCount += 1;
+      const hasPrecomputed = item.fastWeight !== undefined || item.fastCount !== undefined;
+      if (hasPrecomputed) {
+        entry.fastCount += item.fastCount || 0;
+        entry.slowCount += item.slowCount || 0;
+        entry.fastWeight += (item.fastWeight || 0) / 1000;
+        entry.slowWeight += (item.slowWeight || 0) / 1000;
+        entry.count += item.totalCount ?? (((item.fastCount || 0) + (item.slowCount || 0)) || 1);
+      } else {
+        entry.count += 1;
+        const wTon = Math.abs(item.quantity) / 1000;
+        const status =
+          item.movementStatus && item.movementStatus !== 'Unknown'
+            ? item.movementStatus
+            : classifyBatch(item.batch || '');
+        if (status === 'Fast') {
+          entry.fastCount += 1;
+          entry.fastWeight += wTon;
+        }
+        if (status === 'Slow') {
+          entry.slowCount += 1;
+          entry.slowWeight += wTon;
+        }
+      }
     });
 
     let result = Array.from(map.values()).filter(item => {
@@ -128,12 +152,29 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
 
   const inCount = useMemo(() => summaryData.filter(i => i.group === 'Masuk').length, [summaryData]);
   const outCount = useMemo(() => summaryData.filter(i => i.group === 'Keluar').length, [summaryData]);
+  const totalFastCount = useMemo(() => summaryData.reduce((acc, curr) => acc + curr.fastCount, 0), [summaryData]);
+  const totalSlowCount = useMemo(() => summaryData.reduce((acc, curr) => acc + curr.slowCount, 0), [summaryData]);
+  const totalFastWeight = useMemo(() => summaryData.reduce((acc, curr) => acc + curr.fastWeight, 0), [summaryData]);
+  const totalSlowWeight = useMemo(() => summaryData.reduce((acc, curr) => acc + curr.slowWeight, 0), [summaryData]);
 
   const exportCSV = () => {
-    const headers = ['Type', 'Description', 'Group', 'Count', 'Weight (TON)'];
+    const headers = [
+      'Type',
+      'Description',
+      'Group',
+      'Count',
+      'Weight (TON)',
+      'Fast Count',
+      'Fast Weight (TON)',
+      'Slow Count',
+      'Slow Weight (TON)',
+    ];
     const csvContent = [
       headers.join(','),
-      ...summaryData.map(d => `${d.moveType},"${d.description}",${d.group},${d.count},${d.totalWeight}`),
+      ...summaryData.map(
+        d =>
+          `${d.moveType},"${d.description}",${d.group},${d.count},${d.totalWeight},${d.fastCount},${d.fastWeight},${d.slowCount},${d.slowWeight}`
+      ),
     ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -147,59 +188,61 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
 
   return (
     <article
-      className={`glass-card shadow-apple-card border border-white/80 flex flex-col justify-between transition-apple ${
-        condensed ? 'rounded-2xl p-4' : 'rounded-3xl p-5 md:p-6'
+      className={`neu-card flex flex-col justify-between h-full ${
+        condensed ? 'p-4' : 'p-5 sm:p-6'
       }`}
       data-purpose="sap-analytics-card"
       role="region"
       aria-label="Transaction Analytics Dashboard"
     >
       <div>
-        {/* Card Header with Search & Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-apple-gray-200/50 pb-4 mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-orange-50 text-apple-orange flex items-center justify-center font-bold">
-              <svg
-                className="w-4.5 h-4.5 text-apple-orange"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 8v4l3 3" />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            </div>
+        {/* Card Header with Search & Segmented Filter */}
+        <div className="flex flex-col gap-3 border-b border-[var(--neu-divider)] pb-4 mb-3">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-base font-bold text-slate-800">Movement Analytics (SAP)</h2>
-              <p className="text-xs text-slate-500 font-medium">Ringkasan pergerakan material berdasarkan tonase</p>
+              <h2 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">
+                Analitik Pergerakan (SAP)
+              </h2>
+              <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">
+                Ringkasan pergerakan material berdasarkan tonase
+              </p>
             </div>
+
+            {!condensed && (
+              <button
+                type="button"
+                onClick={exportCSV}
+                aria-label="Export CSV"
+                title="Export Table ke CSV"
+                className="w-8.5 h-8.5 rounded-xl neu-btn flex items-center justify-center cursor-pointer shrink-0"
+              >
+                <Download size={14} />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Search Input */}
-            <div className={`relative transition-all duration-300 ${isFocused ? 'w-44' : 'w-36 sm:w-40'}`}>
+          <div className="flex items-center justify-between gap-2.5 flex-wrap">
+            {/* Recessed Search Input */}
+            <div className={`relative flex-1 min-w-[150px] transition-all duration-200 ${isFocused ? 'max-w-[230px]' : 'max-w-[200px]'}`}>
               <Search
-                className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 transition-colors ${
-                  isFocused ? 'text-apple-blue' : 'text-slate-400'
+                className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                  isFocused ? 'text-[var(--neu-accent)]' : 'text-[var(--neu-text-muted)]'
                 }`}
               />
               <input
                 type="text"
-                placeholder="Cari pergerakan..."
+                placeholder="Cari tipe..."
                 aria-label="Cari transaksi"
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border border-slate-300/80 bg-white/80 text-slate-800 focus:bg-white focus:ring-2 focus:ring-apple-blue focus:outline-none transition-apple placeholder:text-slate-400 font-medium"
+                className="neu-input w-full h-8.5 text-xs pl-8 pr-2.5 rounded-xl font-medium"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
 
             {/* Filter Pills */}
-            <div className="glass-pill p-0.5 rounded-xl flex items-center text-xs font-medium" role="tablist">
+            <div className="neu-inset-sm p-0.5 rounded-xl flex items-center text-[11.5px] font-semibold shrink-0" role="tablist">
               {[
                 { key: 'all', label: 'Semua' },
                 { key: 'Masuk', label: 'Masuk' },
@@ -207,32 +250,20 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
               ].map(t => (
                 <button
                   key={t.key}
+                  type="button"
                   role="tab"
                   aria-selected={filterType === t.key}
                   onClick={() => setFilterType(t.key)}
-                  className={`px-3 py-1 rounded-lg transition-apple ${
+                  className={`px-2.5 py-1 rounded-lg transition-neu cursor-pointer ${
                     filterType === t.key
-                      ? 'bg-white font-bold text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 font-semibold'
+                      ? 'bg-[var(--neu-surface)] font-bold text-[var(--neu-accent)] shadow-[var(--neu-shadow-xs)]'
+                      : 'text-[var(--neu-text-muted)] hover:text-[var(--neu-text)]'
                   }`}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
-
-            {/* Export Button */}
-            {!condensed && (
-              <button
-                type="button"
-                onClick={exportCSV}
-                aria-label="Export CSV"
-                title="Export Table ke CSV"
-                className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center transition-apple shadow-sm cursor-pointer"
-              >
-                <Download size={14} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -241,80 +272,107 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
           <table className="w-full text-left text-xs" aria-label="Tabel transaksi pergerakan SAP">
             <caption className="sr-only">Tabel pergerakan transaksi menampilkan tipe, referensi, frekuensi, dan berat</caption>
             <thead>
-              <tr className="text-slate-500 border-b border-slate-200/80 uppercase tracking-wider text-[10px]">
+              <tr className="text-[var(--neu-text-muted)] border-b border-[var(--neu-divider)] font-mono uppercase tracking-wider text-[10px]">
                 <th
-                  className="py-2.5 px-3 font-bold cursor-pointer hover:text-slate-900 transition-colors"
+                  className="py-2.5 px-3 font-semibold cursor-pointer hover:text-[var(--neu-text)] transition-colors"
                   onClick={() => handleSort('moveType')}
                 >
                   Type <SortIcon field="moveType" />
                 </th>
                 <th
-                  className="py-2.5 px-3 font-bold cursor-pointer hover:text-slate-900 transition-colors"
+                  className="py-2.5 px-3 font-semibold cursor-pointer hover:text-[var(--neu-text)] transition-colors"
                   onClick={() => handleSort('description')}
                 >
                   Ref Code &amp; Detail <SortIcon field="description" />
                 </th>
                 <th
-                  className="py-2.5 px-3 font-bold text-center cursor-pointer hover:text-slate-900 transition-colors"
+                  className="py-2.5 px-3 font-semibold text-center cursor-pointer hover:text-[var(--neu-text)] transition-colors"
                   onClick={() => handleSort('count')}
                 >
                   Rec (Tx) <SortIcon field="count" />
                 </th>
                 <th
-                  className="py-2.5 px-3 font-bold text-right cursor-pointer hover:text-slate-900 transition-colors"
+                  className="py-2.5 px-3 font-semibold text-right cursor-pointer hover:text-[var(--neu-text)] transition-colors"
                   onClick={() => handleSort('totalWeight')}
                 >
                   Weight (TON) <SortIcon field="totalWeight" />
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-[var(--neu-divider)] text-[var(--neu-text-secondary)]">
               <AnimatePresence>
                 {summaryData.length === 0 ? (
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <td colSpan={4} className="py-10 text-center text-slate-400">
-                      <AlertCircle className="mx-auto mb-2 opacity-50 text-slate-400" size={24} />
-                      <p className="text-xs font-semibold text-slate-600">Tidak ada pergerakan ditemukan</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Coba sesuaikan kata kunci pencarian atau filter.</p>
+                    <td colSpan={4} className="py-10 text-center text-[var(--neu-text-muted)]">
+                      <AlertCircle className="mx-auto mb-2 opacity-60" size={22} />
+                      <p className="text-xs font-bold text-[var(--neu-text-secondary)]">Tidak ada pergerakan ditemukan</p>
+                      <p className="text-[11px] mt-0.5">Sesuaikan kata kunci pencarian atau filter grup.</p>
                     </td>
                   </motion.tr>
                 ) : (
                   summaryData.map(item => {
                     const badgeClass = getMoveTypeBadge(item.moveType, item.group);
-                    const dotClass = getDotColor(item.moveType, item.group);
+                    const dotVar = getDotVar(item.moveType, item.group);
                     const isMasuk = item.group === 'Masuk';
-                    const weightColor = isMasuk ? 'text-emerald-600' : 'text-rose-500';
+                    const weightColor = isMasuk ? 'text-[var(--neu-green)]' : 'text-[var(--neu-red)]';
 
                     return (
                       <tr
                         key={`${item.moveType}-${item.description}`}
-                        className="group hover:bg-white/90 transition-apple"
+                        className="group hover:bg-[var(--neu-row-hover)] transition-colors"
                       >
                         <td className="py-3 px-3">
                           <span
-                            className={`px-2.5 py-1 rounded-lg font-bold border text-[11px] tabular-nums font-mono ${badgeClass}`}
+                            className={`px-2 py-0.5 rounded-lg font-bold text-[11px] tabular-nums font-mono ${badgeClass}`}
                           >
                             {item.moveType}
                           </span>
                         </td>
                         <td className="py-3 px-3">
-                          <div className="font-bold flex items-center gap-2 text-slate-900 text-xs">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+                          <div className="font-bold flex items-center gap-2 text-[var(--neu-text)] text-[12.5px]">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotVar }} />
                             <span className="truncate">{item.description}</span>
                           </div>
                           {(item.fastCount > 0 || item.slowCount > 0) && (
-                            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                              {item.fastCount > 0 && <span>{item.fastCount} Fast</span>}
-                              {item.fastCount > 0 && item.slowCount > 0 && <span> · </span>}
-                              {item.slowCount > 0 && <span>{item.slowCount} Slow</span>}
-                            </span>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {item.fastCount > 0 && item.slowCount > 0 ? (
+                                <>
+                                  <span
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[var(--neu-green-soft)] text-[var(--neu-green)] font-mono text-[10px] font-semibold"
+                                    title={`${item.fastWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                                  >
+                                    Fast: {item.fastCount.toLocaleString('id-ID')}
+                                  </span>
+                                  <span
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[var(--neu-amber-soft)] text-[var(--neu-amber)] font-mono text-[10px] font-semibold"
+                                    title={`${item.slowWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                                  >
+                                    Slow: {item.slowCount.toLocaleString('id-ID')}
+                                  </span>
+                                </>
+                              ) : item.fastCount > 0 ? (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[var(--neu-green-soft)] text-[var(--neu-green)] font-mono text-[10px] font-semibold"
+                                  title={`${item.fastWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                                >
+                                  Fast Moving
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[var(--neu-amber-soft)] text-[var(--neu-amber)] font-mono text-[10px] font-semibold"
+                                  title={`${item.slowWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                                >
+                                  Slow Moving
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center font-bold text-slate-700 tabular-nums">
+                        <td className="py-3 px-3 text-center font-mono font-semibold text-[var(--neu-text-secondary)] tabular-nums">
                           {item.count.toLocaleString('id-ID')}
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <span className={`font-black text-sm tabular-nums ${weightColor}`}>
+                          <span className={`font-extrabold text-[13.5px] tabular-nums ${weightColor}`}>
                             {item.totalWeight.toLocaleString('id-ID', {
                               minimumFractionDigits: 1,
                               maximumFractionDigits: 1,
@@ -331,26 +389,58 @@ export const MovementTable: React.FC<MovementTableProps> = ({ data, condensed = 
         </div>
       </div>
 
-      {/* Global Aggregate Banner */}
+      {/* Recessed Global Aggregate Footer Bar */}
       {summaryData.length > 0 && (
-        <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-slate-100/90 to-white/90 border border-slate-200/70 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-apple-sm">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-xs font-bold text-slate-700 uppercase">Global Aggregate:</span>
-            <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-semibold">
-              ● {inCount} Types In
+        <div className="mt-4 p-3.5 rounded-2xl neu-inset-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+              Aggregate:
             </span>
-            <span className="px-2.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-xs font-semibold">
-              ● {outCount} Types Out
+            <span className="px-2 py-0.5 rounded-md bg-[var(--neu-green-soft)] text-[var(--neu-green)] font-mono text-[10.5px] font-semibold">
+              {inCount} In
             </span>
+            <span className="px-2 py-0.5 rounded-md bg-[var(--neu-red-soft)] text-[var(--neu-red)] font-mono text-[10.5px] font-semibold">
+              {outCount} Out
+            </span>
+            {totalFastCount > 0 && totalSlowCount > 0 ? (
+              <>
+                <span
+                  className="px-2 py-0.5 rounded-md neu-card-sm text-[var(--neu-green)] font-mono text-[10.5px] font-semibold"
+                  title={`${totalFastWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                >
+                  {totalFastCount.toLocaleString('id-ID')} Fast
+                </span>
+                <span
+                  className="px-2 py-0.5 rounded-md neu-card-sm text-[var(--neu-amber)] font-mono text-[10.5px] font-semibold"
+                  title={`${totalSlowWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+                >
+                  {totalSlowCount.toLocaleString('id-ID')} Slow
+                </span>
+              </>
+            ) : totalFastCount > 0 ? (
+              <span
+                className="px-2 py-0.5 rounded-md neu-card-sm text-[var(--neu-green)] font-mono text-[10.5px] font-semibold"
+                title={`${totalFastWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+              >
+                100% Fast
+              </span>
+            ) : totalSlowCount > 0 ? (
+              <span
+                className="px-2 py-0.5 rounded-md neu-card-sm text-[var(--neu-amber)] font-mono text-[10.5px] font-semibold"
+                title={`${totalSlowWeight.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} TON`}
+              >
+                100% Slow
+              </span>
+            ) : null}
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs text-slate-500 font-medium">Cumulative Net Output:</span>
-            <span className="text-lg font-black text-slate-900 tabular-nums">
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="text-[11.5px] text-[var(--neu-text-muted)] font-medium">Net Output:</span>
+            <span className="text-[16px] font-extrabold text-[var(--neu-accent)] tabular-nums">
               {cumulativeNet.toLocaleString('id-ID', {
                 minimumFractionDigits: 1,
                 maximumFractionDigits: 1,
               })}{' '}
-              <span className="text-xs font-semibold text-slate-600">TON</span>
+              <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-text-muted)]">TON</span>
             </span>
           </div>
         </div>

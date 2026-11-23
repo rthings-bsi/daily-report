@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { MessageCircle, X, Send, Bot } from 'lucide-react';
+import { X, Send, MessageSquare, RotateCcw, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,12 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
+
+const SUGGESTIONS = [
+  'Ringkas pergerakan inbound & outbound hari ini',
+  'Gudang mana dengan utilisasi tertinggi?',
+  'Apa perbedaan Fast Moving dan Slow Moving?',
+];
 
 export default function ChatBot() {
   const { data: session } = useSession();
@@ -32,29 +38,34 @@ export default function ChatBot() {
     }
   }, [messages, isOpen]);
 
-  // JANGAN TAMPILKAN CHATBOT SAMA SEKALI KALAU USER BELUM LOGIN
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
   if (!session) {
     return null;
   }
 
-  const kirimPesan = async () => {
-    const trimmed = localInput.trim();
+  const kirimPesan = async (overrideText?: string) => {
+    const trimmed = (overrideText ?? localInput).trim();
     if (!trimmed || isLoading) return;
 
-    // 1. Masukkan pesan user ke UI
     const newUserMsg: Message = { id: Date.now().toString(), role: 'user', content: trimmed };
     const newMessages = [...messages, newUserMsg];
     setMessages(newMessages);
-    setLocalInput('');
+    if (!overrideText) setLocalInput('');
     setIsLoading(true);
     setErrorMsg(null);
 
-    // 2. Hit API backend
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Pastikan kita kirim array of messages yang benar (tanpa atribut id aneh-aneh)
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content }))
         }),
@@ -66,13 +77,11 @@ export default function ChatBot() {
         throw new Error(data.error || 'Terjadi kesalahan dari server');
       }
 
-      // 3. Masukkan balasan AI ke UI
       setMessages(prev => [...prev, {
         id: data.id || (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.content
       }]);
-
     } catch (err: any) {
       console.error("Chat Error:", err);
       setErrorMsg(err.message || 'Gagal menghubungi Eko. Coba lagi ya.');
@@ -90,51 +99,97 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* Tombol floating chat */}
+      {/* ─── Tactile Neumorphic Floating Trigger ─── */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 p-4 bg-sky-600 text-white rounded-full shadow-lg hover:bg-sky-700 transition-all z-50",
-          isOpen ? "scale-0 opacity-0" : "scale-100 opacity-100"
+          "fixed bottom-6 right-6 h-12 px-4 neu-btn-primary rounded-2xl z-50 flex items-center gap-2 font-bold text-[13px] cursor-pointer",
+          isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
         )}
+        aria-label="Buka Chat dengan Eko AI"
       >
-        <MessageCircle size={24} />
+        <MessageSquare size={16} strokeWidth={2.3} />
+        <span className="hidden sm:inline">Tanya Eko AI</span>
       </button>
 
+      {/* ─── Sculpted Neumorphic Chat Console ─── */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 border border-slate-200"
+            exit={{ opacity: 0, y: 16, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed bottom-6 right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[540px] neu-float flex flex-col overflow-hidden z-50"
           >
             {/* Header */}
-            <div className="bg-sky-600 text-white p-4 flex justify-between items-center shadow-md">
-              <div className="flex items-center gap-2">
-                <div className="bg-white/20 p-2 rounded-full">
-                  <Bot size={20} />
-                </div>
+            <div className="px-4 py-3.5 border-b border-[var(--neu-divider)] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl neu-icon-inset text-[var(--neu-accent)] flex items-center justify-center">
+                  <MessageSquare size={16} strokeWidth={2.3} />
+                </span>
                 <div>
-                  <h3 className="font-semibold leading-none">Eko AI</h3>
-                  <p className="text-xs text-sky-100 mt-1">Asisten Gudang Spindo</p>
+                  <h3 className="text-[14px] font-extrabold text-[var(--neu-text)] leading-none">
+                    Eko AI
+                  </h3>
+                  <p className="text-[11px] text-[var(--neu-text-muted)] mt-1">
+                    Asisten Data Gudang SPINDO
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-white hover:bg-white/20 p-1 rounded-full transition-colors"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setMessages([]); setErrorMsg(null); }}
+                    className="w-8 h-8 rounded-xl neu-btn text-[var(--neu-text-muted)] flex items-center justify-center cursor-pointer"
+                    title="Mulai percakapan baru"
+                    aria-label="Mulai percakapan baru"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="w-8 h-8 rounded-xl neu-btn text-[var(--neu-text-muted)] flex items-center justify-center cursor-pointer"
+                  aria-label="Tutup panel AI"
+                >
+                  <X size={15} />
+                </button>
+              </div>
             </div>
 
-            {/* Chat messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+            {/* Recessed Chat Well */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--neu-bg)]">
               {messages.length === 0 && !errorMsg && (
-                <div className="text-center text-slate-500 mt-10">
-                  <Bot size={40} className="mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Halo! Gue Eko. Ada yang bisa dibantu soal data gudang atau fitur aplikasi?</p>
+                <div className="space-y-4 py-2">
+                  <div className="neu-card-sm p-4">
+                    <div className="flex items-center gap-2 font-mono text-[10.5px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider mb-2">
+                      <Database size={12} className="text-[var(--neu-accent)]" />
+                      <span>Konteks Gudang Aktif</span>
+                    </div>
+                    <p className="text-[13px] text-[var(--neu-text-secondary)] leading-relaxed">
+                      Halo! Saya <strong className="text-[var(--neu-text)]">Eko AI</strong>. Tanyakan seputar pergerakan tonase SAP, klasifikasi Fast/Slow Moving, kapasitas gudang, atau fitur laporan harian.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider px-1">
+                      Contoh Pertanyaan
+                    </p>
+                    {SUGGESTIONS.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => kirimPesan(q)}
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl neu-btn text-[12px] font-semibold text-[var(--neu-text-secondary)] cursor-pointer"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -146,53 +201,58 @@ export default function ChatBot() {
                     m.role === 'user' ? "justify-end" : "justify-start"
                   )}
                 >
-                  <div className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-2 shadow-sm text-sm",
-                    m.role === 'user'
-                      ? "bg-sky-600 text-white rounded-tr-none"
-                      : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
-                  )}>
-                    <p className="whitespace-pre-wrap">{m.content}</p>
-                  </div>
+                  {m.role === 'user' ? (
+                    <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-4 py-2.5 neu-btn-primary text-[13px] font-medium">
+                      <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                    </div>
+                  ) : (
+                    <div className="max-w-[92%] space-y-2">
+                      <div className="neu-card-sm rounded-2xl rounded-tl-sm px-4 py-3 text-[13px] text-[var(--neu-text)] leading-relaxed">
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full neu-inset-sm font-mono text-[10px] text-[var(--neu-text-muted)]">
+                        <Database size={10} className="text-[var(--neu-accent)]" />
+                        <span>SPINDO Warehouse DB</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
 
               {/* Error state */}
               {errorMsg && (
-                <div className="flex justify-center">
-                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-xs text-center max-w-[90%] shadow-sm">
-                    <p className="font-medium mb-1">⚠️ Gagal terhubung ke AI</p>
-                    <p className="text-red-500 mb-2">{errorMsg}</p>
-                    <button
-                      onClick={() => { setErrorMsg(null); kirimPesan(); }}
-                      className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    >
-                      Coba Lagi
-                    </button>
-                  </div>
+                <div className="neu-inset-sm rounded-xl px-4 py-3 text-xs space-y-2 border border-[var(--neu-red)]/30">
+                  <p className="font-bold text-[var(--neu-red)]">Gagal terhubung ke layanan AI</p>
+                  <p className="text-[var(--neu-text-secondary)]">{errorMsg}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setErrorMsg(null); kirimPesan(); }}
+                    className="neu-btn px-3 py-1.5 rounded-lg text-[11px] font-bold text-[var(--neu-red)] cursor-pointer"
+                  >
+                    Coba Lagi
+                  </button>
                 </div>
               )}
 
               {/* Loading indicator */}
               {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                  </div>
+                <div className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl neu-card-sm">
+                  <span className="w-1.5 h-1.5 bg-[var(--neu-accent)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--neu-accent)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--neu-accent)] rounded-full animate-bounce" />
+                  <span className="font-mono text-[10.5px] text-[var(--neu-text-muted)] ml-1">Menganalisa...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input area */}
-            <div className="p-4 bg-white border-t border-slate-100">
-              <div className="flex gap-2">
+            {/* Recessed Input Area */}
+            <div className="p-3.5 border-t border-[var(--neu-divider)] bg-[var(--neu-surface)]">
+              <div className="flex items-center gap-2">
                 <input
-                  className="flex-1 bg-slate-100 text-sm border-0 rounded-full px-4 py-2 focus:ring-2 focus:ring-sky-500 outline-none"
+                  className="neu-input flex-1 h-10 rounded-xl px-3.5 text-[13px]"
                   value={localInput}
-                  placeholder="Ketik pesan..."
+                  placeholder="Tanyakan data gudang..."
                   onChange={(e) => setLocalInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={isLoading}
@@ -200,16 +260,17 @@ export default function ChatBot() {
                 />
                 <button
                   type="button"
-                  onClick={kirimPesan}
+                  onClick={() => kirimPesan()}
                   disabled={isLoading || !localInput.trim()}
                   className={cn(
-                    "p-2.5 rounded-full transition-colors flex items-center justify-center",
+                    "w-10 h-10 rounded-xl transition-neu flex items-center justify-center shrink-0",
                     isLoading || !localInput.trim()
-                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                      : "bg-sky-600 text-white hover:bg-sky-700 cursor-pointer"
+                      ? "neu-inset-sm text-[var(--neu-text-muted)] opacity-55 cursor-not-allowed"
+                      : "neu-btn-primary cursor-pointer"
                   )}
+                  aria-label="Kirim pesan"
                 >
-                  <Send size={18} className="ml-0.5" />
+                  <Send size={15} />
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedMovement } from '@/lib/excel-parser';
+import { classifyBatch } from '@/lib/gudang';
 import { Zap } from 'lucide-react';
 import {
   PieChart,
@@ -53,14 +54,37 @@ export const FastSlowTransactionChart: React.FC<FastSlowTransactionChartProps> =
     };
 
     for (const m of data) {
-      const k = m.movementStatus === 'Fast' || m.movementStatus === 'Slow' ? m.movementStatus : 'U';
-      const w = Math.abs(m.quantity);
-      if (m.group === 'Masuk') {
-        bucket[k].mi++;
-        bucket[k].mt += w;
-      } else if (m.group === 'Keluar') {
-        bucket[k].ki++;
-        bucket[k].kt += w;
+      const hasPrecomputed = m.fastWeight !== undefined || m.fastCount !== undefined;
+      if (hasPrecomputed) {
+        const fCount = m.fastCount || 0;
+        const sCount = m.slowCount || 0;
+        const fWeight = m.fastWeight || 0;
+        const sWeight = m.slowWeight || 0;
+        if (m.group === 'Masuk') {
+          bucket.Fast.mi += fCount;
+          bucket.Fast.mt += fWeight;
+          bucket.Slow.mi += sCount;
+          bucket.Slow.mt += sWeight;
+        } else if (m.group === 'Keluar') {
+          bucket.Fast.ki += fCount;
+          bucket.Fast.kt += fWeight;
+          bucket.Slow.ki += sCount;
+          bucket.Slow.kt += sWeight;
+        }
+      } else {
+        const status =
+          m.movementStatus && m.movementStatus !== 'Unknown'
+            ? m.movementStatus
+            : classifyBatch(m.batch || '');
+        const k = status === 'Fast' || status === 'Slow' ? status : 'U';
+        const w = Math.abs(m.quantity);
+        if (m.group === 'Masuk') {
+          bucket[k].mi++;
+          bucket[k].mt += w;
+        } else if (m.group === 'Keluar') {
+          bucket[k].ki++;
+          bucket[k].kt += w;
+        }
       }
     }
 

@@ -285,6 +285,11 @@ export interface ProcessedMovement {
   entryTime?: string;
   entryDate?: string;
   shift?: 1 | 2 | 3;
+  fastCount?: number;
+  slowCount?: number;
+  fastWeight?: number;
+  slowWeight?: number;
+  totalCount?: number;
 }
 
 export interface ProcessedStock {

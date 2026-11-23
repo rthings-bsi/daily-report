@@ -427,7 +427,7 @@ function AuditSlocContent() {
   }
 
   return (
-    <div className="min-h-screen dashboard-apple-bg selection:bg-apple-blue/20 selection:text-apple-blue font-sans pb-16">
+    <div className="min-h-screen bg-[#F8FAFC] selection:bg-slate-900 selection:text-white font-sans pb-16">
       {/* ─── Top Bar & Page Header ─── */}
       <PageHeader
         icon={ClipboardCheck}

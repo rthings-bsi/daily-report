@@ -80,19 +80,17 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
     if (state === 'loading') return;
     if (state === 'success') {
       reset();
-      // give React a tick to clear the input value before re-opening
       setTimeout(() => inputRef.current?.click(), 0);
       return;
     }
     inputRef.current?.click();
   };
 
-  // ── Color tokens per state ──
-  const palette = {
-    idle:     { ring: 'ring-[#4BB8FA]/40', glow: 'from-[#1591DC]/30', btn: 'from-[#1591DC] to-[#2C5EAD]', icon: 'text-white' },
-    loading:  { ring: 'ring-[#4BB8FA]/40', glow: 'from-[#1591DC]/30', btn: 'from-[#1591DC] to-[#2C5EAD]', icon: 'text-white' },
-    success:  { ring: 'ring-emerald-400/60', glow: 'from-emerald-400/40', btn: 'from-emerald-500 to-emerald-600', icon: 'text-white' },
-    error:    { ring: 'ring-rose-400/60',  glow: 'from-rose-400/40',    btn: 'from-rose-500 to-rose-600',    icon: 'text-white' },
+  const iconColor = {
+    idle: 'text-[var(--neu-accent)]',
+    loading: 'text-[var(--neu-accent)]',
+    success: 'text-[var(--neu-green)]',
+    error: 'text-[var(--neu-red)]',
   }[state];
 
   return (
@@ -100,47 +98,33 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`relative w-full rounded-[2rem] border-2 border-dashed transition-all duration-500 overflow-hidden ${
-        isDragging
-          ? 'border-[#4BB8FA] bg-[#C4E2F5]/20 scale-[1.01] shadow-2xl shadow-[#1591DC]/10'
-          : 'border-[#C4E2F5]/60 bg-white/60 hover:border-[#1591DC]/50 hover:bg-[#C4E2F5]/10 hover:shadow-xl hover:shadow-[#1591DC]/5'
+      className={`relative w-full rounded-[1.5rem] transition-neu overflow-hidden ${
+        isDragging ? 'neu-inset border border-[var(--neu-accent-border)]' : 'neu-card'
       }`}
     >
-      {/* Decorative Background Blob */}
-      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-gradient-to-br from-[#1591DC]/10 to-[#C4E2F5]/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-gradient-to-tr from-[#2C5EAD]/5 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative flex flex-col items-center justify-center py-20 px-6">
-        {/* ── Floating action button ── */}
-        <div className="relative group">
-          {/* soft glow */}
-          <div
-            className={`absolute inset-0 -m-4 rounded-full bg-gradient-to-br ${palette.glow} to-transparent blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500`}
-            aria-hidden
-          />
-          <button
-            type="button"
-            onClick={onClick}
-            disabled={state === 'loading'}
-            className={`relative w-24 h-24 rounded-full bg-gradient-to-br ${palette.btn} shadow-xl shadow-black/5 hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center ring-4 ${palette.ring} disabled:cursor-wait`}
-            aria-label={state === 'success' ? 'Ganti file' : 'Pilih file SAP Excel'}
-          >
-            {state === 'loading' ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-              >
-                <Upload size={32} className={palette.icon} strokeWidth={2.5} />
-              </motion.div>
-            ) : state === 'success' ? (
-              <CheckCircle2 size={32} className={palette.icon} strokeWidth={2.5} />
-            ) : state === 'error' ? (
-              <AlertCircle size={32} className={palette.icon} strokeWidth={2.5} />
-            ) : (
-              <Upload size={32} className={palette.icon} strokeWidth={2.5} />
-            )}
-          </button>
-        </div>
+      <div className="relative flex flex-col items-center justify-center py-16 px-6">
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={state === 'loading'}
+          className={`w-20 h-20 rounded-3xl neu-icon-inset flex items-center justify-center transition-neu cursor-pointer disabled:cursor-wait hover:scale-105 ${iconColor}`}
+          aria-label={state === 'success' ? 'Ganti file' : 'Pilih file SAP Excel'}
+        >
+          {state === 'loading' ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+            >
+              <Upload size={28} strokeWidth={2.2} />
+            </motion.div>
+          ) : state === 'success' ? (
+            <CheckCircle2 size={28} strokeWidth={2.2} />
+          ) : state === 'error' ? (
+            <AlertCircle size={28} strokeWidth={2.2} />
+          ) : (
+            <Upload size={28} strokeWidth={2.2} />
+          )}
+        </button>
 
         <input
           ref={inputRef}
@@ -150,54 +134,64 @@ export const UploadCard: React.FC<UploadCardProps> = ({ onDataLoaded }) => {
           accept=".xlsx,.xls,.csv"
         />
 
-        {/* ── Caption ── */}
-        <div className="mt-8 text-center">
-          <p className="text-base font-bold text-[#2C5EAD] mb-1.5">
-            {state === 'loading'  && 'Memproses data warehouse…'}
-            {state === 'success'  && 'Data berhasil disinkronisasi'}
-            {state === 'error'    && 'Gagal memproses file'}
-            {state === 'idle'     && (isDragging ? 'Lepaskan file Excel di sini' : 'Pilih File SAP Excel')}
+        <div className="mt-6 text-center max-w-md">
+          <p className="text-[16px] font-extrabold text-[var(--neu-text)] mb-1.5">
+            {state === 'loading' && 'Memproses data warehouse...'}
+            {state === 'success' && 'Data berhasil disinkronisasi'}
+            {state === 'error' && 'Gagal memproses file'}
+            {state === 'idle' && (isDragging ? 'Lepaskan file Excel di sini' : 'Unggah File SAP Excel')}
           </p>
-          <p className="text-xs font-medium text-[#1591DC]/70">
+          <p className="text-[12.5px] text-[var(--neu-text-muted)]">
             {state === 'success' && fileName ? (
-              <span className="inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full text-emerald-700">
-                <FileSpreadsheet size={13} className="text-emerald-500" />
-                <span className="font-mono tracking-tight">{fileName}</span>
+              <span className="inline-flex items-center gap-1.5 neu-inset-sm px-3.5 py-1.5 rounded-full text-[var(--neu-green)] mt-1">
+                <FileSpreadsheet size={13} />
+                <span className="font-mono text-xs font-semibold">{fileName}</span>
               </span>
             ) : state === 'idle' ? (
-              'Seret dan lepaskan file ke area ini, atau klik tombol di atas.'
+              'Seret dan lepaskan file (.xlsx, .xls, .csv) ke area ini, atau pilih file dari perangkat Anda.'
             ) : state === 'error' ? (
-              <span className="text-rose-500">{error}</span>
+              <span className="text-[var(--neu-red)] font-semibold">{error}</span>
             ) : (
               'Sedang mengurai baris material movement...'
             )}
           </p>
         </div>
 
-        {/* ── Action chips (only when state is success or error) ── */}
+        {state === 'idle' && (
+          <button
+            type="button"
+            onClick={onClick}
+            className="mt-6 px-5 h-10 neu-btn-primary text-[13px] font-bold rounded-xl cursor-pointer"
+          >
+            Pilih File SAP
+          </button>
+        )}
+
         <AnimatePresence>
           {(state === 'success' || state === 'error') && (
             <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.95 }}
-              className="mt-6 flex items-center gap-3"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="mt-5 flex items-center gap-2.5"
             >
               {state === 'success' && (
                 <button
+                  type="button"
                   onClick={onClick}
-                  className="inline-flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-[#1591DC] bg-white border border-[#C4E2F5]/60 rounded-xl hover:bg-[#C4E2F5]/20 hover:border-[#1591DC]/40 shadow-sm shadow-[#1591DC]/5 transition-all"
+                  className="inline-flex items-center gap-1.5 px-4 h-9 text-xs font-bold text-[var(--neu-accent)] neu-btn rounded-xl cursor-pointer"
                 >
-                  <Upload size={13} strokeWidth={2.5} />
+                  <Upload size={13} strokeWidth={2.2} />
                   Ganti File
                 </button>
               )}
               {state === 'error' && (
                 <button
+                  type="button"
                   onClick={reset}
-                  className="inline-flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-rose-600 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 hover:border-rose-300 shadow-sm shadow-rose-500/5 transition-all"
+                  className="inline-flex items-center gap-1.5 px-4 h-9 text-xs font-bold text-[var(--neu-red)] neu-btn rounded-xl cursor-pointer"
                 >
-                  <X size={13} strokeWidth={2.5} />
+                  <X size={13} strokeWidth={2.4} />
                   Coba Lagi
                 </button>
               )}

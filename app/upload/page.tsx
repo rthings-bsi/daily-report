@@ -100,20 +100,20 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 selection:bg-[#4BB8FA]/25 selection:text-[#2C5EAD]">
-      <PageHeader icon={FileUp} title="Sikronisasi Data" subtitle="Import file raw export dari SAP" className="print:hidden">
+    <div className="min-h-screen bg-[var(--neu-bg)] transition-colors duration-200">
+      <PageHeader icon={FileUp} title="Sinkronisasi Data" subtitle="Import file raw export dari SAP" className="print:hidden">
         {(saving || saved) && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`flex items-center gap-1.5 px-3 h-8 rounded-xl text-[10px] font-bold ${
-              saving ? 'text-[#1591DC] bg-[#C4E2F5]/40 border border-[#4BB8FA]/20' : 'text-emerald-600 bg-emerald-50 border border-emerald-100'
+            className={`flex items-center gap-1.5 px-3 h-8 rounded-xl neu-inset-sm font-mono text-[11px] font-semibold ${
+              saving ? 'text-[var(--neu-accent)]' : 'text-[var(--neu-green)]'
             }`}
           >
             {saving ? (
-              <div className="w-3 h-3 border-[2px] border-[#4BB8FA]/30 border-t-[#1591DC] rounded-full animate-spin" />
+              <div className="w-3 h-3 border-[2px] border-[var(--neu-divider)] border-t-[var(--neu-accent)] rounded-full animate-spin" />
             ) : (
-              <Check size={12} strokeWidth={3} />
+              <Check size={12} strokeWidth={2.5} />
             )}
             {saving ? 'Mensinkronisasi...' : 'Tersimpan'}
           </motion.div>

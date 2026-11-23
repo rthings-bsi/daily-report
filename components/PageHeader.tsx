@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { Menu } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
+import { ThemeToggle } from './ThemeToggle';
 
 interface PageHeaderProps {
   icon: React.ElementType;
@@ -15,7 +16,7 @@ interface PageHeaderProps {
   children?: React.ReactNode;
 }
 
-const spring = { type: 'spring' as const, stiffness: 200, damping: 22, mass: 0.8 };
+const ease = [0.23, 1, 0.32, 1] as const;
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
   icon: Icon,
@@ -25,54 +26,58 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className,
   children,
 }) => {
-  const { toggle, isOpen } = useSidebar();
-  
+  const { toggle } = useSidebar();
+
   return (
-  <motion.header
-    initial={{ y: -16, opacity: 0 }}
-    animate={{ y: 0, opacity: 1 }}
-    transition={spring}
-    className={cn(
-      'sticky top-0 z-40',
-      'bg-white/95 backdrop-blur-2xl',
-      'border-b border-slate-200',
-      'shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
-      className
-    )}
-  >
-    <div className="max-w-[1700px] mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-4">
-      {/* ─── Left: Title ─── */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <button
-          onClick={toggle}
-          className="md:hidden p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
-        >
-          <Menu size={20} />
-        </button>
-        <motion.div
-          initial={{ rotate: -8, scale: 0.85 }}
-          animate={{ rotate: 0, scale: 1 }}
-          transition={{ type: 'spring' as const, stiffness: 280, damping: 14, mass: 0.7 }}
-          className={cn(
-            'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-slate-200/50',
-            iconBg || 'bg-slate-100 text-slate-700'
-          )}
-        >
-          <Icon size={15} strokeWidth={2.5} />
-        </motion.div>
-        <div className="min-w-0 flex flex-col justify-center h-8">
-          <h1 className={cn("text-[14px] font-bold text-slate-800 tracking-tight leading-none", subtitle && "mb-0.5")}>{title}</h1>
-          {subtitle && (
-            <p className="text-[10px] text-slate-500 font-medium truncate leading-none">{subtitle}</p>
-          )}
+    <motion.header
+      initial={{ y: -8, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.22, ease }}
+      className={cn(
+        'sticky top-0 z-40',
+        'bg-[var(--neu-bg)]/95 backdrop-blur-md',
+        'border-b border-[var(--neu-divider)]',
+        'shadow-[0_6px_16px_-10px_var(--neu-shadow-dark)]',
+        className
+      )}
+    >
+      <div className="max-w-[1700px] mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-3">
+        {/* ─── Left: Title & Embossed Icon Socket ─── */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={toggle}
+            className="md:hidden p-2 -ml-1 neu-btn rounded-xl text-[var(--neu-text-secondary)] cursor-pointer"
+            aria-label="Toggle menu"
+          >
+            <Menu size={18} />
+          </button>
+          <div
+            className={cn(
+              'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 neu-icon-well',
+              iconBg ? iconBg : 'text-[var(--neu-accent)]'
+            )}
+          >
+            <Icon size={16} strokeWidth={2.3} />
+          </div>
+          <div className="min-w-0 flex flex-col justify-center">
+            <h1 className={cn("text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight leading-tight truncate", subtitle && "mb-0.5")}>
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-[11px] text-[var(--neu-text-muted)] font-medium truncate leading-tight">
+                {subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ─── Right: Actions + Dark/Light Neumorphic Switch ─── */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {children}
+          <ThemeToggle />
         </div>
       </div>
-
-      {/* ─── Right: Actions ─── */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {children}
-      </div>
-    </div>
-  </motion.header>
+    </motion.header>
   );
 };

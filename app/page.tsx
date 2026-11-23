@@ -39,6 +39,11 @@ interface MovementSummaryItem {
   color: string;
   totalQuantity: number;
   totalCount: number;
+  totalUnitQuantity?: number;
+  fastCount?: number;
+  slowCount?: number;
+  fastWeight?: number;
+  slowWeight?: number;
 }
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
@@ -241,11 +246,21 @@ export default function Home() {
         workCenter: s.workCenter || '',
         batch: '',
         quantity: s.totalQuantity,
-        unitQuantity: 0,
+        unitQuantity: s.totalUnitQuantity || 0,
         userName: '',
         storageLocation: '',
         color: s.color,
-        movementStatus: 'Unknown' as const,
+        movementStatus:
+          s.fastCount && s.fastCount > 0 && !s.slowCount
+            ? ('Fast' as const)
+            : s.slowCount && s.slowCount > 0 && !s.fastCount
+            ? ('Slow' as const)
+            : ('Unknown' as const),
+        fastCount: s.fastCount || 0,
+        slowCount: s.slowCount || 0,
+        fastWeight: s.fastWeight || 0,
+        slowWeight: s.slowWeight || 0,
+        totalCount: s.totalCount,
       }));
     }
     return filteredMovements;
@@ -765,10 +780,12 @@ export default function Home() {
   // ─── Loading state (auto-load in progress) ───
   if (!movements.length && !stocks.length && loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 flex items-center justify-center">
+      <main className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-[3px] border-[#4BB8FA]/20 border-t-[#1591DC] rounded-full animate-spin" />
-          <p className="text-xs font-medium text-[#1591DC]/60 animate-pulse">Memuat data terbaru...</p>
+          <div className="w-14 h-14 rounded-2xl neu-card-sm flex items-center justify-center">
+            <div className="w-7 h-7 border-[3px] border-[var(--neu-divider)] border-t-[var(--neu-accent)] rounded-full animate-spin" />
+          </div>
+          <p className="font-mono text-xs font-medium text-[var(--neu-text-muted)]">Memuat data terbaru...</p>
         </div>
       </main>
     );
@@ -777,23 +794,25 @@ export default function Home() {
   // ─── First-time: no data & no history → show upload prompt inline ───
   if (!movements.length && !stocks.length && history.length === 0) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-[#C4E2F5]/20 via-white to-[#C4E2F5]/20 flex items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-6 max-w-sm text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#C4E2F5]/50 to-[#4BB8FA]/20 flex items-center justify-center border border-[#C4E2F5]/50">
-            <Upload size={28} className="text-[#1591DC]" strokeWidth={1.5} />
+      <main className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-5 max-w-sm text-center neu-card p-8">
+          <div className="w-16 h-16 rounded-2xl neu-icon-inset flex items-center justify-center text-[var(--neu-accent)]">
+            <Upload size={26} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#2C5EAD] mb-1">Warehouse Intelligence</h1>
-            <p className="text-sm text-[#1591DC]/70">Unggah laporan SAP Excel untuk memulai.</p>
+            <h1 className="text-lg font-extrabold text-[var(--neu-text)] mb-1">Warehouse Intelligence</h1>
+            <p className="text-[13px] text-[var(--neu-text-muted)]">
+              Unggah laporan SAP Excel untuk mulai memvisualisasikan data gudang.
+            </p>
           </div>
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls" className="hidden" />
-          <motion.button
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="px-6 py-3 bg-gradient-to-r from-[#1591DC] to-[#2C5EAD] hover:from-[#4BB8FA] hover:to-[#1591DC] text-white rounded-xl text-sm font-semibold shadow-lg shadow-[#1591DC]/25 transition-all"
+            className="px-5 py-2.5 neu-btn-primary rounded-xl text-[13px] font-bold cursor-pointer"
           >
             Pilih File SAP Excel
-          </motion.button>
+          </button>
         </div>
       </main>
     );
@@ -801,24 +820,25 @@ export default function Home() {
 
   // ─── Dashboard / Report ───
   return (
-    <main className="min-h-screen dashboard-apple-bg selection:bg-apple-blue/20 selection:text-apple-blue font-sans">
+    <main className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200">
       <PageHeader icon={LayoutDashboard} title="Warehouse" subtitle="Dashboard gudang SPINDO" className="print:hidden">
 
-        {/* ─── Collapsible Filters ─── */}
-        <div className="relative mr-1 sm:mr-2">
+        {/* ─── Collapsible Neumorphic Filter Control ─── */}
+        <div className="relative">
           <button
+            type="button"
             onClick={() => setFilterOpen(!filterOpen)}
-            className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[10px] font-bold border transition-all shadow-sm ${
+            className={`h-9 px-3.5 inline-flex items-center gap-1.5 rounded-xl text-[12px] font-bold transition-neu cursor-pointer ${
               selectedGudang || startDate || endDate || selectedShift !== null
-                ? 'bg-[#1591DC] text-white border-[#1591DC] hover:bg-[#2C5EAD]'
-                : 'text-[#1591DC] bg-white/80 border-[#C4E2F5]/60 hover:bg-white hover:border-[#4BB8FA]/50'
+                ? 'neu-btn-primary'
+                : 'neu-btn text-[var(--neu-text-secondary)]'
             }`}
             title="Filter"
           >
-            <Filter size={12} strokeWidth={2.5} className="shrink-0" />
+            <Filter size={13} strokeWidth={2.2} className="shrink-0" />
             <span className="hidden lg:inline">Filter</span>
             {(selectedGudang || startDate || endDate || selectedShift !== null) && (
-              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-black">
+              <span className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center font-mono text-[9.5px] font-bold">
                 {(selectedGudang ? 1 : 0) + ((startDate || endDate) ? 1 : 0) + (selectedShift !== null ? 1 : 0)}
               </span>
             )}
@@ -827,16 +847,18 @@ export default function Home() {
           {filterOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
-              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white/95 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl shadow-xl shadow-[#1591DC]/10 p-4 min-w-[280px] space-y-3">
-                <p className="text-[9px] font-bold text-[#2C5EAD]/50 uppercase tracking-widest">Filter Data</p>
+              <div className="absolute right-0 top-full mt-2.5 z-50 neu-float p-4 min-w-[295px] space-y-4">
+                <p className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                  Filter Parameter
+                </p>
 
                 {canFilterGudang && (
                   <div>
-                    <label className="text-[10px] font-semibold text-[#2C5EAD]/70 mb-1 block">Gudang</label>
+                    <label className="text-[11.5px] font-bold text-[var(--neu-text-secondary)] mb-1.5 block">Gudang</label>
                     <select
                       value={selectedGudang ?? ''}
                       onChange={e => setSelectedGudang(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full h-8 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-3 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm"
+                      className="neu-input w-full h-9.5 text-[12px] font-semibold rounded-xl px-3 cursor-pointer"
                     >
                       <option value="">{isMerger ? 'Semua Gudang Terhubung' : 'Semua Gudang'}</option>
                       {(isMerger ? mergerGudangIds : Array.from({ length: 14 }, (_, i) => i + 1)).map(n => (
@@ -847,92 +869,76 @@ export default function Home() {
                 )}
 
                 <div>
-                  <label className="text-[10px] font-semibold text-[#2C5EAD]/70 mb-1 block">Rentang Tanggal</label>
+                  <label className="text-[11.5px] font-bold text-[var(--neu-text-secondary)] mb-1.5 block">Rentang Tanggal</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
                       value={startDate}
                       onChange={e => setStartDate(e.target.value)}
-                      className="flex-1 h-8 text-[10px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 shadow-sm"
+                      className="neu-input flex-1 h-9.5 text-[11px] font-mono font-medium rounded-xl px-2.5"
                     />
-                    <span className="text-[10px] text-[#1591DC]/30 font-bold">–</span>
+                    <span className="text-xs text-[var(--neu-text-muted)] font-bold">-</span>
                     <input
                       type="date"
                       value={endDate}
                       onChange={e => setEndDate(e.target.value)}
-                      className="flex-1 h-8 text-[10px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-2.5 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 shadow-sm"
+                      className="neu-input flex-1 h-9.5 text-[11px] font-mono font-medium rounded-xl px-2.5"
                     />
                   </div>
                 </div>
 
                 {/* ─── Shift Kerja Filter ─── */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-semibold text-[#2C5EAD]/70 block">Shift Kerja</label>
-                    <span className="text-[9px] text-slate-400 font-medium">Entered at (SAP)</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11.5px] font-bold text-[var(--neu-text-secondary)] block">Shift Kerja</label>
+                    <span className="font-mono text-[9.5px] text-[var(--neu-text-muted)]">Entered at (SAP)</span>
                   </div>
-                  <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/60">
+                  <div className="grid grid-cols-4 gap-1 p-1 neu-inset-sm rounded-xl">
                     <button
                       type="button"
                       onClick={() => setSelectedShift(null)}
-                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple ${
+                      className={`h-7.5 rounded-lg text-[11px] font-bold transition-neu cursor-pointer ${
                         selectedShift === null
-                          ? 'bg-white text-slate-800 shadow-sm border border-slate-200/80 font-bold'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-[var(--neu-surface)] text-[var(--neu-accent)] shadow-[var(--neu-shadow-xs)]'
+                          : 'text-[var(--neu-text-muted)] hover:text-[var(--neu-text)]'
                       }`}
                     >
                       Semua
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedShift(1)}
-                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
-                        selectedShift === 1
-                          ? 'bg-[#007AFF] text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                      }`}
-                      title="07:00 - 15:00"
-                    >
-                      Shift 1
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedShift(2)}
-                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
-                        selectedShift === 2
-                          ? 'bg-[#007AFF] text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                      }`}
-                      title="15:00 - 23:00"
-                    >
-                      Shift 2
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedShift(3)}
-                      className={`h-7 rounded-lg text-[10px] font-bold transition-apple flex items-center justify-center ${
-                        selectedShift === 3
-                          ? 'bg-[#007AFF] text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                      }`}
-                      title="23:00 - 07:00"
-                    >
-                      Shift 3
-                    </button>
+                    {[
+                      { num: 1, label: 'Shift 1', title: '07:00 - 15:00' },
+                      { num: 2, label: 'Shift 2', title: '15:00 - 23:00' },
+                      { num: 3, label: 'Shift 3', title: '23:00 - 07:00' },
+                    ].map(s => (
+                      <button
+                        key={s.num}
+                        type="button"
+                        onClick={() => setSelectedShift(s.num)}
+                        className={`h-7.5 rounded-lg text-[11px] font-bold transition-neu flex items-center justify-center cursor-pointer ${
+                          selectedShift === s.num
+                            ? 'neu-btn-primary'
+                            : 'text-[var(--neu-text-secondary)] hover:text-[var(--neu-text)]'
+                        }`}
+                        title={s.title}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex justify-between text-[8.5px] text-slate-400 mt-1 px-1 font-medium tracking-tight">
-                    <span>S1: 07.00–15.00</span>
-                    <span>S2: 15.00–23.00</span>
-                    <span>S3: 23.00–07.00</span>
+                  <div className="flex justify-between font-mono text-[9px] text-[var(--neu-text-muted)] mt-1.5 px-0.5">
+                    <span>S1: 07.00-15.00</span>
+                    <span>S2: 15.00-23.00</span>
+                    <span>S3: 23.00-07.00</span>
                   </div>
                 </div>
 
                 {(selectedGudang || startDate || endDate || selectedShift !== null) && (
                   <button
+                    type="button"
                     onClick={() => { setSelectedGudang(null); setStartDate(''); setEndDate(''); setSelectedShift(null); setFilterOpen(false); }}
-                    className="w-full h-7 text-[10px] font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full h-8.5 text-[11.5px] font-bold text-[var(--neu-red)] neu-btn rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <X size={12} strokeWidth={3} /> Reset Filter
+                    <X size={12} strokeWidth={2.5} /> Reset Filter
                   </button>
                 )}
               </div>
@@ -940,80 +946,65 @@ export default function Home() {
           )}
         </div>
 
-        <div className="w-px h-5 bg-[#C4E2F5]/50 mx-1 hidden sm:block" />
-
-        {/* ─── Actions Group ─── */}
-        <div className="flex items-center gap-2 p-1 bg-slate-50 border border-slate-200 rounded-xl">
-
-          <div className="flex bg-white border border-slate-200/60 rounded-lg p-0.5 shadow-sm">
-            <button
-              onClick={() => setViewMode('dashboard')}
-              className={`h-7 px-3 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1.5 ${
-                viewMode === 'dashboard'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-              }`}
-            >
-              <LayoutDashboard size={14} strokeWidth={viewMode === 'dashboard' ? 2.5 : 2} />
-              <span className="hidden sm:inline">Dashboard</span>
-            </button>
-            <button
-              onClick={() => setViewMode('report')}
-              className={`h-7 px-3 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1.5 ${
-                viewMode === 'report'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-              }`}
-            >
-              <Layout size={14} strokeWidth={viewMode === 'report' ? 2.5 : 2} />
-              <span className="hidden sm:inline">Report</span>
-            </button>
-            <button
-              onClick={() => setViewMode('analytics')}
-              className={`h-7 px-3 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1.5 ${
-                viewMode === 'analytics'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-              }`}
-            >
-              <TrendingUp size={14} strokeWidth={viewMode === 'analytics' ? 2.5 : 2} />
-              <span className="hidden sm:inline">Analytics</span>
-            </button>
+        {/* ─── Tactile View Mode Segmented Switcher & Copy Action ─── */}
+        <div className="flex items-center gap-2">
+          <div className="flex neu-inset-sm rounded-xl p-1">
+            {[
+              { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'report' as const, label: 'Report', icon: Layout },
+              { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
+            ].map((tab) => {
+              const activeTab = viewMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setViewMode(tab.id)}
+                  className={`h-7.5 px-3 rounded-lg text-[12px] font-bold transition-neu flex items-center gap-1.5 cursor-pointer ${
+                    activeTab
+                      ? 'bg-[var(--neu-surface)] text-[var(--neu-accent)] shadow-[var(--neu-shadow-xs)]'
+                      : 'text-[var(--neu-text-muted)] hover:text-[var(--neu-text)]'
+                  }`}
+                >
+                  <tab.icon size={13} strokeWidth={activeTab ? 2.4 : 2} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
-
-          <div className="w-px h-5 bg-slate-200 hidden sm:block" />
 
           {/* ─── Copy Dashboard Button ─── */}
           <button
+            type="button"
             onClick={handleCopyDashboard}
             disabled={copyStatus === 'loading'}
-            className={`h-7 px-2.5 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1.5 shadow-sm border ${
+            className={`h-9 px-3.5 rounded-xl text-[12px] font-bold transition-neu flex items-center gap-1.5 cursor-pointer ${
               copyStatus === 'success'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                ? 'neu-inset-sm text-[var(--neu-green)]'
                 : copyStatus === 'error'
-                ? 'bg-rose-50 text-rose-700 border-rose-300'
-                : 'bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+                ? 'neu-inset-sm text-[var(--neu-red)]'
+                : 'neu-btn-primary'
             }`}
             title="Salin grafik dashboard ke clipboard (bisa langsung di-paste dengan Ctrl+V)"
           >
             {copyStatus === 'loading' ? (
               <>
-                <Loader2 size={13} className="animate-spin text-slate-500" />
-                <span className="hidden md:inline">Mengambil gambar...</span>
+                <Loader2 size={13} className="animate-spin" />
+                <span className="hidden md:inline">Mengambil...</span>
               </>
             ) : copyStatus === 'success' ? (
               <>
-                <Check size={13} strokeWidth={2.5} className="text-emerald-600" />
-                <span className="text-emerald-700">Tersalin ke Clipboard!</span>
+                <Check size={13} strokeWidth={2.5} />
+                <span>Tersalin!</span>
               </>
             ) : copyStatus === 'error' ? (
               <>
-                <AlertCircle size={13} className="text-rose-600" />
-                <span title={copyErrorMessage}>Gagal Menyalin</span>
+                <AlertCircle size={13} />
+                <span title={copyErrorMessage}>Gagal</span>
               </>
             ) : (
               <>
-                <Copy size={13} strokeWidth={2} className="text-slate-500" />
+                <Copy size={13} strokeWidth={2.2} />
                 <span className="hidden sm:inline">Salin Grafik</span>
               </>
             )}
@@ -1022,32 +1013,32 @@ export default function Home() {
       </PageHeader>
 
       {/* ─── Page Content ─── */}
-      <div ref={contentRef} className="max-w-[1700px] mx-auto px-3 sm:px-5 lg:px-6 py-3 sm:py-5 lg:py-6">
+      <div ref={contentRef} className="max-w-[1700px] mx-auto px-3 sm:px-5 lg:px-6 py-5 sm:py-7">
         <AnimatePresence mode="wait">
 
           {/* ═══════════ ANALYTICS MODE ═══════════ */}
           {viewMode === 'analytics' ? (
             <motion.div
               key="analytics"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: easeOut }}
             >
               <AnalyticsDashboard />
             </motion.div>
           ) : viewMode === 'report' ? (
             <motion.div
               key="report"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: easeOut }}
               className="flex flex-col gap-5 sm:gap-6 pb-8"
               data-purpose="report-mode-container"
             >
-              {/* Row 1: KPI Cards - 4 Columns */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+              {/* Row 1: KPI Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard
                   title="Total Inbound"
                   value={
@@ -1062,7 +1053,7 @@ export default function Home() {
                   subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`}
                   type="in"
                   condensed
-                  delay={0.05}
+                  delay={0.03}
                   onClick={handleInboundClick}
                 />
                 <StatsCard
@@ -1079,7 +1070,7 @@ export default function Home() {
                   subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`}
                   type="out"
                   condensed
-                  delay={0.1}
+                  delay={0.06}
                   onClick={handleOutboundClick}
                 />
                 <StatsCard
@@ -1092,7 +1083,7 @@ export default function Home() {
                   subtitle="Selisih material masuk & keluar"
                   type="net"
                   condensed
-                  delay={0.15}
+                  delay={0.09}
                 />
                 <StatsCard
                   title="Total Transaksi"
@@ -1101,139 +1092,103 @@ export default function Home() {
                   subtitle="Total pergerakan data SAP"
                   type="total"
                   condensed
-                  delay={0.2}
+                  delay={0.12}
                 />
               </div>
 
-              {/* Row 2: Pipa NC 5-item Secondary Bar */}
-              <div className="glass-card rounded-2xl p-4 shadow-apple-sm border border-white/80">
-                <div className="flex items-center justify-between px-1 mb-2.5">
+              {/* Row 2: Pipa NC 5-item Strip */}
+              <div className="neu-card p-5">
+                <div className="flex items-center justify-between px-0.5 mb-3.5">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-apple-blue" />
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-[var(--neu-accent)]" />
+                    <h3 className="text-[13.5px] font-extrabold text-[var(--neu-text)] tracking-tight">
                       Ringkasan Data Pipa NC
                     </h3>
                   </div>
                   <button
+                    type="button"
                     onClick={() => router.push('/pipa-nc')}
-                    className="text-[11px] font-semibold text-apple-blue hover:underline cursor-pointer"
+                    className="text-[12px] font-bold text-[var(--neu-accent)] hover:underline cursor-pointer"
                   >
-                    Buka Detail Pipa NC →
+                    Buka Detail Pipa NC
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  {/* Grade C */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3 rounded-xl bg-white/70 border border-white hover:bg-white transition-apple shadow-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-600 uppercase">GRADE C</span>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60 text-[10px]">
-                        <TrendingUp size={11} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.gradeC.toLocaleString('id-ID')}{' '}
-                      <span className="text-[10px] font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      {pipaNCStats.gradeC || 0} batch akhiran C
-                    </p>
-                  </div>
-
-                  {/* Grade E */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3 rounded-xl bg-white/70 border border-white hover:bg-white transition-apple shadow-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-600 uppercase">GRADE E</span>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200/60 text-[10px]">
-                        <TrendingUp size={11} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.gradeE.toLocaleString('id-ID')}{' '}
-                      <span className="text-[10px] font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      {pipaNCStats.gradeE || 0} batch akhiran E
-                    </p>
-                  </div>
-
-                  {/* Total Item */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3 rounded-xl bg-white/70 border border-white hover:bg-white transition-apple shadow-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-600 uppercase">TOTAL ITEM</span>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center bg-blue-50 text-apple-blue border border-blue-200/60 text-[10px]">
-                        <Box size={11} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalItem.toLocaleString('id-ID')}{' '}
-                      <span className="text-[10px] font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                      Total pipa terdaftar
-                    </p>
-                  </div>
-
-                  {/* Total Qty */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3 rounded-xl bg-white/70 border border-white hover:bg-white transition-apple shadow-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-600 uppercase">TOTAL QTY</span>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-200/60 text-[10px]">
-                        <Package size={11} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalQty.toLocaleString('id-ID')}{' '}
-                      <span className="text-[10px] font-semibold text-slate-500">PC</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5 truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                      Stok BOM terhitung
-                    </p>
-                  </div>
-
-                  {/* Total Tonase */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3 rounded-xl bg-white/70 border border-white hover:bg-white transition-apple shadow-sm cursor-pointer group col-span-2 md:col-span-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-600 uppercase">TOTAL TONASE</span>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 border border-emerald-200/60 text-[10px]">
-                        <TrendingUp size={11} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalTonase.toLocaleString('id-ID', {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })}{' '}
-                      <span className="text-[10px] font-semibold text-slate-500">TON</span>
-                    </div>
-                    <p className="text-[10px] text-emerald-700 font-bold mt-0.5 truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Stok EOM aktif
-                    </p>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+                  {[
+                    {
+                      label: 'GRADE C',
+                      value: pipaNCStats.gradeC.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: `${pipaNCStats.gradeC || 0} batch akhiran C`,
+                      dot: 'var(--neu-amber-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-amber)]',
+                    },
+                    {
+                      label: 'GRADE E',
+                      value: pipaNCStats.gradeE.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: `${pipaNCStats.gradeE || 0} batch akhiran E`,
+                      dot: 'var(--neu-red-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-red)]',
+                    },
+                    {
+                      label: 'TOTAL ITEM',
+                      value: pipaNCStats.totalItem.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: 'Total pipa terdaftar',
+                      dot: 'var(--neu-accent)',
+                      icon: Box,
+                      color: 'text-[var(--neu-accent)]',
+                    },
+                    {
+                      label: 'TOTAL QTY',
+                      value: pipaNCStats.totalQty.toLocaleString('id-ID'),
+                      unit: 'PC',
+                      desc: 'Stok BOM terhitung',
+                      dot: 'var(--neu-purple-bar)',
+                      icon: Package,
+                      color: 'text-[var(--neu-purple)]',
+                    },
+                    {
+                      label: 'TOTAL TONASE',
+                      value: pipaNCStats.totalTonase.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                      unit: 'TON',
+                      desc: 'Stok EOM aktif',
+                      dot: 'var(--neu-green-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-green)]',
+                      span: 'col-span-2 md:col-span-1',
+                    },
+                  ].map((c) => (
+                    <button
+                      type="button"
+                      key={c.label}
+                      onClick={() => router.push('/pipa-nc')}
+                      className={`p-3.5 rounded-2xl neu-inset-sm hover:bg-[var(--neu-surface)] hover:shadow-[var(--neu-shadow-sm)] transition-neu cursor-pointer text-left ${c.span || ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">{c.label}</span>
+                        <span className={`w-6 h-6 rounded-lg neu-icon-well flex items-center justify-center ${c.color}`}>
+                          <c.icon size={11} strokeWidth={2.4} />
+                        </span>
+                      </div>
+                      <div className="text-[20px] font-extrabold text-[var(--neu-text)] mt-2 tabular-nums leading-none">
+                        {c.value}{' '}
+                        <span className="font-mono text-[10px] font-medium text-[var(--neu-text-muted)]">{c.unit}</span>
+                      </div>
+                      <p className="text-[11px] text-[var(--neu-text-muted)] mt-2 truncate flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c.dot }} />
+                        {c.desc}
+                      </p>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Row 3: Daily Movement & Volume (Side-by-side in 12-column grid: 7 cols + 5 cols) */}
+              {/* Row 3: Daily Movement & Volume */}
               <div className="w-full">
                 <MovementChart
                   data={chartMovements}
@@ -1246,7 +1201,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* Row 4: Stock Classification Section (Wide Horizontal) */}
+              {/* Row 4: Stock Classification */}
               <div className="w-full">
                 <StockClassificationSection
                   stocks={filteredStocks}
@@ -1255,109 +1210,69 @@ export default function Home() {
                 />
               </div>
 
-              {/* Row 5: Work Center (7 cols) + Movement Table (5 cols) side-by-side */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
+              {/* Row 5: Work Center + Movement Table */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                 <div className="lg:col-span-7 flex flex-col">
                   <WorkCenterBreakdown data={chartMovements} condensed={true} />
                 </div>
                 <div className="lg:col-span-5 flex flex-col">
-                  <MovementTable data={chartMovements} condensed={true} />
+                  <MovementTable data={statusMovements} condensed={true} />
                 </div>
               </div>
             </motion.div>
 
           ) : (
 
-          /* ═══════════ FULL DASHBOARD MODE ═══════════ */
+          /* ═══════════ FULL DASHBOARD MODE (Tactile Soft UI) ═══════════ */
             <motion.div
               key="dashboard"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex flex-col gap-6 sm:gap-7 pb-12"
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-6 pb-12"
             >
-              {/* ─── Top Apple Glass Hero Header ─── */}
+              {/* ─── Tactile Dashboard Banner ─── */}
               <header
-                className="glass-pill rounded-3xl p-5 md:p-6 shadow-apple-card flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-white/80"
+                className="neu-card px-5 py-5 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 data-purpose="dashboard-hero-header"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-apple-blue to-apple-teal text-white flex items-center justify-center font-black text-xl shadow-apple-glow-blue shrink-0">
-                    {selectedGudang || (isMerger ? 'M' : sessionGudang || '13')}
+                  <div className="w-12 h-12 rounded-2xl neu-icon-inset text-[var(--neu-accent)] flex items-center justify-center font-mono font-extrabold text-sm shrink-0">
+                    {selectedGudang ? `G${selectedGudang}` : (isMerger ? 'MG' : sessionGudang ? `G${sessionGudang}` : 'ALL')}
                   </div>
                   <div>
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800">
-                        Warehouse Dashboard{' '}
-                        <span className="text-apple-blue font-black">
-                          – {selectedGudang ? `Gudang ${selectedGudang}` : isMerger ? `Merger (Gudang ${mergerGudangIds.join(', ')})` : sessionGudang ? `Gudang ${sessionGudang}` : 'Semua Gudang'}
-                        </span>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h1 className="text-[20px] sm:text-[22px] font-extrabold tracking-tight text-[var(--neu-text)] leading-tight">
+                        Warehouse Dashboard
                       </h1>
+                      <span className="neu-chip">
+                        {selectedGudang
+                          ? `GUDANG ${selectedGudang}`
+                          : isMerger
+                          ? `MERGER (${mergerGudangIds.join(', ')})`
+                          : sessionGudang
+                          ? `GUDANG ${sessionGudang}`
+                          : 'SEMUA GUDANG'}
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    <p className="text-[12.5px] text-[var(--neu-text-muted)] mt-1">
                       Monitoring tonase masuk, keluar, dan klasifikasi pergerakan stok harian
                     </p>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Segmented Warehouse Selector for Admin / Merger */}
-                  {(session?.user?.role === 'admin' || isMerger) && (
-                    <div className="glass-pill p-1 rounded-2xl flex items-center shadow-apple-sm text-xs font-medium">
-                      {(isMerger
-                        ? [
-                            { label: 'Semua', val: null },
-                            ...mergerGudangIds.map(id => ({ label: `Gudang ${id}`, val: id })),
-                          ]
-                        : [
-                            { label: 'Semua', val: null },
-                            { label: 'Gudang 13', val: 13 },
-                            { label: 'Gudang 10', val: 10 },
-                            { label: 'Gudang 08', val: 8 },
-                          ]
-                      ).map(g => (
-                        <button
-                          key={g.label}
-                          type="button"
-                          onClick={() => setSelectedGudang(g.val)}
-                          className={`px-3 py-1.5 rounded-xl font-semibold transition-apple ${
-                            selectedGudang === g.val
-                              ? 'bg-white text-slate-900 shadow-sm font-bold'
-                              : 'text-slate-600 hover:text-slate-900 font-semibold'
-                          }`}
-                        >
-                          {g.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Date Pill */}
-                  <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/60 border border-white/70 shadow-apple-sm text-xs font-medium text-slate-700">
-                    {selectedShift !== null && (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-apple-blue/10 border border-apple-blue/20 text-apple-blue text-[11px] font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-apple-blue animate-pulse" />
-                        Shift {selectedShift}
-                      </div>
-                    )}
-                    <div className="flex flex-col text-right">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Waktu Update</span>
-                      <span className="font-bold text-slate-800">
-                        {startDate && endDate
-                          ? `${startDate} - ${endDate}`
-                          : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full neu-inset-sm font-mono text-[11px] font-semibold text-[var(--neu-green)]">
+                    <span className="w-2 h-2 rounded-full bg-[var(--neu-green-bar)]" />
+                    SAP Terhubung
+                  </span>
                 </div>
               </header>
 
               {/* ─── KPI Section ─── */}
               <section aria-label="Key Performance Indicators" data-purpose="hero-kpi-grid">
-                <SectionTitle>
-                  Key Performance Indicators
-                </SectionTitle>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
+                <SectionTitle>Key Performance Indicators</SectionTitle>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                   <StatsCard
                     title="Total Inbound"
                     value={
@@ -1371,7 +1286,7 @@ export default function Home() {
                     unit="TON"
                     subtitle={`${filteredStats?.incomingCount.toLocaleString('id-ID') || '0'} transaksi masuk`}
                     type="in"
-                    delay={0.05}
+                    delay={0.03}
                     onClick={handleInboundClick}
                   />
                   <StatsCard
@@ -1387,7 +1302,7 @@ export default function Home() {
                     unit="TON"
                     subtitle={`${filteredStats?.outgoingCount.toLocaleString('id-ID') || '0'} transaksi keluar`}
                     type="out"
-                    delay={0.1}
+                    delay={0.06}
                     onClick={handleOutboundClick}
                   />
                   <StatsCard
@@ -1399,7 +1314,7 @@ export default function Home() {
                     unit="TON"
                     subtitle="Selisih material masuk & keluar"
                     type="net"
-                    delay={0.15}
+                    delay={0.09}
                   />
                   <StatsCard
                     title="Total Transaksi"
@@ -1407,134 +1322,108 @@ export default function Home() {
                     unit="TRX"
                     subtitle="Total row data dari SAP"
                     type="total"
-                    delay={0.2}
+                    delay={0.12}
                   />
                 </div>
               </section>
 
               {/* ─── Pipa NC Section ─── */}
               <section aria-label="Data Pipa NC Secondary Stats Bar" data-purpose="pipa-nc-stats-bar">
-                <div className="flex items-center justify-between px-1 mb-2.5">
-                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Data Pipa NC
-                  </h2>
+                <div className="flex items-center justify-between px-0.5 mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2.5 h-2.5 rounded-full neu-inset-sm flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)]" />
+                    </div>
+                    <h2 className="font-mono text-[11px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                      Data Pipa NC
+                    </h2>
+                  </div>
                   <button
                     type="button"
                     onClick={() => router.push('/pipa-nc')}
-                    className="text-xs font-semibold text-apple-blue hover:underline cursor-pointer"
+                    className="text-[12px] font-bold text-[var(--neu-accent)] hover:underline cursor-pointer"
                   >
-                    Buka Detail Pipa NC →
+                    Buka Detail Pipa NC
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-                  {/* Grade C */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3.5 rounded-2xl bg-white/70 border border-white hover:bg-white transition-apple shadow-apple-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500">GRADE C</span>
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200/60 text-xs">
-                        <TrendingUp size={12} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.gradeC.toLocaleString('id-ID')}{' '}
-                      <span className="text-xs font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      {pipaNCStats.gradeC || 0} batch akhiran C
-                    </p>
-                  </div>
-
-                  {/* Grade E */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3.5 rounded-2xl bg-white/70 border border-white hover:bg-white transition-apple shadow-apple-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500">GRADE E</span>
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-rose-50 text-rose-600 border border-rose-200/60 text-xs">
-                        <TrendingUp size={12} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.gradeE.toLocaleString('id-ID')}{' '}
-                      <span className="text-xs font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      {pipaNCStats.gradeE || 0} batch akhiran E
-                    </p>
-                  </div>
-
-                  {/* Total Item */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3.5 rounded-2xl bg-white/70 border border-white hover:bg-white transition-apple shadow-apple-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500">TOTAL ITEM</span>
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-blue-50 text-apple-blue border border-blue-200/60 text-xs">
-                        <Box size={12} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalItem.toLocaleString('id-ID')}{' '}
-                      <span className="text-xs font-semibold text-slate-500">ITEM</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                      Total pipa terdaftar
-                    </p>
-                  </div>
-
-                  {/* Total Qty */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3.5 rounded-2xl bg-white/70 border border-white hover:bg-white transition-apple shadow-apple-sm cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500">TOTAL QTY</span>
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-200/60 text-xs">
-                        <Package size={12} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalQty.toLocaleString('id-ID')}{' '}
-                      <span className="text-xs font-semibold text-slate-500">PC</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                      Stok BOM terhitung
-                    </p>
-                  </div>
-
-                  {/* Total Tonase */}
-                  <div
-                    onClick={() => router.push('/pipa-nc')}
-                    className="p-3.5 rounded-2xl bg-white/70 border border-white hover:bg-white transition-apple shadow-apple-sm cursor-pointer group col-span-2 md:col-span-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500">TOTAL TONASE</span>
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600 border border-emerald-200/60 text-xs">
-                        <TrendingUp size={12} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                      {pipaNCStats.totalTonase.toLocaleString('id-ID', {
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {[
+                    {
+                      label: 'GRADE C',
+                      value: pipaNCStats.gradeC.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: `${pipaNCStats.gradeC || 0} batch akhiran C`,
+                      dot: 'var(--neu-amber-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-amber)]',
+                    },
+                    {
+                      label: 'GRADE E',
+                      value: pipaNCStats.gradeE.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: `${pipaNCStats.gradeE || 0} batch akhiran E`,
+                      dot: 'var(--neu-red-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-red)]',
+                    },
+                    {
+                      label: 'TOTAL ITEM',
+                      value: pipaNCStats.totalItem.toLocaleString('id-ID'),
+                      unit: 'ITEM',
+                      desc: 'Total pipa terdaftar',
+                      dot: 'var(--neu-accent)',
+                      icon: Box,
+                      color: 'text-[var(--neu-accent)]',
+                    },
+                    {
+                      label: 'TOTAL QTY',
+                      value: pipaNCStats.totalQty.toLocaleString('id-ID'),
+                      unit: 'PC',
+                      desc: 'Stok BOM terhitung',
+                      dot: 'var(--neu-purple-bar)',
+                      icon: Package,
+                      color: 'text-[var(--neu-purple)]',
+                    },
+                    {
+                      label: 'TOTAL TONASE',
+                      value: pipaNCStats.totalTonase.toLocaleString('id-ID', {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 1,
-                      })}{' '}
-                      <span className="text-xs font-semibold text-slate-500">TON</span>
-                    </div>
-                    <p className="text-[11px] text-emerald-700 font-semibold mt-1 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Stok EOM aktif
-                    </p>
-                  </div>
+                      }),
+                      unit: 'TON',
+                      desc: 'Stok EOM aktif',
+                      dot: 'var(--neu-green-bar)',
+                      icon: TrendingUp,
+                      color: 'text-[var(--neu-green)]',
+                      span: 'col-span-2 md:col-span-1',
+                      descCls: 'text-[var(--neu-green)] font-semibold',
+                    },
+                  ].map((c) => (
+                    <button
+                      type="button"
+                      key={c.label}
+                      onClick={() => router.push('/pipa-nc')}
+                      className={`p-4 rounded-2xl neu-card neu-card-interactive active:shadow-[var(--neu-shadow-inset-sm)] cursor-pointer text-left ${c.span || ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                          {c.label}
+                        </span>
+                        <span className={`w-7 h-7 rounded-xl neu-icon-inset flex items-center justify-center ${c.color}`}>
+                          <c.icon size={12} strokeWidth={2.4} />
+                        </span>
+                      </div>
+                      <div className="text-[24px] font-extrabold text-[var(--neu-text)] mt-2.5 tabular-nums leading-none">
+                        {c.value}{' '}
+                        <span className="font-mono text-[11px] font-medium text-[var(--neu-text-muted)]">{c.unit}</span>
+                      </div>
+                      <p className={`text-[11px] mt-2.5 truncate flex items-center gap-1.5 ${c.descCls || 'text-[var(--neu-text-muted)]'}`}>
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c.dot }} />
+                        {c.desc}
+                      </p>
+                    </button>
+                  ))}
                 </div>
               </section>
 
@@ -1561,24 +1450,24 @@ export default function Home() {
 
               {/* ─── Work Center & Transaction Table ─── */}
               <section aria-label="Work Center & Analitik Transaksi">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                   <div className="lg:col-span-7 flex flex-col">
                     <WorkCenterBreakdown data={chartMovements} />
                   </div>
                   <div className="lg:col-span-5 flex flex-col">
-                    <MovementTable data={chartMovements} />
+                    <MovementTable data={statusMovements} />
                   </div>
                 </div>
               </section>
 
-              {/* ─── Apple Glass Footer ─── */}
-              <footer className="glass-pill rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium gap-3 border border-white/60 mt-2">
+              {/* ─── Neumorphic Footer ─── */}
+              <footer className="neu-card-sm px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--neu-text-muted)] gap-3 mt-1">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>Created By Ricky</span>
+                  <span className="w-2 h-2 rounded-full bg-[var(--neu-green-bar)]" />
+                  <span className="font-mono text-[11px]">Created By Ricky</span>
                 </div>
                 <div className="flex items-center">
-                  <span>© 2026 PT Steel Pipe Industry of Indonesia Tbk (SPINDO)</span>
+                  <span>&copy; 2026 PT Steel Pipe Industry of Indonesia Tbk (SPINDO)</span>
                 </div>
               </footer>
             </motion.div>
@@ -1589,44 +1478,44 @@ export default function Home() {
       {/* ─── Fallback Preview / Manual Copy Modal ─── */}
       <AnimatePresence>
         {previewModalOpen && capturedImageUrl && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-[2px]">
             <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
+              initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]"
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="neu-float max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]"
             >
-              {/* Modal Header */}
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-[var(--neu-divider)] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Pratinjau Gambar Dashboard</h3>
-                  <p className="text-[11px] text-slate-500">
+                  <h3 className="text-sm font-extrabold text-[var(--neu-text)]">Pratinjau Gambar Dashboard</h3>
+                  <p className="text-[11.5px] text-[var(--neu-text-muted)]">
                     Klik tombol di bawah atau klik kanan gambar lalu pilih &ldquo;Copy Image&rdquo;
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setPreviewModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="p-2 rounded-xl neu-btn text-[var(--neu-text-muted)] cursor-pointer"
+                  aria-label="Tutup pratinjau"
                 >
-                  <X size={16} />
+                  <X size={15} />
                 </button>
               </div>
 
-              {/* Modal Image Body */}
-              <div className="p-4 overflow-y-auto max-h-[62vh] bg-slate-50/50 flex justify-center">
+              <div className="p-4 overflow-y-auto max-h-[62vh] bg-[var(--neu-bg)] flex justify-center">
                 <img
                   src={capturedImageUrl}
                   alt="Dashboard Preview"
-                  className="rounded-xl border border-slate-200/80 shadow-sm max-w-full h-auto object-contain cursor-pointer"
+                  className="rounded-xl border border-[var(--neu-border)] max-w-full h-auto object-contain cursor-pointer"
                   title="Klik kanan lalu pilih 'Salin Gambar' (Copy Image)"
                 />
               </div>
 
-              {/* Modal Footer Actions */}
-              <div className="px-5 py-3 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
+              <div className="px-5 py-3.5 border-t border-[var(--neu-divider)] flex items-center justify-between gap-3">
                 <button
+                  type="button"
                   onClick={handleDownloadFromModal}
-                  className="h-8 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-all flex items-center gap-1.5"
+                  className="h-9 px-3.5 rounded-xl text-xs font-bold neu-btn flex items-center gap-1.5 cursor-pointer"
                 >
                   <Download size={13} />
                   <span>Unduh PNG</span>
@@ -1634,17 +1523,17 @@ export default function Home() {
 
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => setPreviewModalOpen(false)}
-                    className="h-8 px-3 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                    className="h-9 px-3.5 rounded-xl text-xs font-bold text-[var(--neu-text-muted)] hover:text-[var(--neu-text)] cursor-pointer"
                   >
                     Tutup
                   </button>
                   <button
+                    type="button"
                     onClick={handleCopyFromModal}
-                    className={`h-8 px-3.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm ${
-                      modalCopied
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    className={`h-9 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
+                      modalCopied ? 'neu-inset-sm text-[var(--neu-green)]' : 'neu-btn-primary'
                     }`}
                   >
                     {modalCopied ? (
@@ -1671,9 +1560,16 @@ export default function Home() {
 
 function SectionTitle({ children, subtitle }: { children: React.ReactNode; subtitle?: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between mb-3 px-1 gap-1">
-      <h2 className="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wider">{children}</h2>
-      {subtitle && <p className="text-xs text-slate-500 font-medium">{subtitle}</p>}
+    <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between mb-3 px-0.5 gap-1">
+      <div className="flex items-center gap-2.5">
+        <div className="w-2.5 h-2.5 rounded-full neu-inset-sm flex items-center justify-center">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)]" />
+        </div>
+        <h2 className="font-mono text-[11px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+          {children}
+        </h2>
+      </div>
+      {subtitle && <p className="text-xs text-[var(--neu-text-muted)]">{subtitle}</p>}
     </div>
   );
 }

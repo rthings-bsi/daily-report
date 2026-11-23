@@ -23,7 +23,7 @@
  *   - New schema (StockSummary model + indexes) must be pushed.
  */
 import { PrismaClient } from '@prisma/client';
-import { aggregateSessionData } from '../lib/aggregation';
+import { aggregateSessionData, toDbMovementSummary } from '../lib/aggregation';
 import type { ProcessedMovement, ProcessedStock } from '../lib/excel-parser';
 
 const prisma = new PrismaClient();
@@ -142,7 +142,7 @@ async function migrateOne(reportSessionId: string, label: string): Promise<void>
     // so it can be shared with the nested-create route path).
     if (movementSummaries.length > 0) {
       await tx.movementSummary.createMany({
-        data: movementSummaries.map((row) => ({ ...row, reportSessionId })),
+        data: movementSummaries.map((row) => ({ ...toDbMovementSummary(row), reportSessionId })),
       });
     }
     if (stockSummaries.length > 0) {

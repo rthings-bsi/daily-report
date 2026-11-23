@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
+import { aggregateSessionData, deduplicateMovements, toDbMovementSummary } from "@/lib/aggregation";
 import { filterByGudang, filterByGudangList, getGudangPrefix } from "@/lib/gudang";
 import { buildGudangWhere, requireUserContext, requirePermission, respondError } from "@/lib/api-helpers";
 import { invalidateTrendCache } from "./trend/route";
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
         stats: JSON.stringify(stats),
         rawMovements: JSON.stringify(rawMovements),
         rawStocks: JSON.stringify(rawStocks),
-        movementSummaries: { create: movementSummaries },
+        movementSummaries: { create: movementSummaries.map(toDbMovementSummary) },
         stockSummaries: { create: stockSummaries },
       },
     });

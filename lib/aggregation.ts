@@ -4,6 +4,7 @@ import {
   StockCardItem,
   MovementStats,
 } from "./excel-parser";
+import { classifyBatch } from "./gudang";
 
 /**
  * Row shape for the MovementSummary table.
@@ -19,6 +20,16 @@ export interface MovementSummaryRow {
   totalQuantity: number;
   totalUnitQuantity: number;
   totalCount: number;
+  fastCount?: number;
+  slowCount?: number;
+  fastWeight?: number;
+  slowWeight?: number;
+}
+
+/** Strip in-memory enrichment fields before persisting to Prisma */
+export function toDbMovementSummary(row: MovementSummaryRow) {
+  const { fastCount, slowCount, fastWeight, slowWeight, ...dbRow } = row;
+  return dbRow;
 }
 
 /**
@@ -137,11 +148,24 @@ export function aggregateSessionData(args: AggregateArgs): AggregatedSession {
   const summaryMap = new Map<string, MovementSummaryRow>();
   for (const m of movements) {
     const key = `${m.dateStr}|${m.moveType}|${m.workCenter || ""}|${m.group}|${m.color}`;
+    const status = m.movementStatus && m.movementStatus !== 'Unknown'
+      ? m.movementStatus
+      : classifyBatch(m.batch || '');
+    const isFast = status === 'Fast';
+    const isSlow = status === 'Slow';
+    const weight = Math.abs(m.quantity);
     const ex = summaryMap.get(key);
     if (ex) {
       ex.totalQuantity += m.quantity;
       ex.totalUnitQuantity += m.unitQuantity || 0;
       ex.totalCount += 1;
+      if (isFast) {
+        ex.fastCount = (ex.fastCount || 0) + 1;
+        ex.fastWeight = (ex.fastWeight || 0) + weight;
+      } else if (isSlow) {
+        ex.slowCount = (ex.slowCount || 0) + 1;
+        ex.slowWeight = (ex.slowWeight || 0) + weight;
+      }
     } else {
       summaryMap.set(key, {
         dateStr: m.dateStr,
@@ -153,6 +177,10 @@ export function aggregateSessionData(args: AggregateArgs): AggregatedSession {
         totalQuantity: m.quantity,
         totalUnitQuantity: m.unitQuantity || 0,
         totalCount: 1,
+        fastCount: isFast ? 1 : 0,
+        slowCount: isSlow ? 1 : 0,
+        fastWeight: isFast ? weight : 0,
+        slowWeight: isSlow ? weight : 0,
       });
     }
   }

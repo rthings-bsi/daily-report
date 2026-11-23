@@ -6,7 +6,8 @@ import {
   PieChart, Pie, LabelList,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { TrendingUp, Box, Warehouse, AlertTriangle, CheckCircle, Edit3, Save, BarChart as BarChartIcon } from 'lucide-react';
+import { TrendingUp, Box, Warehouse, AlertTriangle, CheckCircle, Edit3, Save } from 'lucide-react';
+import { useTheme } from './ThemeProvider';
 
 interface StockItem {
   sloc: string | null;
@@ -66,7 +67,7 @@ interface GudangData {
   warning?: boolean;
 }
 
-const COLORS = ['#1591DC', '#2C5EAD', '#4BB8FA', '#10b981', '#f59e0b', '#06b6d4', '#f97316', '#a855f7'];
+const COLORS = ['#509EE3', '#7172AD', '#80B946', '#F2A86F', '#EF8C8C', '#F9D45C', '#227FD2', '#87BCEC'];
 
 const SLOC_TO_GUDANG: Record<string, string> = {
   '5A': 'Gudang 1', '5B': 'Gudang 2', '5C': 'Gudang 3', '5D': 'Gudang 4',
@@ -117,6 +118,7 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
 }
 
 export default function AnalyticsDashboard() {
+  const { isDark } = useTheme();
   const [sessions, setSessions] = useState<{ reportSessionId: string; label: string }[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [data, setData] = useState<SessionData | null>(null);
@@ -270,15 +272,55 @@ export default function AnalyticsDashboard() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
 
+  const chartTheme = isDark
+    ? {
+        grid: 'rgba(255,255,255,0.07)',
+        axis: 'rgba(255,255,255,0.14)',
+        tick: '#8a99b2',
+        label: '#eef3fb',
+        capBar: '#2d3444',
+        okBar: '#60a5fa',
+        warnBar: '#fbbf24',
+        critBar: '#fb7185',
+        pieStroke: '#212630',
+        tooltipBg: '#212630',
+        tooltipBorder: 'rgba(255,255,255,0.08)',
+        tooltipColor: '#eef3fb',
+      }
+    : {
+        grid: 'rgba(148,163,184,0.24)',
+        axis: 'rgba(148,163,184,0.4)',
+        tick: '#5a6982',
+        label: '#182132',
+        capBar: '#d2dbe8',
+        okBar: '#3b82f6',
+        warnBar: '#f59e0b',
+        critBar: '#ef4444',
+        pieStroke: '#eaf0f7',
+        tooltipBg: '#eaf0f7',
+        tooltipBorder: 'rgba(255,255,255,0.7)',
+        tooltipColor: '#182132',
+      };
+
+  const tooltipStyle = {
+    backgroundColor: chartTheme.tooltipBg,
+    border: `1px solid ${chartTheme.tooltipBorder}`,
+    borderRadius: '14px',
+    color: chartTheme.tooltipColor,
+    fontSize: '12px',
+  };
+
   return (
     <div className="space-y-6">
       {/* Session Selector */}
       <div className="flex items-center gap-3">
-        <label className="text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Laporan:</label>
+        <label className="font-mono text-[11px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+          Laporan:
+        </label>
         <select
           value={selectedId || ''}
           onChange={e => setSelectedId(e.target.value)}
-          className="h-8 text-[11px] font-bold text-[#2C5EAD] bg-white border border-[#C4E2F5]/50 rounded-xl px-3 outline-none focus:border-[#4BB8FA] focus:ring-2 focus:ring-[#4BB8FA]/20 hover:border-[#4BB8FA]/50 cursor-pointer transition-all shadow-sm max-w-[240px] truncate"
+          className="neu-input h-9.5 text-xs font-bold rounded-xl px-3.5 cursor-pointer max-w-[260px] truncate"
         >
           {sessions.map(s => (
             <option key={s.reportSessionId} value={s.reportSessionId}>{s.label}</option>
@@ -288,84 +330,77 @@ export default function AnalyticsDashboard() {
 
       {loading ? (
         <div className="flex items-center justify-center py-28">
-          <div className="w-8 h-8 border-[3px] border-[#C4E2F5]/50 border-t-[#1591DC] rounded-full animate-spin" />
+          <div className="w-12 h-12 rounded-2xl neu-card-sm flex items-center justify-center">
+            <div className="w-6 h-6 border-[3px] border-[var(--neu-divider)] border-t-[var(--neu-accent)] rounded-full animate-spin" />
+          </div>
         </div>
       ) : !data ? (
-        <div className="text-center py-28">
-          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Box size={24} className="text-slate-400" />
+        <div className="text-center py-24 neu-card">
+          <div className="w-12 h-12 neu-icon-inset rounded-2xl flex items-center justify-center mx-auto mb-3 text-[var(--neu-text-muted)]">
+            <Box size={22} />
           </div>
-          <p className="text-sm font-semibold text-slate-500">Belum Ada Data</p>
-          <p className="text-xs text-slate-400 mt-1">Upload laporan untuk melihat analytics</p>
+          <p className="text-sm font-bold text-[var(--neu-text)]">Belum Ada Data</p>
+          <p className="text-xs text-[var(--neu-text-muted)] mt-1">Upload laporan untuk melihat analytics</p>
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Summary KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             {(() => {
               const totalStok = gudangData.reduce((s, g) => s + g.stock, 0);
               const avgUtil = gudangData.length > 0 ? Math.round(gudangData.reduce((s, g) => s + g.utilization, 0) / gudangData.length) : 0;
               const slowPct = movementSummary.total > 0 ? Math.round((movementSummary.slow / movementSummary.total) * 100) : 0;
 
               const cards = [
-                { label: 'Total Gudang', numValue: gudangData.length, suffix: '', icon: Warehouse, accent: 'brand', desc: 'Warehouse terdaftar' },
-                { label: 'Total Stok', numValue: totalStok, suffix: 'T', icon: Box, accent: 'emerald', desc: 'Total tonase tersimpan' },
-                { label: 'Rata-rata Utilisasi', numValue: avgUtil, suffix: '%', icon: TrendingUp, accent: 'brandAlt', desc: `${gudangData.filter(g => g.utilization > 75).length} gudang > 75%` },
-                { label: 'Slow Moving', numValue: slowPct, suffix: '%', icon: AlertTriangle, accent: 'amber', desc: `${movementSummary.slow} dari ${movementSummary.total} item` },
+                { label: 'Total Gudang', numValue: gudangData.length, suffix: '', icon: Warehouse, dot: 'var(--neu-accent)', iconColor: 'text-[var(--neu-accent)]', desc: 'Warehouse terdaftar' },
+                { label: 'Total Stok', numValue: totalStok, suffix: 'T', icon: Box, dot: 'var(--neu-green-bar)', iconColor: 'text-[var(--neu-green)]', desc: 'Total tonase tersimpan' },
+                { label: 'Rata-rata Utilisasi', numValue: avgUtil, suffix: '%', icon: TrendingUp, dot: 'var(--neu-purple-bar)', iconColor: 'text-[var(--neu-purple)]', desc: `${gudangData.filter(g => g.utilization > 75).length} gudang > 75%` },
+                { label: 'Slow Moving', numValue: slowPct, suffix: '%', icon: AlertTriangle, dot: 'var(--neu-amber-bar)', iconColor: 'text-[var(--neu-amber)]', desc: `${movementSummary.slow} dari ${movementSummary.total} item` },
               ];
 
-              const accentStyles: Record<string, { text: string; iconBg: string; borderGlow: string }> = {
-                brand: { text: 'text-[#1591DC]', iconBg: 'bg-gradient-to-br from-[#1591DC] to-[#2C5EAD]', borderGlow: 'shadow-[#1591DC]/10' },
-                emerald: { text: 'text-emerald-600', iconBg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', borderGlow: 'shadow-emerald-500/10' },
-                brandAlt: { text: 'text-[#2C5EAD]', iconBg: 'bg-gradient-to-br from-[#2C5EAD] to-[#1591DC]', borderGlow: 'shadow-[#2C5EAD]/10' },
-                amber: { text: 'text-amber-600', iconBg: 'bg-gradient-to-br from-amber-500 to-amber-600', borderGlow: 'shadow-amber-500/10' },
-              };
-
-              return cards.map((item, i) => {
-                const s = accentStyles[item.accent];
-                return (
-                  <motion.div key={i} initial={{ opacity: 0, y: 28, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: i * 0.1, duration: 0.6, ease: easeOut }}
-                    whileHover={{ y: -6, scale: 1.02 }}
-                    className={`relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-2xl overflow-hidden group cursor-default hover:shadow-xl ${s.borderGlow} hover:border-[#4BB8FA]/50 transition-all duration-300`}
-                  >
-                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`, backgroundSize: '16px 16px', color: item.accent === 'brand' ? '#1591DC' : item.accent === 'emerald' ? '#10b981' : item.accent === 'brandAlt' ? '#2C5EAD' : '#f59e0b' }} />
-                    <div className="relative p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em]">{item.label}</span>
-                          <div className="flex items-baseline gap-1">
-                            <span className={`text-3xl font-extrabold tracking-tight tabular-nums ${s.text}`}>
-                              <AnimatedCounter value={item.numValue} suffix={item.suffix} />
-                            </span>
-                          </div>
-                        </div>
-                        <div className={`w-11 h-11 rounded-xl ${s.iconBg} flex items-center justify-center shadow-lg shadow-black/5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3`}>
-                          <item.icon size={18} className="text-white" />
-                        </div>
-                      </div>
-                      <p className="text-[11px] font-medium text-slate-400">{item.desc}</p>
+              return cards.map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.25, ease: easeOut }}
+                  className="neu-card p-5"
+                >
+                  <div className="flex items-center justify-between mb-3.5">
+                    <span className="text-[12.5px] font-bold text-[var(--neu-text-secondary)] flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.dot }} />
+                      {item.label}
+                    </span>
+                    <div className={`w-9 h-9 rounded-xl neu-icon-inset flex items-center justify-center ${item.iconColor}`}>
+                      <item.icon size={15} strokeWidth={2.2} />
                     </div>
-                  </motion.div>
-                );
-              });
+                  </div>
+                  <div className="text-[30px] font-extrabold text-[var(--neu-text)] tracking-tight tabular-nums leading-none">
+                    <AnimatedCounter value={item.numValue} suffix={item.suffix} />
+                  </div>
+                  <p className="text-[11.5px] text-[var(--neu-text-muted)] mt-3 pt-2.5 border-t border-[var(--neu-divider)]">
+                    {item.desc}
+                  </p>
+                </motion.div>
+              ));
             })()}
           </div>
 
-          {/* Data Pipa NC (Custom Cards from /pipa-nc) */}
+          {/* Data Pipa NC */}
           {data.stockCards && data.stockCards.some(sc => isPipaNC(sc.batch)) && (
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>
-              <div className="flex items-center justify-between mb-4 mt-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-5 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-full shadow-sm shadow-indigo-500/20" />
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.1em]">Distribusi Pipa NC</h3>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.25 }}>
+              <div className="flex items-center justify-between mb-3 mt-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full neu-inset-sm flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)]" />
+                  </div>
+                  <h3 className="font-mono text-[11px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                    Distribusi Pipa NC
+                  </h3>
                 </div>
-                <div className="px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Tracking</span>
-                </div>
+                <span className="neu-chip">Live Data</span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pb-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {(() => {
                   const scData = data.stockCards || [];
                   const pipaNCData = scData.filter(sc => isPipaNC(sc.batch) && sc.ttlStokBom > 0);
@@ -376,81 +411,26 @@ export default function AnalyticsDashboard() {
                   const totalTonase = pipaNCData.reduce((sum, d) => sum + d.ttlStokEom, 0);
 
                   const cards = [
-                    { 
-                      label: 'GRADE C', 
-                      value: gradeCCount, 
-                      suffix: 'Batch', 
-                      bg: 'bg-gradient-to-br from-emerald-50 to-teal-50', 
-                      border: 'border-emerald-100',
-                      text: 'text-emerald-900', 
-                      descText: 'text-emerald-600',
-                      desc: `Pipa Akhiran C` 
-                    },
-                    { 
-                      label: 'GRADE E', 
-                      value: gradeECount, 
-                      suffix: 'Batch', 
-                      bg: 'bg-gradient-to-br from-rose-50 to-pink-50', 
-                      border: 'border-rose-100',
-                      text: 'text-rose-900', 
-                      descText: 'text-rose-600',
-                      desc: `Pipa Akhiran E` 
-                    },
-                    { 
-                      label: 'Total Material', 
-                      value: totalItems, 
-                      suffix: 'Item', 
-                      bg: 'bg-gradient-to-br from-indigo-50 to-blue-50', 
-                      border: 'border-indigo-100',
-                      text: 'text-indigo-900', 
-                      descText: 'text-indigo-600',
-                      desc: 'Total Pipa Terdata' 
-                    },
-                    { 
-                      label: 'Total Kuantitas', 
-                      value: totalQty, 
-                      suffix: 'Pcs', 
-                      bg: 'bg-white', 
-                      border: 'border-slate-200',
-                      text: 'text-slate-800', 
-                      descText: 'text-slate-500',
-                      desc: 'Berdasarkan BOM', 
-                      format: 'number' 
-                    },
-                    { 
-                      label: 'Total Berat', 
-                      value: totalTonase, 
-                      suffix: 'Ton', 
-                      bg: 'bg-white', 
-                      border: 'border-slate-200',
-                      text: 'text-slate-800', 
-                      descText: 'text-slate-500',
-                      desc: 'Berdasarkan EOM', 
-                      format: 'decimal' 
-                    },
+                    { label: 'GRADE C', value: gradeCCount, suffix: 'Batch', dot: 'var(--neu-amber-bar)', desc: 'Pipa Akhiran C' },
+                    { label: 'GRADE E', value: gradeECount, suffix: 'Batch', dot: 'var(--neu-red-bar)', desc: 'Pipa Akhiran E' },
+                    { label: 'Total Material', value: totalItems, suffix: 'Item', dot: 'var(--neu-accent)', desc: 'Total Pipa Terdata' },
+                    { label: 'Total Kuantitas', value: totalQty, suffix: 'Pcs', dot: 'var(--neu-purple-bar)', desc: 'Berdasarkan BOM', format: 'number' },
+                    { label: 'Total Berat', value: totalTonase, suffix: 'Ton', dot: 'var(--neu-green-bar)', desc: 'Berdasarkan EOM', format: 'decimal' },
                   ];
 
                   return cards.map((item, i) => (
-                    <div key={i} className={`relative overflow-hidden rounded-2xl ${item.bg} border ${item.border} p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group`}>
-                      <div className="absolute -right-6 -top-6 w-20 h-20 bg-white/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                      <div className="relative z-10 flex flex-col h-full">
-                        <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-                          {item.label}
+                    <div key={i} className="neu-card-sm p-4 flex flex-col justify-between">
+                      <span className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.dot }} />
+                        {item.label}
+                      </span>
+                      <div className="flex items-baseline gap-1.5 my-2.5">
+                        <span className="text-[24px] font-extrabold tabular-nums tracking-tight text-[var(--neu-text)]">
+                          {item.format === 'decimal' ? item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString('id-ID')}
                         </span>
-                        <div className="flex items-baseline gap-1.5 mb-1 sm:mb-2">
-                          <span className={`text-2xl sm:text-3xl font-black tabular-nums tracking-tighter ${item.text}`}>
-                            {item.format === 'decimal' ? item.value.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString('id-ID')}
-                          </span>
-                          <span className={`text-[10px] sm:text-xs font-bold ${item.descText} opacity-80 uppercase tracking-wider`}>
-                            {item.suffix}
-                          </span>
-                        </div>
-                        <div className="mt-auto pt-2 border-t border-black/5">
-                          <span className={`text-[10px] sm:text-[11px] font-medium ${item.descText}`}>
-                            {item.desc}
-                          </span>
-                        </div>
+                        <span className="font-mono text-[10.5px] font-medium text-[var(--neu-text-muted)] uppercase">{item.suffix}</span>
                       </div>
+                      <span className="text-[11px] text-[var(--neu-text-muted)] pt-2 border-t border-[var(--neu-divider)]">{item.desc}</span>
                     </div>
                   ));
                 })()}
@@ -459,320 +439,287 @@ export default function AnalyticsDashboard() {
           )}
 
           {/* Capacity Analysis Table */}
-          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.55, ease: easeOut }}
-            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.25, ease: easeOut }}
+            className="neu-card overflow-hidden"
           >
-            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
-            <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
-            <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-            <div className="relative">
-              <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
-                <div>
-                  <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Capacity Analysis</h3>
-                  <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Stock vs Kapasitas per Gudang</p>
-                </div>
-                <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 px-2.5 py-1 rounded-lg border border-[#C4E2F5]/50">Klik kapasitas untuk edit</span>
+            <div className="px-5 py-4 border-b border-[var(--neu-divider)] flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Capacity Analysis</h3>
+                <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Stock vs Kapasitas per Gudang</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-separate border-spacing-0">
-                  <thead>
-                    <tr className="border-b border-[#C4E2F5]/40 bg-[#C4E2F5]/10">
-                      <th className="text-left px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Gudang</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Items</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Stock</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Kapasitas</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Utilisasi</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Progres</th>
-                      <th className="text-right px-6 py-3.5 text-[10px] font-bold text-[#2C5EAD]/60 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gudangData.map((g, i) => {
-                      const isHigh = g.utilization > 90;
-                      const isMid = g.utilization > 75;
-                      const barColor = isHigh ? 'bg-red-500' : isMid ? 'bg-amber-500' : 'bg-emerald-500';
-                      const dotColor = isHigh ? 'bg-red-500' : isMid ? 'bg-amber-500' : 'bg-emerald-500';
-                      const textColor = isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-emerald-600';
-                      const rowBg = i % 2 === 0 ? 'bg-white/60' : 'bg-[#C4E2F5]/5';
-                      return (
-                        <tr key={g.name} className={`${rowBg} hover:bg-[#C4E2F5]/20 transition-colors duration-200`}>
-                          <td className="px-6 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <span className={`w-2 h-2 rounded-full ${dotColor} ring-2 ring-inset ring-white shadow-sm`} />
-                              <span className="font-bold text-[#2C5EAD] text-[13px]">{g.name}</span>
+              <span className="neu-chip">Klik kapasitas untuk edit</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-separate border-spacing-0">
+                <thead>
+                  <tr className="border-b border-[var(--neu-divider)]">
+                    <th className="text-left px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Gudang</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Items</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Stock</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Kapasitas</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Utilisasi</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Progres</th>
+                    <th className="text-right px-5 py-3 font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--neu-divider)]">
+                  {gudangData.map((g) => {
+                    const isHigh = g.utilization > 90;
+                    const isMid = g.utilization > 75;
+                    const barVar = isHigh ? 'var(--neu-red-bar)' : isMid ? 'var(--neu-amber-bar)' : 'var(--neu-green-bar)';
+                    const textColor = isHigh ? 'text-[var(--neu-red)]' : isMid ? 'text-[var(--neu-amber)]' : 'text-[var(--neu-green)]';
+                    return (
+                      <tr key={g.name} className="hover:bg-[var(--neu-row-hover)] transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: barVar }} />
+                            <span className="font-bold text-[var(--neu-text)] text-[13px]">{g.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-right font-mono text-[var(--neu-text-muted)] text-xs font-medium">{g.items}</td>
+                        <td className="px-5 py-3 text-right">
+                          <span className="font-bold text-[var(--neu-text)] text-[13px] tabular-nums">
+                            {g.stock.toFixed(0)}
+                            {g.warning && <span className="ml-1.5 text-[10px] text-[var(--neu-red)] font-bold" title="Nilai tonase tidak wajar">!</span>}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          {editing === g.name ? (
+                            <form onSubmit={e => { e.preventDefault(); saveCapacity(g.name, parseFloat(editValue) || 0); setEditing(null); }}
+                              className="flex items-center justify-end gap-1">
+                              <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} autoFocus
+                                className="neu-input w-20 text-right font-mono text-xs font-bold rounded-lg px-2 py-1" />
+                              <button type="submit" className="p-1.5 neu-btn rounded-lg text-[var(--neu-accent)] cursor-pointer"><Save size={13} /></button>
+                            </form>
+                          ) : (
+                            <button type="button" onClick={() => { setEditing(g.name); setEditValue(String(g.capacity)); }}
+                              className="inline-flex items-center gap-1.5 text-[var(--neu-text-secondary)] hover:text-[var(--neu-accent)] transition-colors font-mono font-semibold text-xs cursor-pointer">
+                              <span className="tabular-nums">{g.capacity.toFixed(0)}</span>
+                              <Edit3 size={11} className="text-[var(--neu-text-muted)]" />
+                            </button>
+                          )}
+                        </td>
+                        <td className={`px-5 py-3 text-right font-mono font-bold text-xs tabular-nums ${textColor}`}>{g.utilization}%</td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end">
+                            <div className="w-24 h-2.5 neu-inset-sm rounded-full p-0.5 overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${Math.min(g.utilization, 100)}%`, backgroundColor: barVar }} />
                             </div>
-                          </td>
-                          <td className="px-6 py-3.5 text-right"><span className="text-[#1591DC]/70 text-[13px] font-bold">{g.items}</span></td>
-                          <td className="px-6 py-3.5 text-right">
-                            <span className="font-black text-[#2C5EAD] text-[13px] tabular-nums">
-                              {g.stock.toFixed(0)}
-                              {g.warning && <span className="ml-1.5 text-[10px] text-red-400 font-bold" title="Nilai tonase tidak wajar">⚠</span>}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          {isHigh ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-[var(--neu-red)] uppercase bg-[var(--neu-red-soft)] px-2.5 py-0.5 rounded-full">
+                              <AlertTriangle size={10} /> Critical
                             </span>
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            {editing === g.name ? (
-                              <form onSubmit={e => { e.preventDefault(); saveCapacity(g.name, parseFloat(editValue) || 0); setEditing(null); }}
-                                className="flex items-center justify-end gap-1">
-                                <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)} autoFocus
-                                  className="w-20 text-right text-xs font-bold bg-white border border-[#4BB8FA] rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[#4BB8FA]/30" />
-                                <button type="submit" className="p-1 text-[#1591DC] hover:text-[#2C5EAD] transition-colors"><Save size={14} /></button>
-                              </form>
-                            ) : (
-                              <button onClick={() => { setEditing(g.name); setEditValue(String(g.capacity)); }}
-                                className="inline-flex items-center gap-1.5 text-[#2C5EAD]/70 hover:text-[#1591DC] transition-colors font-bold text-[13px]">
-                                <span className="tabular-nums">{g.capacity.toFixed(0)}</span>
-                                <Edit3 size={11} className="text-[#C4E2F5] hover:text-[#1591DC] transition-colors" />
-                              </button>
-                            )}
-                          </td>
-                          <td className={`px-6 py-3.5 text-right font-black text-[13px] tabular-nums ${textColor}`}>{g.utilization}%</td>
-                          <td className="px-6 py-3.5 text-right">
-                            <div className="flex items-center justify-end"><div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(g.utilization, 100)}%` }} /></div></div>
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            {isHigh ? (
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-red-600 uppercase tracking-wider bg-red-50 px-2.5 py-1 rounded-full border border-red-100/50 shadow-sm">
-                                <AlertTriangle size={10} /> Critical
-                              </span>
-                            ) : isMid ? (
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100/50 shadow-sm">
-                                Warning
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/50 shadow-sm">
-                                <CheckCircle size={10} /> Optimal
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          ) : isMid ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-[var(--neu-amber)] uppercase bg-[var(--neu-amber-soft)] px-2.5 py-0.5 rounded-full">
+                              Warning
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-[var(--neu-green)] uppercase bg-[var(--neu-green-soft)] px-2.5 py-0.5 rounded-full">
+                              <CheckCircle size={10} /> Optimal
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </motion.div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.55, ease: easeOut }}
-              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-            >
-              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#1591DC]/10 via-[#4BB8FA]/5 to-transparent blur-3xl pointer-events-none" />
-              <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #1591DC 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
-              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
-                  <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stock vs Kapasitas</h3>
-                  <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Perbandingan stok aktual dengan kapasitas (ton)</p>
-                </div>
-                <div className="px-5 pt-5 pb-4">
-                  <div style={{ height: 280 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={gudangData} margin={{ top: 5, right: 20, left: -15, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 500 }} />
-                        <Tooltip />
-                        <Bar dataKey="capacity" name="Kapasitas" radius={[4, 4, 0, 0]} barSize={22} fill="#cbd5e1" fillOpacity={1} />
-                        <Bar dataKey="stock" name="Stock" radius={[4, 4, 0, 0]} barSize={22} fillOpacity={0.9}>
-                          {gudangData.map((entry, idx) => {
-                            const barColor = entry.utilization > 90 ? '#ef4444' : entry.utilization > 75 ? '#f59e0b' : '#1591DC';
-                            return <Cell key={`cell-${idx}`} fill={barColor} />;
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex items-center justify-center gap-5 mt-3">
-                    {[['#1591DC', 'Optimal'], ['#f59e0b', 'Warning'], ['#ef4444', 'Critical'], ['#cbd5e1', 'Kapasitas']].map(([c, l]) => (
-                      <div key={l} className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: c, opacity: c === '#cbd5e1' ? 0.6 : 0.8 }} />
-                        <span className="text-[10px] font-semibold text-slate-500">{l}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="neu-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--neu-divider)]">
+                <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Stock vs Kapasitas</h3>
+                <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Perbandingan stok aktual dengan kapasitas (ton)</p>
               </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.35, duration: 0.55, ease: easeOut }}
-              className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-            >
-              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
-              <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #f59e0b 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
-              <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-amber-400/30 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
-                  <div>
-                    <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stok Tertinggi</h3>
-                    <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Gudang dengan persentase stok terbesar</p>
-                  </div>
-                  <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 px-2.5 py-1 rounded-lg border border-[#C4E2F5]/50">Tonase</span>
-                </div>
-                <div className="px-5 pt-4 pb-4">
-                  {top5Utilization.length > 0 ? (
-                    <div style={{ height: 260 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={top5Utilization} layout="vertical" margin={{ top: 5, right: 35, left: 0, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }} />
-                          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#334155', fontWeight: 700 }} width={75} />
-                          <Tooltip />
-                          <Bar dataKey="stock" radius={[0, 6, 6, 0]} barSize={22} fillOpacity={0.9}>
-                            {top5Utilization.map((entry, idx) => {
-                              const barColor = entry.utilization > 90 ? '#ef4444' : entry.utilization > 75 ? '#f59e0b' : '#1591DC';
-                              return <Cell key={`cell-${idx}`} fill={barColor} />;
-                            })}
-                            <LabelList dataKey="utilization" position="right" fontSize={10} fontWeight={700} fill="#64748b" formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="py-10 text-center">
-                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <TrendingUp size={18} className="text-slate-400" />
-                      </div>
-                      <p className="text-sm font-semibold text-slate-500">Tidak Ada Data</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Donut Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, ease: easeOut }}
-              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-            >
-              <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
-                <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Stock Distribution</h3>
-                <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Proporsi stok per gudang</p>
-              </div>
-              <div className="px-5 pt-5 pb-4">
-                <div style={{ height: 300 }} className="relative">
+              <div className="p-5">
+                <div style={{ height: 280 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={stockDistribution} cx="50%" cy="50%" innerRadius={75} outerRadius={115} paddingAngle={3} dataKey="value" stroke="none">
-                        {stockDistribution.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.85} />))}
-                      </Pie>
-                    </PieChart>
+                    <BarChart data={gudangData} margin={{ top: 5, right: 16, left: -15, bottom: 5 }}>
+                      <CartesianGrid vertical={false} stroke={chartTheme.grid} />
+                      <XAxis dataKey="name" axisLine={{ stroke: chartTheme.axis }} tickLine={false} tick={{ fontSize: 10, fill: chartTheme.tick, fontWeight: 500 }} interval={0} angle={-20} textAnchor="end" height={50} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTheme.tick, fontWeight: 500 }} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="capacity" name="Kapasitas" radius={[4, 4, 0, 0]} barSize={20} fill={chartTheme.capBar} />
+                      <Bar dataKey="stock" name="Stock" radius={[4, 4, 0, 0]} barSize={20}>
+                        {gudangData.map((entry, idx) => {
+                          const barColor = entry.utilization > 90 ? chartTheme.critBar : entry.utilization > 75 ? chartTheme.warnBar : chartTheme.okBar;
+                          return <Cell key={`cell-${idx}`} fill={barColor} />;
+                        })}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center -mt-5">
-                      <p className="text-lg font-bold text-slate-900 tracking-tight">{stockDistribution.reduce((s, d) => s + d.value, 0).toFixed(0)}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Total Ton</p>
-                    </div>
-                  </div>
                 </div>
-                <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-3">
-                  {stockDistribution.map((d, i) => (
-                    <div key={d.name} className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{d.name}</span>
-                      <span className="text-[9px] font-bold text-slate-500 tabular-nums">{d.pct}%</span>
+                <div className="flex items-center justify-center gap-5 mt-3">
+                  {[[chartTheme.okBar, 'Optimal'], [chartTheme.warnBar, 'Warning'], [chartTheme.critBar, 'Critical'], [chartTheme.capBar, 'Kapasitas']].map(([c, l]) => (
+                    <div key={l} className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                      <span className="text-[11px] font-semibold text-[var(--neu-text-secondary)]">{l}</span>
                     </div>
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45, ease: easeOut }}
-              className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-            >
-              <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
-                <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Movement Overview</h3>
-                <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Distribusi tipe pergerakan barang</p>
-              </div>
-              <div className="px-5 pt-5 pb-4">
-                <div style={{ height: 300 }} className="relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={movementTypeData} cx="50%" cy="50%" innerRadius={75} outerRadius={115} paddingAngle={3} dataKey="value" stroke="none">
-                        {movementTypeData.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.85} />))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center -mt-5">
-                      <p className="text-lg font-bold text-slate-900 tracking-tight">{movementTypeData.reduce((s, d) => s + d.value, 0)}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Total</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-3">
-                  {movementTypeData.map((d, i) => (
-                    <div key={d.name} className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{d.name}</span>
-                      <span className="text-[9px] font-bold text-slate-500 tabular-nums">{d.pct}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Top 5 Customers */}
-          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.48, duration: 0.55, ease: easeOut }}
-            className="relative bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-          >
-            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br from-[#2C5EAD]/10 via-[#1591DC]/5 to-transparent blur-3xl pointer-events-none" />
-            <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, #2C5EAD 1px, transparent 1px)`, backgroundSize: '16px 16px' }} />
-            <div className="absolute top-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#4BB8FA]/30 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative">
-              <div className="px-6 py-4 border-b border-[#C4E2F5]/40 flex items-center justify-between bg-gradient-to-r from-white/40 to-transparent">
+            <div className="neu-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--neu-divider)] flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Top 5 Customer</h3>
-                  <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Customer dengan stok terbanyak</p>
+                  <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Stok Tertinggi</h3>
+                  <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Gudang dengan persentase stok terbesar</p>
                 </div>
-                <span className="text-[10px] font-bold text-[#1591DC]/60 bg-[#C4E2F5]/30 px-2.5 py-1 rounded-lg border border-[#C4E2F5]/50">Tonase</span>
+                <span className="neu-chip">TONASE</span>
               </div>
-              <div className="px-5 pt-4 pb-4">
-                {customerStockTop5.length > 0 ? (
+              <div className="p-5">
+                {top5Utilization.length > 0 ? (
                   <div style={{ height: 260 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={customerStockTop5} layout="vertical" margin={{ top: 5, right: 35, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }} />
-                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#334155', fontWeight: 700 }} width={100} />
-                        <Tooltip />
-                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22} fillOpacity={0.9}>
-                          {customerStockTop5.map((_, idx) => (<Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />))}
-                          <LabelList dataKey="value" position="right" fontSize={10} fontWeight={700} fill="#64748b" formatter={(v: any) => `${Number(v).toFixed(1)} T`} />
+                      <BarChart data={top5Utilization} layout="vertical" margin={{ top: 5, right: 35, left: 0, bottom: 5 }}>
+                        <CartesianGrid horizontal={false} stroke={chartTheme.grid} />
+                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTheme.tick, fontWeight: 500 }} />
+                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTheme.label, fontWeight: 700 }} width={75} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Bar dataKey="stock" radius={[0, 6, 6, 0]} barSize={20}>
+                          {top5Utilization.map((entry, idx) => {
+                            const barColor = entry.utilization > 90 ? chartTheme.critBar : entry.utilization > 75 ? chartTheme.warnBar : chartTheme.okBar;
+                            return <Cell key={`cell-${idx}`} fill={barColor} />;
+                          })}
+                          <LabelList dataKey="utilization" position="right" fontSize={11} fontWeight={700} fill={chartTheme.tick} formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
                   <div className="py-10 text-center">
-                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <TrendingUp size={18} className="text-slate-400" />
+                    <div className="w-10 h-10 neu-icon-inset rounded-xl flex items-center justify-center mx-auto mb-2 text-[var(--neu-text-muted)]">
+                      <TrendingUp size={18} />
                     </div>
-                    <p className="text-sm font-semibold text-slate-500">Tidak Ada Data Customer</p>
+                    <p className="text-sm font-semibold text-[var(--neu-text-muted)]">Tidak Ada Data</p>
                   </div>
                 )}
               </div>
             </div>
-          </motion.div>
+          </div>
+
+          {/* Donut Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="neu-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--neu-divider)]">
+                <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Stock Distribution</h3>
+                <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Proporsi stok per gudang</p>
+              </div>
+              <div className="p-5">
+                <div style={{ height: 280 }} className="relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={stockDistribution} cx="50%" cy="50%" innerRadius={72} outerRadius={108} paddingAngle={2} dataKey="value" stroke={chartTheme.pieStroke} strokeWidth={2}>
+                        {stockDistribution.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-xl font-extrabold text-[var(--neu-text)] tabular-nums">{stockDistribution.reduce((s, d) => s + d.value, 0).toFixed(0)}</p>
+                      <p className="font-mono text-[10px] text-[var(--neu-text-muted)] uppercase tracking-wider mt-0.5">Total Ton</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-3">
+                  {stockDistribution.map((d, i) => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-[11px] font-medium text-[var(--neu-text-secondary)]">{d.name}</span>
+                      <span className="font-mono text-[10.5px] font-bold text-[var(--neu-text)] tabular-nums">{d.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="neu-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-[var(--neu-divider)]">
+                <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Movement Overview</h3>
+                <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Distribusi tipe pergerakan barang</p>
+              </div>
+              <div className="p-5">
+                <div style={{ height: 280 }} className="relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={movementTypeData} cx="50%" cy="50%" innerRadius={72} outerRadius={108} paddingAngle={2} dataKey="value" stroke={chartTheme.pieStroke} strokeWidth={2}>
+                        {movementTypeData.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-xl font-extrabold text-[var(--neu-text)] tabular-nums">{movementTypeData.reduce((s, d) => s + d.value, 0)}</p>
+                      <p className="font-mono text-[10px] text-[var(--neu-text-muted)] uppercase tracking-wider mt-0.5">Total</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-3">
+                  {movementTypeData.map((d, i) => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-[11px] font-medium text-[var(--neu-text-secondary)]">{d.name}</span>
+                      <span className="font-mono text-[10.5px] font-bold text-[var(--neu-text)] tabular-nums">{d.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Top 5 Customers */}
+          <div className="neu-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-[var(--neu-divider)] flex items-center justify-between">
+              <div>
+                <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Top 5 Customer</h3>
+                <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Customer dengan stok terbanyak</p>
+              </div>
+              <span className="neu-chip">TONASE</span>
+            </div>
+            <div className="p-5">
+              {customerStockTop5.length > 0 ? (
+                <div style={{ height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={customerStockTop5} layout="vertical" margin={{ top: 5, right: 35, left: 0, bottom: 5 }}>
+                      <CartesianGrid horizontal={false} stroke={chartTheme.grid} />
+                      <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTheme.tick, fontWeight: 500 }} />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11.5, fill: chartTheme.label, fontWeight: 700 }} width={100} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20}>
+                        {customerStockTop5.map((_, idx) => (<Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />))}
+                        <LabelList dataKey="value" position="right" fontSize={11} fontWeight={700} fill={chartTheme.tick} formatter={(v: any) => `${Number(v).toFixed(1)} T`} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <div className="w-10 h-10 neu-icon-inset rounded-xl flex items-center justify-center mx-auto mb-2 text-[var(--neu-text-muted)]">
+                    <TrendingUp size={18} />
+                  </div>
+                  <p className="text-sm font-semibold text-[var(--neu-text-muted)]">Tidak Ada Data Customer</p>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Recommendations */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, ease: easeOut }}
-            className="bg-white/80 backdrop-blur-xl border border-[#C4E2F5]/60 rounded-3xl shadow-sm shadow-[#1591DC]/5 overflow-hidden hover:shadow-lg hover:shadow-[#1591DC]/15 hover:-translate-y-1 hover:border-[#4BB8FA]/40 transition-all duration-500"
-          >
-            <div className="px-6 py-4 border-b border-[#C4E2F5]/40 bg-gradient-to-r from-white/40 to-transparent">
-              <h3 className="text-xs font-bold text-[#2C5EAD] uppercase tracking-wider">Recommendations</h3>
-              <p className="text-[11px] text-[#1591DC]/70 mt-0.5">Analisis dan saran tindak lanjut</p>
+          <div className="neu-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-[var(--neu-divider)]">
+              <h3 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">Recommendations</h3>
+              <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">Analisis dan saran tindak lanjut berbasis kapasitas</p>
             </div>
-            <div className="p-5 space-y-2.5">
+            <div className="p-5 space-y-3.5">
               {(() => {
                 const critical = gudangData.filter(g => g.utilization > 90);
                 const warning = gudangData.filter(g => g.utilization > 75 && g.utilization <= 90);
@@ -782,20 +729,20 @@ export default function AnalyticsDashboard() {
                     {critical.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 px-1">
-                          <span className="w-2 h-2 rounded-full bg-red-500" />
-                          <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Critical — Segera Ditindak</span>
+                          <span className="w-2 h-2 rounded-full bg-[var(--neu-red-bar)]" />
+                          <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-red)] uppercase tracking-wider">
+                            Critical: Segera Ditindak
+                          </span>
                         </div>
                         {critical.map(g => (
-                          <div key={g.name} className="flex items-start gap-3 p-3.5 bg-red-50/80 rounded-xl border border-red-100/60">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-bold text-red-800">{g.name}</p>
-                                <span className="text-[10px] font-bold text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded-md">{g.utilization}%</span>
-                              </div>
-                              <p className="text-xs text-red-600/80 leading-relaxed">
-                                Stock <strong>{g.stock.toFixed(0)} ton</strong> dari kapasitas <strong>{g.capacity.toFixed(0)} ton</strong>. Segera lakukan relokasi stok atau tambah kapasitas.
-                              </p>
+                          <div key={g.name} className="p-3.5 neu-inset-sm rounded-2xl border border-[var(--neu-red)]/25">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-[13.5px] font-bold text-[var(--neu-text)]">{g.name}</p>
+                              <span className="font-mono text-[10.5px] font-bold text-[var(--neu-red)] bg-[var(--neu-red-soft)] px-2 py-0.5 rounded-full">{g.utilization}%</span>
                             </div>
+                            <p className="text-xs text-[var(--neu-text-secondary)] leading-relaxed">
+                              Stock <strong className="text-[var(--neu-text)]">{g.stock.toFixed(0)} ton</strong> dari kapasitas <strong className="text-[var(--neu-text)]">{g.capacity.toFixed(0)} ton</strong>. Segera lakukan relokasi stok atau tambah kapasitas.
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -803,18 +750,20 @@ export default function AnalyticsDashboard() {
                     {warning.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 px-1 pt-1">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Warning — Perlu Monitoring</span>
+                          <span className="w-2 h-2 rounded-full bg-[var(--neu-amber-bar)]" />
+                          <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-amber)] uppercase tracking-wider">
+                            Warning: Perlu Monitoring
+                          </span>
                         </div>
                         {warning.map(g => (
-                          <div key={g.name} className="flex items-start gap-3 p-3.5 bg-amber-50/80 rounded-xl border border-amber-100/60">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-bold text-amber-800">{g.name}</p>
-                                <span className="text-[10px] font-bold text-amber-600 bg-amber-100/80 px-1.5 py-0.5 rounded-md">{g.utilization}%</span>
-                              </div>
-                              <p className="text-xs text-amber-600/80 leading-relaxed">Monitor ketat. Pertimbangkan rotasi stok untuk mengoptimalkan ruang penyimpanan.</p>
+                          <div key={g.name} className="p-3.5 neu-inset-sm rounded-2xl border border-[var(--neu-amber)]/25">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-[13.5px] font-bold text-[var(--neu-text)]">{g.name}</p>
+                              <span className="font-mono text-[10.5px] font-bold text-[var(--neu-amber)] bg-[var(--neu-amber-soft)] px-2 py-0.5 rounded-full">{g.utilization}%</span>
                             </div>
+                            <p className="text-xs text-[var(--neu-text-secondary)] leading-relaxed">
+                              Monitor ketat. Pertimbangkan rotasi stok untuk mengoptimalkan ruang penyimpanan.
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -822,39 +771,43 @@ export default function AnalyticsDashboard() {
                     {optimal.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 px-1 pt-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Optimal — Kapasitas Tersedia</span>
+                          <span className="w-2 h-2 rounded-full bg-[var(--neu-green-bar)]" />
+                          <span className="font-mono text-[10.5px] font-semibold text-[var(--neu-green)] uppercase tracking-wider">
+                            Optimal: Kapasitas Tersedia
+                          </span>
                         </div>
                         {optimal.map(g => (
-                          <div key={g.name} className="flex items-start gap-3 p-3.5 bg-emerald-50/80 rounded-xl border border-emerald-100/60">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-bold text-emerald-800">{g.name}</p>
-                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100/80 px-1.5 py-0.5 rounded-md">{g.utilization}%</span>
-                              </div>
-                              <p className="text-xs text-emerald-600/80 leading-relaxed">Kapasitas tersedia. Dapat digunakan untuk konsolidasi stok dari gudang lain.</p>
+                          <div key={g.name} className="p-3.5 neu-inset-sm rounded-2xl border border-[var(--neu-green)]/20">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-[13.5px] font-bold text-[var(--neu-text)]">{g.name}</p>
+                              <span className="font-mono text-[10.5px] font-bold text-[var(--neu-green)] bg-[var(--neu-green-soft)] px-2 py-0.5 rounded-full">{g.utilization}%</span>
                             </div>
+                            <p className="text-xs text-[var(--neu-text-secondary)] leading-relaxed">
+                              Kapasitas tersedia. Dapat digunakan untuk konsolidasi stok dari gudang lain.
+                            </p>
                           </div>
                         ))}
                       </div>
                     )}
-                    <div className="mt-4 p-4 bg-[#C4E2F5]/10 rounded-xl border border-[#C4E2F5]/50">
-                      <p className="text-[10px] font-bold text-[#2C5EAD] uppercase tracking-wider mb-2.5">Ringkasan</p>
-                      <ul className="space-y-2 text-xs text-[#2C5EAD]/80">
+                    <div className="mt-4 p-4 neu-inset-sm rounded-2xl">
+                      <p className="font-mono text-[10.5px] font-semibold text-[var(--neu-accent)] uppercase tracking-wider mb-2.5">
+                        Ringkasan Analitik
+                      </p>
+                      <ul className="space-y-2 text-xs text-[var(--neu-text-secondary)]">
                         <li className="flex items-center gap-2.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
-                          Total slow-moving: <strong>{Math.round((movementSummary.slow / (movementSummary.total || 1)) * 100)}%</strong> dari seluruh transaksi
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)] shrink-0" />
+                          Total slow-moving: <strong className="text-[var(--neu-text)]">{Math.round((movementSummary.slow / (movementSummary.total || 1)) * 100)}%</strong> dari seluruh transaksi
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
-                          Evaluasi item slow-moving untuk <strong>write-off</strong> atau promosi
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)] shrink-0" />
+                          Evaluasi item slow-moving untuk <strong className="text-[var(--neu-text)]">write-off</strong> atau promosi
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)] shrink-0" />
                           Optimalkan alokasi fast-moving items ke gudang dengan akses cepat
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#1591DC] shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--neu-accent)] shrink-0" />
                           Lakukan review kapasitas secara periodik setiap bulan
                         </li>
                       </ul>
@@ -863,7 +816,7 @@ export default function AnalyticsDashboard() {
                 );
               })()}
             </div>
-          </motion.div>
+          </div>
         </>
       )}
     </div>

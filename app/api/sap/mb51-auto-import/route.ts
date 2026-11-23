@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserContext, respondError } from "@/lib/api-helpers";
-import { aggregateSessionData, deduplicateMovements } from "@/lib/aggregation";
+import { aggregateSessionData, deduplicateMovements, toDbMovementSummary } from "@/lib/aggregation";
 import { parseSapBuffer, ProcessedMovement, ProcessedStock, StockCardItem } from "@/lib/excel-parser";
 import * as fs from "fs";
 import * as path from "path";
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         stats: JSON.stringify(stats),
         rawMovements: JSON.stringify(rawMovements),
         rawStocks: JSON.stringify(rawStocks),
-        movementSummaries: { create: movementSummaries },
+        movementSummaries: { create: movementSummaries.map(toDbMovementSummary) },
         stockSummaries: { create: stockSummaries },
       },
     });

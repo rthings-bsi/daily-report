@@ -105,11 +105,11 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
     return 'Gd.13';
   }, [gudangNameDisplay, gudangId, slocStats]);
 
-  // Color generator for accuracy threshold
+  // Color generator for accuracy threshold (Metabase BI semantic palette)
   const getAccuracyColor = (pct: number) => {
-    if (pct >= 95) return '#10b981'; // emerald-500
-    if (pct >= 85) return '#f59e0b'; // amber-500
-    return '#ef4444'; // rose-500
+    if (pct >= 95) return '#80b946';
+    if (pct >= 85) return '#f2a86f';
+    return '#ed6e6e';
   };
 
   // Prepare Bar chart data according to active metric
@@ -133,8 +133,8 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
         metricView === 'accuracy'
           ? getAccuracyColor(s.accuracyPct)
           : metricView === 'tonnage'
-            ? '#0284c7' // sky-600
-            : '#6366f1'; // indigo-500
+            ? '#509ee3'
+            : '#7172ad';
 
       const isSelected = selectedSloc ? s.sloc === selectedSloc : true;
 
@@ -155,19 +155,19 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
       {
         name: 'Match',
         value: overall.matchCount,
-        color: '#10b981',
+        color: '#80b946',
         statusKey: 'MATCH',
       },
       {
         name: 'Minus (-)',
         value: overall.deficitCount,
-        color: '#f43f5e',
+        color: '#ed6e6e',
         statusKey: 'DEFICIT',
       },
       {
         name: 'Plus (+)',
         value: overall.surplusCount,
-        color: '#f59e0b',
+        color: '#f2a86f',
         statusKey: 'SURPLUS',
       },
     ];
@@ -192,11 +192,11 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
     const labelColor =
       metricView === 'accuracy'
         ? numVal >= 95
-          ? '#10b981'
+          ? '#2f7a4a'
           : numVal >= 85
-            ? '#f59e0b'
-            : '#ef4444'
-        : '#475569';
+            ? '#a85d00'
+            : '#d12c29'
+        : '#5a6072';
 
     // When value is 0, render label slightly above baseline
     const posY = numVal === 0 ? y - 6 : Math.max(16, y - 8);
@@ -223,10 +223,10 @@ export const AuditSlocChart: React.FC<AuditSlocChartProps> = ({
     const s: SlocStatItem = data.raw;
 
     return (
-      <div className="bg-white/95 backdrop-blur-xl border border-white/90 rounded-2xl p-4 shadow-xl text-xs space-y-2 z-50 min-w-[210px] shadow-apple-card">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div className="flex items-center gap-1.5 font-black text-slate-900 text-sm">
-            <div className="w-5 h-5 rounded-md bg-blue-50 text-[#007AFF] flex items-center justify-center">
+      <div className="bg-white border border-[#e2e4e9] rounded-xl p-4 shadow-[0_8px_20px_-4px_rgba(16,24,40,0.12)] text-xs space-y-2 z-50 min-w-[210px]">
+        <div className="flex items-center justify-between border-b border-[#eceef1] pb-2">
+          <div className="flex items-center gap-1.5 font-bold text-[#22242b] text-sm">
+            <div className="w-5 h-5 rounded-md bg-[#eef6fc] text-[#509ee3] flex items-center justify-center">
               <MapPin size={12} strokeWidth={2.5} />
             </div>
             <span>SLoc {s.sloc}</span>

@@ -18,11 +18,32 @@ export const MovementStatusChart: React.FC<StatusChartProps> = ({ data, condense
       { key: 'slow', label: 'Slow Moving', icon: Clock, masuk: 0, keluar: 0, count: 0, color: '#d97706', light: '#fffbeb', dark: 'bg-amber-950/30' },
     ];
     data.forEach(m => {
-      const status = m.movementStatus || classifyBatch(m.batch);
-      const b = status === 'Fast' ? buckets[0] : buckets[1];
-      b.count++;
-      if (m.group === 'Masuk') b.masuk += m.quantity;
-      else if (m.group === 'Keluar') b.keluar += Math.abs(m.quantity);
+      const hasPrecomputed = m.fastWeight !== undefined || m.fastCount !== undefined;
+      if (hasPrecomputed) {
+        const fCount = m.fastCount || 0;
+        const sCount = m.slowCount || 0;
+        const fWeight = (m.fastWeight || 0) / 1000;
+        const sWeight = (m.slowWeight || 0) / 1000;
+        buckets[0].count += fCount;
+        buckets[1].count += sCount;
+        if (m.group === 'Masuk') {
+          buckets[0].masuk += fWeight;
+          buckets[1].masuk += sWeight;
+        } else if (m.group === 'Keluar') {
+          buckets[0].keluar += fWeight;
+          buckets[1].keluar += sWeight;
+        }
+      } else {
+        const status =
+          m.movementStatus && m.movementStatus !== 'Unknown'
+            ? m.movementStatus
+            : classifyBatch(m.batch || '');
+        const b = status === 'Fast' ? buckets[0] : buckets[1];
+        b.count++;
+        const w = Math.abs(m.quantity) / 1000;
+        if (m.group === 'Masuk') b.masuk += w;
+        else if (m.group === 'Keluar') b.keluar += w;
+      }
     });
     return buckets.filter(b => b.count > 0);
   }, [data]);

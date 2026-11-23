@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { ProcessedMovement } from '@/lib/excel-parser';
 import { motion } from 'framer-motion';
+import { useTheme } from './ThemeProvider';
 
 interface TrendItem {
   date: string;
@@ -24,7 +25,7 @@ interface MovementChartProps {
   selectedShift?: number | null;
 }
 
-const easeOut: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const easeOut: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 export const MovementChart: React.FC<MovementChartProps> = ({
   data,
@@ -35,6 +36,7 @@ export const MovementChart: React.FC<MovementChartProps> = ({
   endDate = '',
   selectedShift = null,
 }) => {
+  const { isDark } = useTheme();
   const [trendData, setTrendData] = React.useState<TrendItem[] | null>(null);
 
   React.useEffect(() => {
@@ -173,27 +175,55 @@ export const MovementChart: React.FC<MovementChartProps> = ({
     return { totalMasuk, totalKeluar, net };
   }, [fullDailyData]);
 
+  const colors = isDark
+    ? {
+        inBar: '#34d399',
+        outBar: '#fb7185',
+        netLine: '#60a5fa',
+        grid: 'rgba(255, 255, 255, 0.08)',
+        axis: 'rgba(255, 255, 255, 0.14)',
+        tick: '#8a99b2',
+        dotFill: '#212630',
+        cursor: 'rgba(96, 165, 250, 0.09)',
+      }
+    : {
+        inBar: '#22c55e',
+        outBar: '#ef4444',
+        netLine: '#2563eb',
+        grid: 'rgba(148, 163, 184, 0.25)',
+        axis: 'rgba(148, 163, 184, 0.4)',
+        tick: '#5a6982',
+        dotFill: '#eaf0f7',
+        cursor: 'rgba(37, 99, 235, 0.06)',
+      };
+
   const customTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="glass-card px-3.5 py-2.5 rounded-2xl shadow-apple-card border border-white/90 text-xs backdrop-blur-xl">
-          <p className="text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">{label}</p>
+        <div className="neu-float px-3.5 py-2.5 rounded-2xl text-xs">
+          <p className="font-mono text-[10.5px] font-semibold text-[var(--neu-text-muted)] mb-1.5 pb-1 border-b border-[var(--neu-divider)]">
+            {label}
+          </p>
           <div className="space-y-1">
             {payload.map((entry: any, index: number) => {
               const isNet = entry.dataKey === 'net';
               const val = isNet ? entry.value : Math.abs(entry.value);
               return (
-                <div key={index} className="flex items-center justify-between gap-4">
+                <div key={index} className="flex items-center justify-between gap-5">
                   <div className="flex items-center gap-1.5">
-                    <div
+                    <span
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: isNet ? '#007AFF' : entry.color || entry.fill }}
+                      style={{ backgroundColor: isNet ? colors.netLine : entry.color || entry.fill }}
                     />
-                    <span className="font-semibold text-slate-700">{entry.name}</span>
+                    <span className="font-medium text-[var(--neu-text-secondary)]">{entry.name}</span>
                   </div>
                   <span
                     className={`font-bold tabular-nums ${
-                      isNet ? (entry.value >= 0 ? 'text-apple-blue' : 'text-apple-red') : 'text-slate-800'
+                      isNet
+                        ? entry.value >= 0
+                          ? 'text-[var(--neu-accent)]'
+                          : 'text-[var(--neu-red)]'
+                        : 'text-[var(--neu-text)]'
                     }`}
                   >
                     {entry.value >= 0 ? '+' : ''}
@@ -217,111 +247,111 @@ export const MovementChart: React.FC<MovementChartProps> = ({
   }, [fullDailyData]);
 
   return (
-    <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${condensed ? 'mb-0' : 'mb-0'}`}>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
       {/* ─── Daily Trend Chart (lg:col-span-7) ─── */}
       <motion.article
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="lg:col-span-7 glass-card rounded-3xl p-5 md:p-6 shadow-apple-card border border-white/80 flex flex-col justify-between"
+        transition={{ duration: 0.25, ease: easeOut }}
+        className="lg:col-span-7 neu-card p-5 sm:p-6 flex flex-col justify-between"
       >
         <div>
           {/* Header & Legend */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/80 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-4 border-b border-[var(--neu-divider)]">
             <div>
-              <h2 className="text-base font-bold text-slate-800">Daily Movement Trend</h2>
-              <p className="text-xs text-slate-500 font-medium">Inbound vs Outbound (TON) 7 Hari Terakhir</p>
+              <h2 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">
+                Tren Pergerakan Harian
+              </h2>
+              <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">
+                Perbandingan Inbound &amp; Outbound (TON), 7 Hari Terakhir
+              </p>
             </div>
-            {/* Legend Badges */}
-            <div className="flex items-center gap-3 text-xs font-semibold">
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <span className="w-3 h-3 rounded-md bg-emerald-500 shadow-sm" /> Masuk
+            <div className="neu-inset-sm px-3 py-1.5 rounded-full flex items-center gap-3.5 text-[11.5px] font-semibold text-[var(--neu-text-secondary)] self-start">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.inBar }} /> Masuk
               </span>
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <span className="w-3 h-3 rounded-md bg-rose-500 shadow-sm" /> Keluar
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.outBar }} /> Keluar
               </span>
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-apple-blue ring-2 ring-blue-200 shadow-sm" /> Net
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.netLine }} /> Net
               </span>
             </div>
           </div>
 
-          {/* Micro-Summary Badges */}
-          <div className="grid grid-cols-3 gap-2.5 my-4">
-            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/50 flex flex-col">
-              <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Total Masuk</span>
-              <span className="text-sm sm:text-base font-extrabold text-emerald-600 tabular-nums">
+          {/* Recessed Digital Meter Readouts */}
+          <div className="grid grid-cols-3 gap-3 my-4">
+            <div className="neu-inset-sm px-3.5 py-2.5 rounded-2xl flex flex-col">
+              <span className="font-mono text-[10px] text-[var(--neu-green)] font-semibold uppercase tracking-wider">
+                Total Masuk
+              </span>
+              <span className="text-[15px] sm:text-[16px] font-extrabold text-[var(--neu-text)] tabular-nums mt-0.5">
                 +{totals.totalMasuk.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
-                <span className="text-xs font-normal text-emerald-500">TON</span>
+                <span className="font-mono text-[10px] font-medium text-[var(--neu-text-muted)]">TON</span>
               </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-rose-50/70 border border-rose-200/50 flex flex-col">
-              <span className="text-[10px] text-rose-700 font-bold uppercase tracking-wider">Total Keluar</span>
-              <span className="text-sm sm:text-base font-extrabold text-rose-600 tabular-nums">
+            <div className="neu-inset-sm px-3.5 py-2.5 rounded-2xl flex flex-col">
+              <span className="font-mono text-[10px] text-[var(--neu-red)] font-semibold uppercase tracking-wider">
+                Total Keluar
+              </span>
+              <span className="text-[15px] sm:text-[16px] font-extrabold text-[var(--neu-text)] tabular-nums mt-0.5">
                 -{totals.totalKeluar.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
-                <span className="text-xs font-normal text-rose-500">TON</span>
+                <span className="font-mono text-[10px] font-medium text-[var(--neu-text-muted)]">TON</span>
               </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/50 flex flex-col">
-              <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider">Net Movement</span>
-              <span className="text-sm sm:text-base font-extrabold text-apple-blue tabular-nums">
+            <div className="neu-inset-sm px-3.5 py-2.5 rounded-2xl flex flex-col">
+              <span className="font-mono text-[10px] text-[var(--neu-accent)] font-semibold uppercase tracking-wider">
+                Net Movement
+              </span>
+              <span className="text-[15px] sm:text-[16px] font-extrabold text-[var(--neu-accent)] tabular-nums mt-0.5">
                 {totals.net >= 0 ? '+' : ''}
                 {totals.net.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
-                <span className="text-xs font-normal text-blue-500">TON</span>
+                <span className="font-mono text-[10px] font-medium text-[var(--neu-text-muted)]">TON</span>
               </span>
             </div>
           </div>
 
           {/* Composed Chart */}
-          <div className="relative w-full h-56 pt-2">
+          <div className="relative w-full h-56 pt-1">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartDailyData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }} barGap={4}>
-                <defs>
-                  <linearGradient id="appleGradMasuk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#34C759" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#34C759" stopOpacity={0.65} />
-                  </linearGradient>
-                  <linearGradient id="appleGradKeluar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FF3B30" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#FF3B30" stopOpacity={0.65} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8E8ED" />
+              <ComposedChart data={chartDailyData} margin={{ top: 8, right: 10, left: -14, bottom: 4 }} barGap={5}>
+                <CartesianGrid vertical={false} stroke={colors.grid} />
                 <XAxis
                   dataKey="date"
-                  axisLine={false}
+                  axisLine={{ stroke: colors.axis }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: '#86868B', fontWeight: 600 }}
+                  tick={{ fontSize: 11, fill: colors.tick, fontWeight: 600 }}
                   tickFormatter={str => str.split('-').slice(1).reverse().join('/')}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: '#86868B', fontWeight: 600 }}
+                  tick={{ fontSize: 11, fill: colors.tick, fontWeight: 500 }}
                   tickFormatter={v => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Number(v.toFixed(1))))}
                 />
-                <Tooltip content={customTooltip} cursor={{ fill: 'rgba(0,0,0,0.02)', radius: 8 }} />
+                <Tooltip content={customTooltip} cursor={{ fill: colors.cursor, radius: 6 }} />
                 <Bar
                   dataKey="masuk"
-                  fill="url(#appleGradMasuk)"
-                  radius={[6, 6, 0, 0]}
+                  fill={colors.inBar}
+                  radius={[5, 5, 0, 0]}
                   name="Masuk"
-                  barSize={condensed ? 14 : 18}
+                  barSize={condensed ? 15 : 20}
                 />
                 <Bar
                   dataKey="keluar"
-                  fill="url(#appleGradKeluar)"
-                  radius={[6, 6, 0, 0]}
+                  fill={colors.outBar}
+                  radius={[5, 5, 0, 0]}
                   name="Keluar"
-                  barSize={condensed ? 14 : 18}
+                  barSize={condensed ? 15 : 20}
                 />
-                <Area type="monotone" dataKey="net" fill="#007AFF" fillOpacity={0.06} stroke="none" />
+                <Area type="monotone" dataKey="net" fill={colors.netLine} fillOpacity={0.09} stroke="none" />
                 <Line
                   type="monotone"
                   dataKey="net"
-                  stroke="#007AFF"
-                  strokeWidth={3}
-                  dot={{ r: 3.5, fill: '#FFFFFF', strokeWidth: 2.5, stroke: '#007AFF' }}
-                  activeDot={{ r: 5.5, fill: '#FFFFFF', strokeWidth: 3, stroke: '#007AFF' }}
+                  stroke={colors.netLine}
+                  strokeWidth={2.6}
+                  dot={{ r: 3.5, fill: colors.dotFill, strokeWidth: 2.4, stroke: colors.netLine }}
+                  activeDot={{ r: 5.5, fill: colors.netLine, strokeWidth: 2, stroke: colors.dotFill }}
                   name="Net"
                 />
               </ComposedChart>
@@ -329,25 +359,32 @@ export const MovementChart: React.FC<MovementChartProps> = ({
           </div>
         </div>
 
-        {/* Footer info line */}
-        <p className="text-[11px] text-slate-500 font-medium mt-3 pt-2.5 border-t border-slate-200/80">
-          <span>Rentang kalkulasi: {calcRangeStr || '7 Hari Terakhir'}</span>
-        </p>
+        {/* Footer */}
+        <div className="mt-3 pt-3 border-t border-[var(--neu-divider)] flex items-center justify-between text-[11px] text-[var(--neu-text-muted)]">
+          <span>Rentang kalkulasi</span>
+          <span className="font-mono font-semibold text-[var(--neu-text-secondary)]">
+            {calcRangeStr || '7 Hari Terakhir'}
+          </span>
+        </div>
       </motion.article>
 
       {/* ─── Volume by Movement Type (lg:col-span-5) ─── */}
       <motion.article
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="lg:col-span-5 glass-card rounded-3xl p-5 md:p-6 shadow-apple-card border border-white/80 flex flex-col justify-between"
+        transition={{ delay: 0.06, duration: 0.25, ease: easeOut }}
+        className="lg:col-span-5 neu-card p-5 sm:p-6 flex flex-col justify-between"
       >
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+          <div className="flex items-start justify-between gap-2 pb-4 border-b border-[var(--neu-divider)]">
             <div>
-              <h2 className="text-base font-bold text-slate-800">Volume by Movement Type</h2>
-              <p className="text-xs text-slate-500 font-medium">Rasio Distribusi SAP Mvt Code</p>
+              <h2 className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight">
+                Volume per Tipe Pergerakan
+              </h2>
+              <p className="text-[12px] text-[var(--neu-text-muted)] mt-0.5">
+                Rasio Distribusi SAP Mvt Code
+              </p>
             </div>
             {(() => {
               const total = typeData.reduce((s, d) => s + d.value, 0);
@@ -356,15 +393,15 @@ export const MovementChart: React.FC<MovementChartProps> = ({
                 (typeData.filter(d => d.group === 'Masuk').reduce((s, d) => s + d.value, 0) / total) * 100
               );
               return (
-                <div className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200/60">
-                  {masukPct}% Masuk • {100 - masukPct}% Keluar
-                </div>
+                <span className="neu-chip shrink-0">
+                  {masukPct}% IN / {100 - masukPct}% OUT
+                </span>
               );
             })()}
           </div>
 
-          {/* Progress Bars List */}
-          <div className="space-y-3.5 mt-5">
+          {/* Tactile Recessed Channel Meter Bars */}
+          <div className="space-y-4 mt-4">
             {(() => {
               const totalAll = typeData.reduce((s, d) => s + d.value, 0);
               const maxVal = typeData.reduce((max, x) => Math.max(max, x.value), 0);
@@ -373,47 +410,39 @@ export const MovementChart: React.FC<MovementChartProps> = ({
                 const barPct = maxVal > 0 ? Math.round((d.value / maxVal) * 100) : 0;
                 const sharePct = totalAll > 0 ? (d.value / totalAll) * 100 : 0;
 
-                const getDotColor = () => {
-                  if (d.name === '101') return 'bg-emerald-500';
-                  if (d.name === '261') return 'bg-rose-500';
-                  if (d.name === '311' && !isMasuk) return 'bg-purple-500';
-                  if (d.name === '601') return 'bg-pink-500';
-                  if (d.name === '311' && isMasuk) return 'bg-teal-500';
-                  if (d.name === '262') return 'bg-blue-500';
-                  return isMasuk ? 'bg-emerald-500' : 'bg-rose-500';
+                const getSeriesHex = () => {
+                  if (d.name === '101') return colors.inBar;
+                  if (d.name === '261') return colors.outBar;
+                  if (d.name === '311' && !isMasuk) return isDark ? '#a78bfa' : '#7c3aed';
+                  if (d.name === '601') return isDark ? '#fbbf24' : '#f59e0b';
+                  if (d.name === '311' && isMasuk) return colors.netLine;
+                  if (d.name === '262') return '#0ea5e9';
+                  return isMasuk ? colors.inBar : colors.outBar;
                 };
-
-                const getPillStyle = () => {
-                  if (isMasuk) return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                  return 'bg-rose-50 text-rose-700 border border-rose-200';
-                };
-
-                const getBarColor = () => {
-                  if (d.name === '101') return 'bg-emerald-500';
-                  if (d.name === '261') return 'bg-rose-500';
-                  if (d.name === '311' && !isMasuk) return 'bg-purple-500';
-                  if (d.name === '601') return 'bg-pink-500';
-                  if (d.name === '311' && isMasuk) return 'bg-teal-500';
-                  if (d.name === '262') return 'bg-blue-500';
-                  return isMasuk ? 'bg-emerald-500' : 'bg-rose-500';
-                };
+                const hex = getSeriesHex();
 
                 return (
                   <motion.div
                     key={`${d.name}-${d.group}`}
-                    initial={{ opacity: 0, x: -8 }}
+                    initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.35, ease: easeOut }}
-                    className="space-y-1"
+                    transition={{ delay: i * 0.03, duration: 0.25, ease: easeOut }}
+                    className="space-y-1.5"
                   >
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${getDotColor()}`} />
-                        <span className="font-bold text-slate-800">{d.name}</span>
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${getPillStyle()}`}>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: hex }} />
+                        <span className="font-mono font-bold text-[var(--neu-text)]">{d.name}</span>
+                        <span
+                          className={`font-mono px-1.5 py-0.5 rounded-md text-[9.5px] font-bold ${
+                            isMasuk
+                              ? 'bg-[var(--neu-green-soft)] text-[var(--neu-green)]'
+                              : 'bg-[var(--neu-red-soft)] text-[var(--neu-red)]'
+                          }`}
+                        >
                           {isMasuk ? 'IN' : 'OUT'}
                         </span>
-                        <span className="text-slate-500 font-medium truncate max-w-[140px]">
+                        <span className="text-[var(--neu-text-secondary)] font-medium truncate">
                           {d.name === '101'
                             ? 'GR Produksi'
                             : d.name === '261'
@@ -431,16 +460,17 @@ export const MovementChart: React.FC<MovementChartProps> = ({
                             : 'Pengeluaran'}
                         </span>
                       </span>
-                      <span className={`font-extrabold ${isMasuk ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      <span className="font-mono font-bold text-[var(--neu-text)] tabular-nums shrink-0 ml-2">
                         {sharePct.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="w-full h-3 rounded-full bg-slate-200/80 overflow-hidden">
+                    <div className="w-full h-3 rounded-full neu-inset-sm p-0.5 overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${barPct}%` }}
-                        transition={{ delay: i * 0.05, duration: 0.6, ease: easeOut }}
-                        className={`h-full rounded-full ${getBarColor()}`}
+                        transition={{ delay: i * 0.04, duration: 0.5, ease: easeOut }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: hex }}
                       />
                     </div>
                   </motion.div>
@@ -448,14 +478,18 @@ export const MovementChart: React.FC<MovementChartProps> = ({
               });
             })()}
             {typeData.length === 0 && (
-              <p className="text-xs text-slate-500 text-center py-8">Tidak ada data movement</p>
+              <p className="text-xs text-[var(--neu-text-muted)] text-center py-8">
+                Tidak ada data pergerakan untuk filter ini.
+              </p>
             )}
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+        <div className="mt-4 pt-3 border-t border-[var(--neu-divider)] flex items-center justify-between text-[11px] text-[var(--neu-text-muted)]">
           <span>Komposisi tipe transaksi terkonfirmasi</span>
-          <span className="font-bold text-slate-700">{Math.min(6, typeData.length)} Kategori Utama</span>
+          <span className="font-mono font-semibold text-[var(--neu-text-secondary)]">
+            {Math.min(6, typeData.length)} Kategori Utama
+          </span>
         </div>
       </motion.article>
     </div>

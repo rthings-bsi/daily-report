@@ -26,25 +26,24 @@ interface MenuItem {
   name: string;
   href: string;
   icon: React.ElementType;
-  color: string;
   moduleId?: string;
 }
 
 const baseMenuItems: MenuItem[] = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard, color: "bg-[#007AFF]", moduleId: "dashboard" },
-  { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList, color: "bg-[#5856D6]", moduleId: "pipa-nc" },
-  { name: "Repair & Packing", href: "/repair-packing", icon: Wrench, color: "bg-[#F59E0B]", moduleId: "repair-packing" },
-  { name: "Audit SLoc", href: "/audit-sloc", icon: ClipboardCheck, color: "bg-[#34C759]", moduleId: "audit-sloc" },
-  { name: "Upload", href: "/upload", icon: FileUp, color: "bg-[#FF9500]", moduleId: "upload" },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, moduleId: "dashboard" },
+  { name: "Data Pipa NC", href: "/pipa-nc", icon: ClipboardList, moduleId: "pipa-nc" },
+  { name: "Repair & Packing", href: "/repair-packing", icon: Wrench, moduleId: "repair-packing" },
+  { name: "Audit SLoc", href: "/audit-sloc", icon: ClipboardCheck, moduleId: "audit-sloc" },
+  { name: "Upload Data", href: "/upload", icon: FileUp, moduleId: "upload" },
 ];
 
 const adminMenuItems: MenuItem[] = [
-  { name: "Manajemen User", href: "/admin/users", icon: Users, color: "bg-[#AF52DE]", moduleId: "admin-users" },
-  { name: "Konfigurasi Role", href: "/admin/roles", icon: ShieldCheck, color: "bg-[#FF2D55]", moduleId: "admin-roles" },
+  { name: "Manajemen User", href: "/admin/users", icon: Users, moduleId: "admin-users" },
+  { name: "Konfigurasi Role", href: "/admin/roles", icon: ShieldCheck, moduleId: "admin-roles" },
 ];
 
 const settingsMenuItems: MenuItem[] = [
-  { name: "Settings", href: "/settings", icon: Settings, color: "bg-[#8E8E93]", moduleId: "settings" },
+  { name: "Settings", href: "/settings", icon: Settings, moduleId: "settings" },
 ];
 
 export default function Sidebar() {
@@ -97,39 +96,34 @@ export default function Sidebar() {
       <Link
         key={item.href}
         href={item.href}
+        prefetch={true}
         title={!isOpen ? item.name : undefined}
         className={cn(
-          "group relative flex items-center rounded-xl transition-apple select-none",
-          isOpen ? "px-3 py-2 gap-3" : "justify-center py-2.5 px-1.5",
+          "group relative flex items-center rounded-xl transition-neu select-none",
+          isOpen ? "px-3 py-2.5 gap-3" : "justify-center py-2.5 px-1.5",
           isActive
-            ? "bg-[#007AFF] text-white shadow-[0_2px_8px_rgba(0,122,255,0.28)] font-semibold"
-            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 active:scale-[0.98]"
+            ? "neu-inset-sm text-[var(--neu-accent)] font-bold"
+            : "text-[var(--neu-text-secondary)] hover:text-[var(--neu-text)] hover:bg-[var(--neu-surface)]/70 hover:shadow-[var(--neu-shadow-xs)]"
         )}
       >
         <div
           className={cn(
-            "w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
+            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-neu",
             isActive
-              ? "bg-white text-[#007AFF] shadow-sm"
-              : cn(item.color, "text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]")
+              ? "bg-[var(--neu-surface)] text-[var(--neu-accent)] shadow-[var(--neu-shadow-xs)] border border-[var(--neu-border)]"
+              : "text-[var(--neu-text-muted)] group-hover:text-[var(--neu-accent)]"
           )}
         >
-          <item.icon size={15} strokeWidth={2.4} />
+          <item.icon size={16} strokeWidth={isActive ? 2.4 : 2} />
         </div>
 
         {isOpen && (
           <>
-            <span className="flex-1 text-[13px] tracking-tight truncate font-medium">
+            <span className={cn("flex-1 text-[13px] truncate", isActive ? "font-bold text-[var(--neu-accent)]" : "font-semibold")}>
               {item.name}
             </span>
-            {isActive ? (
-              <ChevronRight size={13} strokeWidth={2.5} className="text-white/70 shrink-0 ml-auto" />
-            ) : (
-              <ChevronRight
-                size={13}
-                strokeWidth={2}
-                className="text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-apple shrink-0 ml-auto"
-              />
+            {isActive && (
+              <span className="w-2 h-2 rounded-full bg-[var(--neu-accent)] shrink-0" />
             )}
           </>
         )}
@@ -142,7 +136,7 @@ export default function Sidebar() {
       {/* ─── Mobile Overlay ─── */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px] md:hidden"
           onClick={toggle}
         />
       )}
@@ -150,35 +144,36 @@ export default function Sidebar() {
       <aside
         className={cn(
           "group/sidebar fixed left-0 top-0 z-[51] h-screen flex flex-col",
-          "bg-[#FBFBFD]/85 backdrop-blur-2xl border-r border-slate-200/70 shadow-[1px_0_16px_rgba(0,0,0,0.03)]",
-          "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "bg-[var(--neu-sidebar)] border-r border-[var(--neu-divider)]",
+          "shadow-[6px_0_18px_-6px_var(--neu-shadow-dark)]",
+          "transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
           isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-16 w-64"
         )}
       >
-        {/* ─── Logo Header ─── */}
+        {/* ─── Brand Header ─── */}
         <Link
           href={isRepairRole ? "/repair-packing" : "/"}
           className={cn(
-            "flex items-center h-16 shrink-0 border-b border-slate-200/50 hover:bg-slate-50/50 transition-colors",
+            "flex items-center h-16 shrink-0 border-b border-[var(--neu-divider)] transition-colors",
             isOpen ? "px-4 justify-between" : "px-2 justify-center"
           )}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl neu-logo-well flex items-center justify-center shrink-0 overflow-hidden p-1.5">
               <Image
                 src="https://irp.cdn-website.com/2f73b385/dms3rep/multi/SPINDO+MAIN+LOGO.png"
                 alt="SPINDO Logo"
-                width={36}
-                height={36}
-                className="object-contain scale-[1.6]"
+                width={32}
+                height={32}
+                className="object-contain scale-[1.4]"
               />
             </div>
             {isOpen && (
               <div className="overflow-hidden min-w-0">
-                <span className="text-[15px] font-black text-slate-900 tracking-tight block leading-tight">
+                <span className="text-[15px] font-extrabold text-[var(--neu-text)] tracking-tight block leading-none">
                   SPINDO
                 </span>
-                <span className="text-[9px] font-bold text-slate-400 tracking-[0.18em] uppercase block leading-tight mt-0.5">
+                <span className="font-mono text-[10px] font-medium text-[var(--neu-text-muted)] block leading-tight mt-1 truncate">
                   {isRepairRole ? "Repair & Packing" : "Warehouse Ops"}
                 </span>
               </div>
@@ -187,24 +182,22 @@ export default function Sidebar() {
         </Link>
 
         {/* ─── Navigation ─── */}
-        <nav className="flex-1 space-y-1 px-2.5 py-4 overflow-x-hidden overflow-y-auto">
-          {/* Main Menu Section */}
+        <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-x-hidden overflow-y-auto">
           {visibleBaseMenuItems.length > 0 && (
             <>
-              <div className={cn("px-3 pt-1 pb-1", isOpen ? "block" : "sr-only")}>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                  Menu
+              <div className={cn("px-2 pt-1 pb-1.5", isOpen ? "block" : "sr-only")}>
+                <span className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                  Operasional
                 </span>
               </div>
               {visibleBaseMenuItems.map(renderMenuItem)}
             </>
           )}
 
-          {/* Admin Section */}
           {visibleAdminMenuItems.length > 0 && (
             <>
-              <div className={cn("px-3 pt-5 pb-1", isOpen ? "block" : "sr-only")}>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+              <div className={cn("px-2 pt-5 pb-1.5", isOpen ? "block" : "sr-only")}>
+                <span className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
                   Administrasi
                 </span>
               </div>
@@ -212,12 +205,11 @@ export default function Sidebar() {
             </>
           )}
 
-          {/* Preferences Section */}
           {visibleSettingsMenuItems.length > 0 && (
             <>
-              <div className={cn("px-3 pt-5 pb-1", isOpen ? "block" : "sr-only")}>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                  Preferensi
+              <div className={cn("px-2 pt-5 pb-1.5", isOpen ? "block" : "sr-only")}>
+                <span className="font-mono text-[10px] font-semibold text-[var(--neu-text-muted)] uppercase tracking-wider">
+                  Sistem
                 </span>
               </div>
               {visibleSettingsMenuItems.map(renderMenuItem)}
@@ -225,91 +217,92 @@ export default function Sidebar() {
           )}
         </nav>
 
-        {/* ─── User Profile ─── */}
+        {/* ─── User Profile Dock ─── */}
         <div
           className={cn(
-            "shrink-0 border-t border-slate-200/50",
-            isOpen ? "p-3" : "p-2"
+            "shrink-0 border-t border-[var(--neu-divider)]",
+            isOpen ? "p-3.5" : "p-2"
           )}
         >
           {isOpen ? (
-            <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-white/70 border border-slate-200/60 shadow-apple-sm">
+            <div className="flex items-center gap-2.5 p-2.5 rounded-2xl neu-card-sm">
               <div className="relative shrink-0">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-b from-slate-100 to-slate-200 border border-slate-300/70 flex items-center justify-center text-slate-700 font-bold text-xs shadow-sm">
+                <div className="h-9 w-9 rounded-full neu-inset-sm flex items-center justify-center text-[var(--neu-accent)] font-extrabold text-xs">
                   {session.user?.name?.substring(0, 2).toUpperCase() || "U"}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#34C759]" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--neu-surface)] bg-[var(--neu-green-bar)]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-slate-900 truncate leading-tight">
+                <p className="text-[13px] font-bold text-[var(--neu-text)] truncate leading-tight">
                   {session.user?.name}
                 </p>
-                <div className="mt-0.5">
+                <div className="mt-1">
                   {session.user?.role === "admin" ? (
-                    <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-md leading-none">
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-[var(--neu-accent)] bg-[var(--neu-accent-soft)] px-1.5 py-0.5 rounded-md leading-none">
                       <ShieldCheck size={9} strokeWidth={2.5} />
                       Admin
                     </span>
                   ) : session.user?.gudangId ? (
-                    <span className="inline-flex items-center text-[9.5px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md leading-none">
+                    <span className="inline-flex items-center font-mono text-[10px] font-semibold text-[var(--neu-text-secondary)] neu-inset-sm px-1.5 py-0.5 rounded-md leading-none">
                       {GUDANG_LIST.find((g) => g.gudangId === session.user!.gudangId)?.name ||
                         `Gudang ${session.user.gudangId}`}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">User</span>
+                    <span className="font-mono text-[10px] text-[var(--neu-text-muted)]">User</span>
                   )}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="flex items-center justify-center rounded-xl p-1.5 text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-apple cursor-pointer shrink-0"
+                className="flex items-center justify-center rounded-xl p-2 neu-btn text-[var(--neu-text-muted)] hover:text-[var(--neu-red)] cursor-pointer shrink-0"
                 title="Sign out"
+                aria-label="Sign out"
               >
-                <LogOut size={15} strokeWidth={2} />
+                <LogOut size={14} strokeWidth={2.2} />
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
               <div className="relative">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-b from-slate-100 to-slate-200 border border-slate-300/70 flex items-center justify-center text-slate-700 font-bold text-xs shadow-sm">
+                <div className="h-9 w-9 rounded-full neu-inset-sm flex items-center justify-center text-[var(--neu-accent)] font-extrabold text-xs">
                   {session.user?.name?.substring(0, 2).toUpperCase() || "U"}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#34C759]" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--neu-surface)] bg-[var(--neu-green-bar)]" />
               </div>
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="flex items-center justify-center rounded-xl p-2 text-slate-400 hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-apple cursor-pointer w-full"
+                className="flex items-center justify-center rounded-xl p-2 neu-btn text-[var(--neu-text-muted)] hover:text-[var(--neu-red)] cursor-pointer w-full"
                 title="Sign out"
+                aria-label="Sign out"
               >
-                <LogOut size={15} strokeWidth={2} />
+                <LogOut size={14} strokeWidth={2.2} />
               </button>
             </div>
           )}
         </div>
 
-        {/* ─── Toggle Button (Floating Edge) ─── */}
+        {/* ─── Floating Edge Collapse Button ─── */}
         <button
           type="button"
           onClick={toggle}
           className={cn(
-            "absolute -right-3 top-20 z-50",
+            "absolute -right-3.5 top-20 z-50",
             "hidden md:flex items-center justify-center",
-            "w-6 h-6 rounded-full",
-            "bg-white/95 backdrop-blur-md border border-slate-200/90 text-slate-500",
-            "hover:bg-[#007AFF] hover:border-[#007AFF] hover:text-white hover:scale-110",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.1)] transition-all duration-200 ease-out cursor-pointer",
-            "opacity-0 -translate-x-1.5 pointer-events-none scale-90",
-            "group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0 group-hover/sidebar:scale-100 group-hover/sidebar:pointer-events-auto",
+            "w-7 h-7 rounded-full neu-btn text-[var(--neu-text-secondary)]",
+            "hover:text-[var(--neu-accent)] cursor-pointer",
+            "opacity-0 -translate-x-1 pointer-events-none",
+            "group-hover/sidebar:opacity-100 group-hover/sidebar:translate-x-0 group-hover/sidebar:pointer-events-auto",
             "before:absolute before:-inset-2 before:content-['']"
           )}
           title={isOpen ? "Tutup sidebar" : "Buka sidebar"}
+          aria-label={isOpen ? "Tutup sidebar" : "Buka sidebar"}
         >
           {isOpen ? (
-            <ChevronLeft size={12} strokeWidth={2.5} />
+            <ChevronLeft size={13} strokeWidth={2.5} />
           ) : (
-            <ChevronRight size={12} strokeWidth={2.5} />
+            <ChevronRight size={13} strokeWidth={2.5} />
           )}
         </button>
       </aside>
