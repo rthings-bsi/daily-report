@@ -16,7 +16,9 @@ import { StockClassificationSection } from '@/components/StockClassificationSect
 import { PageHeader } from '@/components/PageHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut, useSession } from 'next-auth/react';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import dynamic from 'next/dynamic';
+
+const AnalyticsDashboard = dynamic(() => import('@/components/AnalyticsDashboard'), { ssr: false });
 
 // ─── Types ───
 interface HistorySession {
@@ -780,21 +782,21 @@ export default function Home() {
   // ─── Loading state (auto-load in progress) ───
   if (!movements.length && !stocks.length && loading) {
     return (
-      <main className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-14 h-14 rounded-2xl neu-card-sm flex items-center justify-center">
             <div className="w-7 h-7 border-[3px] border-[var(--neu-divider)] border-t-[var(--neu-accent)] rounded-full animate-spin" />
           </div>
           <p className="font-mono text-xs font-medium text-[var(--neu-text-muted)]">Memuat data terbaru...</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   // ─── First-time: no data & no history → show upload prompt inline ───
   if (!movements.length && !stocks.length && history.length === 0) {
     return (
-      <main className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--neu-bg)] flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-5 max-w-sm text-center neu-card p-8">
           <div className="w-16 h-16 rounded-2xl neu-icon-inset flex items-center justify-center text-[var(--neu-accent)]">
             <Upload size={26} strokeWidth={2} />
@@ -814,13 +816,13 @@ export default function Home() {
             Pilih File SAP Excel
           </button>
         </div>
-      </main>
+      </div>
     );
   }
 
   // ─── Dashboard / Report ───
   return (
-    <main className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200">
       <PageHeader icon={LayoutDashboard} title="Warehouse" subtitle="Dashboard gudang SPINDO" className="print:hidden">
 
         {/* ─── Collapsible Neumorphic Filter Control ─── */}
@@ -1554,7 +1556,7 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
-    </main>
+    </div>
   );
 }
 

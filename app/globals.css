@@ -50,10 +50,10 @@
   --neu-border-subtle: rgba(148, 163, 184, 0.22);
   --neu-divider: rgba(148, 163, 184, 0.28);
 
-  /* High-Contrast Ink Hierarchy (WCAG AA/AAA on #eaf0f7) */
+  /* High-Contrast Ink Hierarchy (WCAG AA/AAA on #eaf0f7 and #dee5ef) */
   --neu-text: #182132;
-  --neu-text-secondary: #404e66;
-  --neu-text-muted: #5a6982;
+  --neu-text-secondary: #3b4961;
+  --neu-text-muted: #4e5d75;
 
   /* Tactile Accents */
   --neu-accent: #2563eb;
@@ -122,8 +122,8 @@ html.dark,
 
   /* High-Contrast Light Ink Hierarchy (WCAG AA/AAA on #212630) */
   --neu-text: #eef3fb;
-  --neu-text-secondary: #b7c4d9;
-  --neu-text-muted: #8a99b2;
+  --neu-text-secondary: #c0cde0;
+  --neu-text-muted: #93a2bc;
 
   /* Luminous Accents on Dark Matte */
   --neu-accent: #60a5fa;
@@ -233,14 +233,14 @@ body {
 }
 
 .neu-btn-primary {
-  background: linear-gradient(145deg, #3b82f6, #2563eb);
+  background: linear-gradient(145deg, #2563eb, #1d4ed8);
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: #ffffff;
   box-shadow: 4px 4px 10px var(--neu-shadow-dark), -3px -3px 8px var(--neu-shadow-light);
   transition: all 0.16s cubic-bezier(0.23, 1, 0.32, 1);
 }
 .neu-btn-primary:hover {
-  background: linear-gradient(145deg, #2563eb, #1d4ed8);
+  background: linear-gradient(145deg, #1d4ed8, #1e40af);
   transform: translateY(-0.5px);
 }
 .neu-btn-primary:active {

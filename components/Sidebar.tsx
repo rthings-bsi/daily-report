@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import spindoLogo from "@/app/icon.png";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -159,13 +160,13 @@ export default function Sidebar() {
           )}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl neu-logo-well flex items-center justify-center shrink-0 overflow-hidden p-1.5">
+            <div className="w-9 h-9 rounded-xl neu-logo-well flex items-center justify-center shrink-0 overflow-hidden p-1">
               <Image
-                src="https://irp.cdn-website.com/2f73b385/dms3rep/multi/SPINDO+MAIN+LOGO.png"
+                src={spindoLogo}
                 alt="SPINDO Logo"
-                width={32}
-                height={32}
-                className="object-contain scale-[1.4]"
+                width={28}
+                height={17}
+                className="object-contain"
               />
             </div>
             {isOpen && (
@@ -254,7 +255,7 @@ export default function Sidebar() {
               </div>
               <button
                 type="button"
-                onClick={() => signOut()}
+                onClick={() => signOut({ callbackUrl: "/login" })}
                 className="flex items-center justify-center rounded-xl p-2 neu-btn text-[var(--neu-text-muted)] hover:text-[var(--neu-red)] cursor-pointer shrink-0"
                 title="Sign out"
                 aria-label="Sign out"
@@ -272,7 +273,7 @@ export default function Sidebar() {
               </div>
               <button
                 type="button"
-                onClick={() => signOut()}
+                onClick={() => signOut({ callbackUrl: "/login" })}
                 className="flex items-center justify-center rounded-xl p-2 neu-btn text-[var(--neu-text-muted)] hover:text-[var(--neu-red)] cursor-pointer w-full"
                 title="Sign out"
                 aria-label="Sign out"

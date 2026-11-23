@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import { SidebarProvider } from "@/components/SidebarContext";
-import { SettingsProvider } from "@/components/SettingsProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import LayoutContent from "@/components/LayoutContent";
-import ChatBot from "@/components/ChatBot";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
+  preload: true,
 });
 
 const robotoMono = Roboto_Mono({
@@ -20,6 +16,7 @@ const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -62,16 +59,7 @@ export default function RootLayout({
         className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200 selection:bg-[var(--neu-accent-soft)] selection:text-[var(--neu-accent)]"
         suppressHydrationWarning
       >
-        <ThemeProvider>
-          <SessionProvider>
-            <SidebarProvider>
-              <SettingsProvider>
-                <LayoutContent>{children}</LayoutContent>
-                <ChatBot />
-              </SettingsProvider>
-            </SidebarProvider>
-          </SessionProvider>
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

@@ -535,7 +535,7 @@ export default function RepairPackingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[var(--neu-bg)] text-[var(--neu-text)] font-sans transition-colors duration-200">
       <PageHeader
         icon={Wrench}
         title="Repair & Packing"
@@ -1823,6 +1823,6 @@ export default function RepairPackingPage() {
           </div>
         )}
       </AnimatePresence>
-    </main>
+    </div>
   );
 }

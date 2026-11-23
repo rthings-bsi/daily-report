@@ -22,9 +22,9 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
       title={isDark ? 'Beralih ke Light Mode' : 'Beralih ke Dark Mode'}
       onClick={toggleTheme}
       className={cn(
-        'group inline-flex items-center gap-2 rounded-full p-1 transition-all duration-200 cursor-pointer select-none',
+        'group inline-flex items-center gap-2 rounded-full p-1.5 min-h-[36px] transition-all duration-200 cursor-pointer select-none',
         'neu-inset-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--neu-accent)]',
-        showLabel ? 'pr-3' : '',
+        showLabel ? 'pr-3.5' : '',
         className
       )}
     >
@@ -62,7 +62,7 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
       </span>
 
       {showLabel && (
-        <span className="text-[11px] font-bold text-[var(--neu-text-secondary)]">
+        <span className="min-w-[30px] text-left text-[11px] font-bold text-[var(--neu-text-secondary)]">
           {isDark ? 'Dark' : 'Light'}
         </span>
       )}
